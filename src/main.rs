@@ -1,8 +1,8 @@
 #[macro_use]
 extern crate log;
 
-use dotenv::dotenv;
 use actix_web::{middleware, web, App, HttpServer};
+use dotenv::dotenv;
 use serde::Deserialize;
 
 mod routes;
