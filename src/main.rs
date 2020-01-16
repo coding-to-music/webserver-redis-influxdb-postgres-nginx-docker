@@ -1,5 +1,5 @@
 use actix_web::{middleware, web, App, HttpServer};
-use serde::{Deserialize};
+use serde::Deserialize;
 
 mod routes;
 

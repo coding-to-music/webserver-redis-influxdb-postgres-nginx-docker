@@ -1,5 +1,5 @@
-mod hello;
 mod goodbye;
+mod hello;
 
-pub use hello::hello;
 pub use goodbye::goodbye;
+pub use hello::hello;

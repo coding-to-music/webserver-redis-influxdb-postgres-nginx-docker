@@ -2,7 +2,6 @@ use crate::Version;
 use serde::Deserialize;
 use actix_web::{web, Responder};
 
-
 #[derive(Debug, Clone, Deserialize)]
 pub struct GoodbyeReq {
     version: Version,
