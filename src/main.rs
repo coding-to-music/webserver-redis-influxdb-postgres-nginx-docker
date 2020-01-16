@@ -1,4 +1,4 @@
-use actix_web::{middleware, web, App, HttpServer, Responder};
+use actix_web::{middleware, web, App, HttpServer};
 use serde::{Deserialize};
 
 mod routes;
