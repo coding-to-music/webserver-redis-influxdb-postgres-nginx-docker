@@ -1,6 +1,7 @@
 #[macro_use]
 extern crate log;
 
+use dotenv::dotenv;
 use actix_web::{middleware, web, App, HttpServer};
 use serde::Deserialize;
 
@@ -16,7 +17,7 @@ pub enum Version {
 
 #[actix_rt::main]
 async fn main() -> std::io::Result<()> {
-    std::env::set_var("RUST_LOG", "webserver=trace,actix_web=info");
+    dotenv().ok();
     env_logger::init();
 
     HttpServer::new(|| {
