@@ -1,3 +1,6 @@
+#[macro_use]
+extern crate log;
+
 use actix_web::{middleware, web, App, HttpServer};
 use serde::Deserialize;
 
@@ -5,15 +8,15 @@ mod routes;
 
 #[derive(Debug, Clone, Copy, Deserialize)]
 pub enum Version {
-    #[serde(alias="v1")]
+    #[serde(alias = "v1")]
     V1,
-    #[serde(alias="v2")]
-    V2
+    #[serde(alias = "v2")]
+    V2,
 }
 
 #[actix_rt::main]
 async fn main() -> std::io::Result<()> {
-    std::env::set_var("RUST_LOG", "actix_web=info");
+    std::env::set_var("RUST_LOG", "webserver=trace,actix_web=info");
     env_logger::init();
 
     HttpServer::new(|| {
