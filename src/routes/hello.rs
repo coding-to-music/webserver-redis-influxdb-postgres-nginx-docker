@@ -1,6 +1,6 @@
 use crate::Version;
 use serde::Deserialize;
-use actix_web::{middleware, web, App, HttpServer, Responder};
+use actix_web::{web, Responder};
 
 
 #[derive(Debug, Clone, Deserialize)]
