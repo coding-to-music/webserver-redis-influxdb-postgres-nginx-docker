@@ -1,15 +1,17 @@
 use add::add;
+use futures::future;
 use multiply::multiply;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+use sleep::sleep;
+use std::convert::Infallible;
 use subtract::subtract;
 use warp::Reply;
-use sleep::sleep;
 
 mod add;
 mod multiply;
-mod subtract;
 mod sleep;
+mod subtract;
 
 #[derive(Serialize, Deserialize)]
 pub enum JsonRpcVersion {
@@ -65,18 +67,23 @@ impl From<ErrorCode> for i32 {
     }
 }
 
-pub fn handle_request(body: Value) -> impl Reply {
+pub async fn handle_request(body: Value) -> Result<impl Reply, Infallible> {
     if body.is_object() {
-        warp::reply::json(&handle_single(serde_json::from_value(body).unwrap()))
+        Ok(warp::reply::json(
+            &handle_single(serde_json::from_value(body).unwrap()).await,
+        ))
     } else if let Value::Array(values) = body {
-        warp::reply::json(&handle_batch(
-            values
-                .into_iter()
-                .map(|value| serde_json::from_value(value).unwrap())
-                .collect(),
+        Ok(warp::reply::json(
+            &handle_batch(
+                values
+                    .into_iter()
+                    .map(|value| serde_json::from_value(value).unwrap())
+                    .collect(),
+            )
+            .await,
         ))
     } else {
-        warp::reply::json(&JsonRpcResponse {
+        Ok(warp::reply::json(&JsonRpcResponse {
             jsonrpc: JsonRpcVersion::Two,
             result: None,
             error: Some(Error {
@@ -85,17 +92,17 @@ pub fn handle_request(body: Value) -> impl Reply {
                 data: None,
             }),
             id: None,
-        })
+        }))
     }
 }
 
-fn handle_single(req: JsonRpcRequest) -> JsonRpcResponse {
+async fn handle_single(req: JsonRpcRequest) -> JsonRpcResponse {
     info!("method: {}", req.method);
     match req.method.as_str() {
         "add" => add(req),
         "subtract" => subtract(req),
         "multiply" => multiply(req),
-        "sleep" => sleep(req),
+        "sleep" => sleep(req).await,
         _ => JsonRpcResponse {
             jsonrpc: req.jsonrpc,
             result: None,
@@ -109,6 +116,11 @@ fn handle_single(req: JsonRpcRequest) -> JsonRpcResponse {
     }
 }
 
-fn handle_batch(reqs: Vec<JsonRpcRequest>) -> Vec<JsonRpcResponse> {
-    reqs.into_iter().map(|req| handle_single(req)).collect()
+async fn handle_batch(reqs: Vec<JsonRpcRequest>) -> Vec<JsonRpcResponse> {
+    future::join_all(
+        reqs.into_iter()
+            .map(|req| handle_single(req))
+            .collect::<Vec<_>>(),
+    )
+    .await
 }

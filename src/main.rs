@@ -14,7 +14,7 @@ async fn main() {
     let handler = warp::post()
         .and(warp::path("api"))
         .and(warp::body::json())
-        .map(methods::handle_request)
+        .and_then(methods::handle_request)
         .with(log);
 
     warp::serve(handler).run(([127, 0, 0, 1], 3030)).await;
