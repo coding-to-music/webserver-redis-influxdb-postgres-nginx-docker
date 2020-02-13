@@ -15,6 +15,7 @@ async fn main() {
         .and(warp::path("api"))
         .and(warp::body::json())
         .and_then(methods::handle_request)
+        .recover(methods::handle_rejection)
         .with(log);
 
     warp::serve(handler).run(([127, 0, 0, 1], 3030)).await;

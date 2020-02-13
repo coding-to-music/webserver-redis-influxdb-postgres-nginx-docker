@@ -6,7 +6,9 @@ use serde_json::Value;
 use sleep::sleep;
 use std::convert::Infallible;
 use subtract::subtract;
+use warp::reject::Rejection;
 use warp::Reply;
+use warp::filters::body::BodyDeserializeError;
 
 mod add;
 mod multiply;
@@ -123,4 +125,26 @@ async fn handle_batch(reqs: Vec<JsonRpcRequest>) -> Vec<JsonRpcResponse> {
             .collect::<Vec<_>>(),
     )
     .await
+}
+
+pub async fn handle_rejection(err: Rejection) -> Result<impl Reply, Infallible> {
+    let (code, message) = if let Some(_) = err.find::<BodyDeserializeError>() {
+        (i32::from(ErrorCode::InvalidRequest), "Invalid Request")
+    } else {
+        eprintln!("unhandled rejection: {:?}", err);
+        (-32000, "Server Error")
+    };
+
+    let json = warp::reply::json(&JsonRpcResponse {
+        jsonrpc: JsonRpcVersion::Two,
+        result: None,
+        error: Some(Error {
+            code: code,
+            message: message.into(),
+            data: None,
+        }),
+        id: None,
+    });
+
+    Ok(json)
 }
