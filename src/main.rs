@@ -1,22 +1,25 @@
-use dotenv::dotenv;
-use warp::Filter;
 #[macro_use]
 extern crate log;
 
+use actix_web::{middleware, App, HttpServer};
+use dotenv::dotenv;
+
 mod methods;
 
-#[tokio::main]
+#[actix_rt::main]
 async fn main() {
     dotenv().ok();
     pretty_env_logger::init();
 
-    let log = warp::log("api");
-    let handler = warp::post()
-        .and(warp::path("api"))
-        .and(warp::body::json())
-        .and_then(methods::handle_request)
-        .recover(methods::handle_rejection)
-        .with(log);
-
-    warp::serve(handler).run(([127, 0, 0, 1], 3030)).await;
+    HttpServer::new(|| {
+        App::new()
+            .wrap(middleware::Compress::default())
+            .wrap(middleware::Logger::default())
+            .service(methods::handle_request)
+    })
+    .bind("127.0.0.1:3030")
+    .unwrap()
+    .run()
+    .await
+    .unwrap()
 }

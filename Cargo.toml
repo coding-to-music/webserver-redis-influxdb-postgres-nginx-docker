@@ -5,7 +5,7 @@ authors = ["Isak Jägberg <ijagberg@gmail.com>"]
 edition = "2018"
 
 [dependencies]
-warp = "0.2.1"
+actix-web = "2.0.0"
 dotenv = "0.15.0"
 tokio = { version = "0.2", features = ["macros"] }
 serde = { version = "1.0", features = ["derive"] }
@@ -13,3 +13,5 @@ serde_json = "1.0.47"
 log = "0.4"
 pretty_env_logger = "0.3"
 futures = "0.3.4"
+bytes = "0.5.4"
+actix-rt = "1.0.0"
