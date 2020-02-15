@@ -20,7 +20,7 @@ pub enum JsonRpcVersion {
 }
 
 #[derive(Serialize, Deserialize)]
-pub struct JsonRpcRequest {
+pub struct Request {
     jsonrpc: JsonRpcVersion,
     method: String,
     params: Value,
@@ -28,7 +28,7 @@ pub struct JsonRpcRequest {
 }
 
 #[derive(Serialize)]
-pub struct JsonRpcResponse {
+pub struct Response {
     jsonrpc: JsonRpcVersion,
     #[serde(skip_serializing_if = "Option::is_none")]
     result: Option<Value>,
@@ -37,7 +37,7 @@ pub struct JsonRpcResponse {
     id: Option<String>,
 }
 
-impl JsonRpcResponse {
+impl Response {
     pub fn method_not_found(id: Option<String>) -> Self {
         Self {
             jsonrpc: JsonRpcVersion::Two,
@@ -140,7 +140,7 @@ pub async fn handle_request(body: Bytes) -> HttpResponse {
             error!("{}", e);
             HttpResponse::Ok()
                 .content_type("application/json")
-                .body(serde_json::to_string(&JsonRpcResponse::internal_error()).unwrap())
+                .body(serde_json::to_string(&Response::internal_error()).unwrap())
         }
     }
 }
@@ -157,10 +157,10 @@ async fn try_handle(body: Bytes) -> Result<HttpResponse, Box<dyn std::error::Err
                 let responses = handle_batch(values).await;
                 serde_json::to_string(&responses).unwrap()
             }
-            _ => serde_json::to_string(&JsonRpcResponse::invalid_request(None)).unwrap(),
+            _ => serde_json::to_string(&Response::invalid_request(None)).unwrap(),
         }
     } else {
-        serde_json::to_string(&JsonRpcResponse::parse_error()).unwrap()
+        serde_json::to_string(&Response::parse_error()).unwrap()
     };
 
     Ok(HttpResponse::Ok()
@@ -168,28 +168,28 @@ async fn try_handle(body: Bytes) -> Result<HttpResponse, Box<dyn std::error::Err
         .body(response_body))
 }
 
-async fn handle_single(req: Value) -> JsonRpcResponse {
+async fn handle_single(req: Value) -> Response {
     // extract request id (if any) before deserializing to give better error
     let id: Option<String> = req
         .get("id")
         .and_then(|v| v.as_str())
         .map(|s| s.to_string());
 
-    let rpc_request: Result<JsonRpcRequest, _> = serde_json::from_value(req);
+    let rpc_request: Result<Request, _> = serde_json::from_value(req);
     if let Ok(rpc_request) = rpc_request {
         match rpc_request.method.as_str() {
             "add" => add(rpc_request),
             "subtract" => subtract(rpc_request),
             "multiply" => multiply(rpc_request),
             "sleep" => sleep(rpc_request).await,
-            _ => JsonRpcResponse::method_not_found(rpc_request.id),
+            _ => Response::method_not_found(rpc_request.id),
         }
     } else {
-        JsonRpcResponse::invalid_request(id)
+        Response::invalid_request(id)
     }
 }
 
-async fn handle_batch(reqs: Vec<Value>) -> Vec<JsonRpcResponse> {
+async fn handle_batch(reqs: Vec<Value>) -> Vec<Response> {
     future::join_all(
         reqs.into_iter()
             .map(|req| handle_single(req))

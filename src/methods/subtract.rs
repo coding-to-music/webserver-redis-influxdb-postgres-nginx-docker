@@ -1,4 +1,4 @@
-use super::{JsonRpcRequest, JsonRpcResponse};
+use super::{Request, Response};
 use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize)]
@@ -7,17 +7,17 @@ pub(super) struct SubtractParams {
     b: i32,
 }
 
-pub(super) fn subtract(req: JsonRpcRequest) -> JsonRpcResponse {
+pub(super) fn subtract(req: Request) -> Response {
     let params = serde_json::from_value::<SubtractParams>(req.params);
     if let Ok(params) = params {
         let result = params.a - params.b;
-        JsonRpcResponse {
+        Response {
             jsonrpc: req.jsonrpc,
             result: Some(result.into()),
             error: None,
             id: req.id,
         }
     } else {
-        JsonRpcResponse::invalid_params(req.id)
+        Response::invalid_params(req.id)
     }
 }

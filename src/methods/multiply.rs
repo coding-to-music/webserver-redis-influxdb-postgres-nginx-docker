@@ -1,4 +1,4 @@
-use super::{JsonRpcRequest, JsonRpcResponse};
+use super::{Request, Response};
 use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize)]
@@ -7,10 +7,10 @@ pub(super) struct MultiplyParams {
     b: i32,
 }
 
-pub(super) fn multiply(req: JsonRpcRequest) -> JsonRpcResponse {
+pub(super) fn multiply(req: Request) -> Response {
     let params: MultiplyParams = serde_json::from_value(req.params).unwrap();
     let result = params.a * params.b;
-    JsonRpcResponse {
+    Response {
         jsonrpc: req.jsonrpc,
         result: Some(result.into()),
         error: None,
