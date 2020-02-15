@@ -1,4 +1,4 @@
-use super::{Request, Response};
+use super::{Error, Request, Response};
 use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize)]
@@ -8,12 +8,12 @@ pub(super) struct AddParams {
 }
 
 pub(super) fn add(req: Request) -> Response {
-    let params: AddParams = serde_json::from_value(req.params).unwrap();
-    let result = params.a + params.b;
-    Response {
-        jsonrpc: req.jsonrpc,
-        result: Some(result.into()),
-        error: None,
-        id: req.id,
+    let params = serde_json::from_value::<AddParams>(req.params);
+
+    if let Ok(params) = params {
+        let result = params.a + params.b;
+        Response::success(result, req.id)
+    } else {
+        Response::error(Error::invalid_params(), req.id)
     }
 }

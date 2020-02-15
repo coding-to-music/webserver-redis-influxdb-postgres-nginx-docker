@@ -34,67 +34,20 @@ pub struct Response {
 }
 
 impl Response {
-    pub fn method_not_found(id: Option<String>) -> Self {
+    pub fn success<T: Into<Value>>(result: T, id: Option<String>) -> Self {
         Self {
             jsonrpc: JsonRpcVersion::Two,
-            result: None,
-            error: Some(Error {
-                code: i32::from(ErrorCode::MethodNotFound),
-                message: "Method not found".to_string(),
-                data: None,
-            }),
+            result: Some(result.into()),
+            error: None,
             id,
         }
     }
 
-    pub fn parse_error() -> Self {
+    pub fn error(error: Error, id: Option<String>) -> Self {
         Self {
             jsonrpc: JsonRpcVersion::Two,
             result: None,
-            error: Some(Error {
-                code: ErrorCode::ParseError.into(),
-                message: "Parse error".into(),
-                data: None,
-            }),
-            id: None,
-        }
-    }
-
-    pub fn invalid_request(id: Option<String>) -> Self {
-        Self {
-            jsonrpc: JsonRpcVersion::Two,
-            result: None,
-            error: Some(Error {
-                code: ErrorCode::InvalidRequest.into(),
-                message: "Invalid request".into(),
-                data: None,
-            }),
-            id,
-        }
-    }
-
-    pub fn internal_error() -> Self {
-        Self {
-            jsonrpc: JsonRpcVersion::Two,
-            result: None,
-            error: Some(Error {
-                code: ErrorCode::InternalError.into(),
-                message: "Internal error".into(),
-                data: None,
-            }),
-            id: None,
-        }
-    }
-
-    pub fn invalid_params(id: Option<String>) -> Self {
-        Self {
-            jsonrpc: JsonRpcVersion::Two,
-            result: None,
-            error: Some(Error {
-                code: ErrorCode::InvalidParams.into(),
-                message: "Invalid params".into(),
-                data: None,
-            }),
+            error: Some(error),
             id,
         }
     }
@@ -106,6 +59,45 @@ pub struct Error {
     message: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     data: Option<Value>,
+}
+
+impl Error {
+    pub fn new(code: ErrorCode, message: String) -> Self {
+        Self {
+            code: code.into(),
+            message,
+            data: None,
+        }
+    }
+
+    pub fn build(self) -> Self {
+        self
+    }
+
+    pub fn with_data<T: Into<Value>>(mut self, data: T) -> Self {
+        self.data = Some(data.into());
+        self
+    }
+
+    pub fn method_not_found() -> Self {
+        Self::new(ErrorCode::MethodNotFound, "Method not found".into())
+    }
+
+    pub fn parse_error() -> Self {
+        Self::new(ErrorCode::ParseError, "Parse error".into())
+    }
+
+    pub fn invalid_request() -> Self {
+        Self::new(ErrorCode::InvalidRequest, "Invalid request".into())
+    }
+
+    pub fn internal_error() -> Self {
+        Self::new(ErrorCode::InternalError, "Internal error".into())
+    }
+
+    pub fn invalid_params() -> Self {
+        Self::new(ErrorCode::InvalidParams, "Invalid params".into())
+    }
 }
 
 pub enum ErrorCode {
@@ -134,9 +126,9 @@ pub async fn handle_request(body: Bytes) -> HttpResponse {
         Ok(response) => response,
         Err(e) => {
             error!("{}", e);
-            HttpResponse::Ok()
-                .content_type("application/json")
-                .body(serde_json::to_string(&Response::internal_error()).unwrap())
+            HttpResponse::Ok().content_type("application/json").body(
+                serde_json::to_string(&Response::error(Error::internal_error(), None)).unwrap(),
+            )
         }
     }
 }
@@ -153,10 +145,10 @@ async fn try_handle(body: Bytes) -> Result<HttpResponse, Box<dyn std::error::Err
                 let responses = handle_batch(values).await;
                 serde_json::to_string(&responses).unwrap()
             }
-            _ => serde_json::to_string(&Response::invalid_request(None)).unwrap(),
+            _ => serde_json::to_string(&Response::error(Error::invalid_request(), None)).unwrap(),
         }
     } else {
-        serde_json::to_string(&Response::parse_error()).unwrap()
+        serde_json::to_string(&Response::error(Error::parse_error(), None)).unwrap()
     };
 
     Ok(HttpResponse::Ok()
@@ -178,10 +170,10 @@ async fn handle_single(req: Value) -> Response {
             "subtract" => subtract::subtract(rpc_request),
             "multiply" => multiply::multiply(rpc_request),
             "sleep" => sleep::sleep(rpc_request).await,
-            _ => Response::method_not_found(rpc_request.id),
+            _ => Response::error(Error::method_not_found(), id),
         }
     } else {
-        Response::invalid_request(id)
+        Response::error(Error::invalid_request(), id)
     }
 }
 
