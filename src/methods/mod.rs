@@ -10,14 +10,14 @@ mod sleep;
 mod subtract;
 
 #[derive(Serialize, Deserialize)]
-pub enum JsonRpcVersion {
+pub enum Version {
     #[serde(alias = "2.0", rename = "2.0")]
     Two,
 }
 
 #[derive(Serialize, Deserialize)]
 pub struct Request {
-    jsonrpc: JsonRpcVersion,
+    jsonrpc: Version,
     method: String,
     params: Value,
     id: Option<String>,
@@ -25,7 +25,7 @@ pub struct Request {
 
 #[derive(Serialize)]
 pub struct Response {
-    jsonrpc: JsonRpcVersion,
+    jsonrpc: Version,
     #[serde(skip_serializing_if = "Option::is_none")]
     result: Option<Value>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -36,7 +36,7 @@ pub struct Response {
 impl Response {
     pub fn success<T: Into<Value>>(result: T, id: Option<String>) -> Self {
         Self {
-            jsonrpc: JsonRpcVersion::Two,
+            jsonrpc: Version::Two,
             result: Some(result.into()),
             error: None,
             id,
@@ -45,7 +45,7 @@ impl Response {
 
     pub fn error(error: Error, id: Option<String>) -> Self {
         Self {
-            jsonrpc: JsonRpcVersion::Two,
+            jsonrpc: Version::Two,
             result: None,
             error: Some(error),
             id,
