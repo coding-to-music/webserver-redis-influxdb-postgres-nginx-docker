@@ -89,6 +89,19 @@ impl JsonRpcResponse {
             id: None,
         }
     }
+
+    pub fn invalid_params(id: Option<String>) -> Self {
+        Self {
+            jsonrpc: JsonRpcVersion::Two,
+            result: None,
+            error: Some(Error {
+                code: ErrorCode::InvalidParams.into(),
+                message: "Invalid params".into(),
+                data: None,
+            }),
+            id,
+        }
+    }
 }
 
 #[derive(Serialize)]

@@ -8,12 +8,16 @@ pub(super) struct SubtractParams {
 }
 
 pub(super) fn subtract(req: JsonRpcRequest) -> JsonRpcResponse {
-    let params: SubtractParams = serde_json::from_value(req.params).unwrap();
-    let result = params.a - params.b;
-    JsonRpcResponse {
-        jsonrpc: req.jsonrpc,
-        result: Some(result.into()),
-        error: None,
-        id: req.id,
+    let params = serde_json::from_value::<SubtractParams>(req.params);
+    if let Ok(params) = params {
+        let result = params.a - params.b;
+        JsonRpcResponse {
+            jsonrpc: req.jsonrpc,
+            result: Some(result.into()),
+            error: None,
+            id: req.id,
+        }
+    } else {
+        JsonRpcResponse::invalid_params(req.id)
     }
 }
