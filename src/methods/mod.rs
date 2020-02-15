@@ -1,12 +1,8 @@
 use actix_web::{post, HttpResponse};
-use add::add;
 use bytes::Bytes;
 use futures::future;
-use multiply::multiply;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use sleep::sleep;
-use subtract::subtract;
 
 mod add;
 mod multiply;
@@ -178,10 +174,10 @@ async fn handle_single(req: Value) -> Response {
     let rpc_request: Result<Request, _> = serde_json::from_value(req);
     if let Ok(rpc_request) = rpc_request {
         match rpc_request.method.as_str() {
-            "add" => add(rpc_request),
-            "subtract" => subtract(rpc_request),
-            "multiply" => multiply(rpc_request),
-            "sleep" => sleep(rpc_request).await,
+            "add" => add::add(rpc_request),
+            "subtract" => subtract::subtract(rpc_request),
+            "multiply" => multiply::multiply(rpc_request),
+            "sleep" => sleep::sleep(rpc_request).await,
             _ => Response::method_not_found(rpc_request.id),
         }
     } else {
