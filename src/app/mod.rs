@@ -8,6 +8,7 @@ use serde_json::Value;
 pub struct App {
     geofences_controller: GeofencesController,
     sleep_controller: SleepController,
+    gis_controller: GisController,
 }
 
 impl App {
@@ -16,6 +17,7 @@ impl App {
         Self {
             geofences_controller: GeofencesController::new(),
             sleep_controller: SleepController::new(),
+            gis_controller: GisController::new(),
         }
     }
 
@@ -36,8 +38,12 @@ impl App {
                 .map(|ok| serde_json::to_value(ok).unwrap()),
             "sleep" => self
                 .sleep_controller
-                .sleep(request)
+                .sleep(request.params)
                 .await
+                .map(|ok| serde_json::to_value(ok).unwrap()),
+            "haversine" => self
+                .gis_controller
+                .haversine(request.params)
                 .map(|ok| serde_json::to_value(ok).unwrap()),
             _ => Err(Error::method_not_found()),
         };

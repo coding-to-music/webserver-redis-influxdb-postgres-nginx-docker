@@ -1,18 +1,21 @@
-use crate::app::{Error, Request};
-use core::convert::TryFrom;
+use crate::app::Error;
+use core::convert::{TryFrom, TryInto};
 use serde::Deserialize;
 use serde::Serialize;
 use serde_json::Value;
 
-pub(crate) struct SleepController;
+pub struct SleepController;
 
 impl SleepController {
     pub fn new() -> Self {
-        Self 
+        Self
     }
 
-    pub(crate) async fn sleep(&self, request: Request) -> Result<SleepResult, Error> {
-        let params = SleepParams::try_from(request.params)?;
+    pub(crate) async fn sleep<T: TryInto<SleepParams, Error = Error>>(
+        &self,
+        params: T,
+    ) -> Result<SleepResult, Error> {
+        let params = params.try_into()?;
 
         info!("sleeping for {}s", params.seconds);
         let start = std::time::Instant::now();
@@ -23,12 +26,12 @@ impl SleepController {
 }
 
 #[derive(Deserialize)]
-pub(crate) struct SleepParams {
+pub struct SleepParams {
     seconds: u64,
 }
 
 #[derive(Serialize)]
-pub(crate) struct SleepResult {
+pub struct SleepResult {
     slept_s: u64,
 }
 

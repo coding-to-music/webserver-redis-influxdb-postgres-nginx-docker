@@ -4,7 +4,7 @@ use serde::Deserialize;
 use serde::Serialize;
 use serde_json::Value;
 
-pub(crate) struct GeofencesController {
+pub struct GeofencesController {
     client: reqwest::Client,
 }
 
@@ -27,9 +27,9 @@ impl GeofencesController {
         T: TryInto<GetNearbyGeofencesParams, Error = Error>,
     >(
         &self,
-        request: T,
+        params: T,
     ) -> Result<GetNearbyGeofencesResult, Error> {
-        let params = request.try_into()?;
+        let params = params.try_into()?;
 
         let query_params = format!(
             "latitude={}&longitude={}&count={}&distance={}",
@@ -88,9 +88,7 @@ impl GeofencesController {
                 Error::internal_error()
             })?;
 
-        Ok(GetGeofenceResponse {
-            geofence, 
-        })
+        Ok(GetGeofenceResponse { geofence })
     }
 
     fn url() -> String {
@@ -105,7 +103,7 @@ impl GeofencesController {
 }
 
 #[derive(Deserialize)]
-pub(crate) struct GetNearbyGeofencesParams {
+pub struct GetNearbyGeofencesParams {
     lat: f32,
     lon: f32,
     count: Option<u32>,
@@ -128,7 +126,7 @@ impl GetNearbyGeofencesParams {
 }
 
 #[derive(Serialize)]
-pub(crate) struct GetNearbyGeofencesResult {
+pub struct GetNearbyGeofencesResult {
     geofences: Vec<Geofence>,
 }
 
@@ -157,14 +155,14 @@ struct GeofencingApiResponse {
 }
 
 #[derive(Deserialize, Serialize)]
-pub(crate) struct Geofence {
+pub struct Geofence {
     id: String,
     name: String,
     r#type: String,
 }
 
 #[derive(Deserialize)]
-pub(crate) struct GetGeofenceParams {
+pub struct GetGeofenceParams {
     id: String,
 }
 
