@@ -1,4 +1,4 @@
-use crate::app::{Error, Request, Response};
+use crate::app::{Error, Request};
 use core::convert::TryFrom;
 use serde::Deserialize;
 use serde::Serialize;

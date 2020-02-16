@@ -89,7 +89,7 @@ impl GeofencesController {
             })?;
 
         Ok(GetGeofenceResponse {
-            geofence, // TODO should be easier way of doing this
+            geofence, 
         })
     }
 
