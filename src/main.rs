@@ -1,10 +1,13 @@
 #[macro_use]
 extern crate log;
+#[macro_use]
+extern crate lazy_static;
 
 use actix_web::{middleware, App, HttpServer};
 use dotenv::dotenv;
 
-mod methods;
+mod app;
+mod controllers;
 
 #[actix_rt::main]
 async fn main() {
@@ -15,7 +18,8 @@ async fn main() {
         App::new()
             .wrap(middleware::Compress::default())
             .wrap(middleware::Logger::default())
-            .service(methods::handle_request)
+            .service(app::handle_request)
+            .service(app::handle_request_batch)
     })
     .bind("127.0.0.1:3030")
     .unwrap()
