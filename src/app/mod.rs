@@ -99,7 +99,7 @@ impl Response {
     }
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, Debug)]
 pub struct Error {
     code: i32,
     message: String,

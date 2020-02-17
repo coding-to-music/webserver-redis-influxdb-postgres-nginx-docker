@@ -21,7 +21,7 @@ async fn main() {
             .service(app::handle_request)
             .service(app::handle_request_batch)
     })
-    .bind("127.0.0.1:3030")
+    .bind("127.0.0.1:3000")
     .unwrap()
     .run()
     .await
