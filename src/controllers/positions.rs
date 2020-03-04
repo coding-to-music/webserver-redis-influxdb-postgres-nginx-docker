@@ -34,7 +34,7 @@ impl PositionsController {
         );
         trace!("GET {}", request_url);
 
-        let response = self
+        let iot_response = self
             .client
             .get(&request_url)
             .header("x-functions-key", Self::key())
@@ -43,9 +43,15 @@ impl PositionsController {
             .map_err(|e| {
                 error!("{}", e);
                 Error::internal_error()
+            })?
+            .json::<IotDrivenDistanceResponse>()
+            .await
+            .map_err(|e| {
+                error!("{}", e);
+                Error::internal_error()
             })?;
 
-        unimplemented!()
+        Ok(GetDrivenDistanceResponse::from(iot_response))
     }
 
     fn url() -> String {
@@ -126,4 +132,28 @@ impl TryFrom<Value> for GetDrivenDistanceParams {
 #[derive(Serialize)]
 pub struct GetDrivenDistanceResponse {
     meters: f64,
+}
+
+impl From<IotDrivenDistanceResponse> for GetDrivenDistanceResponse {
+    fn from(iot_response: IotDrivenDistanceResponse) -> Self {
+        Self {
+            meters: iot_response.data.meters,
+        }
+    }
+}
+
+#[derive(Deserialize)]
+struct IotDrivenDistanceResponse {
+    data: IotDrivenDistanceResponseData,
+    r#type: String,
+}
+
+#[derive(Deserialize)]
+struct IotDrivenDistanceResponseData {
+    meters: f64,
+    #[serde(alias = "startTime")]
+    start_time: String,
+    #[serde(alias = "endTime")]
+    end_time: String,
+    seconds: f32,
 }
