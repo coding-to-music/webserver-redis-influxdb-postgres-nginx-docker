@@ -9,6 +9,7 @@ pub struct App {
     geofences_controller: GeofencesController,
     sleep_controller: SleepController,
     gis_controller: GisController,
+    positions_controller: PositionsController,
 }
 
 impl App {
@@ -18,6 +19,7 @@ impl App {
             geofences_controller: GeofencesController::new(),
             sleep_controller: SleepController::new(),
             gis_controller: GisController::new(),
+            positions_controller: PositionsController::new(),
         }
     }
 
@@ -44,6 +46,11 @@ impl App {
             "haversine" => self
                 .gis_controller
                 .haversine(request.params)
+                .map(|ok| serde_json::to_value(ok).unwrap()),
+            "distance_driven" => self
+                .positions_controller
+                .get_driven_distance(request.params)
+                .await
                 .map(|ok| serde_json::to_value(ok).unwrap()),
             _ => Err(Error::method_not_found()),
         };

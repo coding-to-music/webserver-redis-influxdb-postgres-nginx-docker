@@ -27,3 +27,7 @@ async fn main() {
     .await
     .unwrap()
 }
+
+pub fn get_env_var(var: &str) -> String {
+    std::env::var(var).expect(&format!(r#"missing required env var "{}""#, var))
+}

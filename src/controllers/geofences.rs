@@ -11,13 +11,6 @@ pub struct GeofencesController {
 impl GeofencesController {
     pub fn new() -> Self {
         info!("Creating new Geofences controller...");
-        if std::env::var("IOT_GEOFENCING_API_URL").is_err() {
-            panic!(r#"missing required env var "IOT_GEOFENCING_API_URL""#);
-        }
-        if std::env::var("IOT_GEOFENCING_API_KEY").is_err() {
-            panic!(r#"missing required env var "IOT_GEOFENCING_API_KEY""#);
-        }
-
         Self {
             client: reqwest::Client::new(),
         }
@@ -92,13 +85,11 @@ impl GeofencesController {
     }
 
     fn url() -> String {
-        std::env::var("IOT_GEOFENCING_API_URL")
-            .expect(r#"missing required env var "IOT_GEOFENCING_API_URL""#)
+        crate::get_env_var("IOT_GEOFENCING_API_URL")
     }
 
     fn key() -> String {
-        std::env::var("IOT_GEOFENCING_API_KEY")
-            .expect(r#"missing required env var "IOT_GEOFENCING_API_KEY""#)
+        crate::get_env_var("IOT_GEOFENCING_API_KEY")
     }
 }
 
