@@ -29,8 +29,8 @@ impl PositionsController {
             "{}/v1/positions/{}/history/distance?fromDate={}&toDate={}",
             Self::url(),
             params.vehicle(),
-            params.start_date_time(),
-            params.end_date_time()
+            params.start_date_time().timestamp(),
+            params.end_date_time().timestamp()
         );
         trace!("GET {}", request_url);
 
