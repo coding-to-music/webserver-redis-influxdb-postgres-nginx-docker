@@ -19,15 +19,15 @@ async fn main() {
             .wrap(middleware::Compress::default())
             .wrap(middleware::Logger::default())
             .service(app::handle_request)
-            .service(app::handle_request_batch)
     })
     .bind("127.0.0.1:3000")
-    .unwrap()
+    .expect("failed to bind")
     .run()
     .await
     .unwrap()
 }
 
+/// Utility method to retrieve an environment variable or panic with the name of the missing variable
 pub fn get_env_var(var: &str) -> String {
     std::env::var(var).expect(&format!(r#"missing required env var "{}""#, var))
 }
