@@ -3,6 +3,7 @@ use core::convert::{TryFrom, TryInto};
 use serde::Deserialize;
 use serde::Serialize;
 use serde_json::Value;
+use schemars::JsonSchema;
 
 pub struct SleepController;
 
@@ -25,7 +26,7 @@ impl SleepController {
     }
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Serialize, JsonSchema)]
 pub struct SleepParams {
     seconds: u64,
 }

@@ -2,6 +2,7 @@ use crate::app::Error;
 use chrono::DateTime;
 use chrono::Utc;
 use core::convert::{TryFrom, TryInto};
+use schemars::JsonSchema;
 use serde::Deserialize;
 use serde::Serialize;
 use serde_json::Value;
@@ -108,7 +109,7 @@ fn epoch_to_datetime(timestamp: i64) -> DateTime<Utc> {
     utc
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Serialize, JsonSchema)]
 pub struct GetDrivenDistanceParams {
     vehicle: String,
     start_time: u128,
@@ -170,7 +171,7 @@ impl TryFrom<Value> for GetDrivenDistanceParams {
     }
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Serialize, JsonSchema)]
 pub struct GetPositionHistoryParams {
     vehicle: String,
     start_time: u128,
@@ -322,7 +323,8 @@ struct IotPositionHistoryResponseData {
     vehicle_identity: String,
     latitude: f32,
     longitude: f32,
-    altitude: f32,
+    #[serde(rename = "altitude")]
+    _altitude: f32,
     bearing: f32,
     speed: f32,
     timestamp: String,

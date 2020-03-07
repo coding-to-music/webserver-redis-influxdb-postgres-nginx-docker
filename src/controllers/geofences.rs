@@ -1,5 +1,6 @@
 use crate::app::Error;
 use core::convert::{TryFrom, TryInto};
+use schemars::JsonSchema;
 use serde::Deserialize;
 use serde::Serialize;
 use serde_json::Value;
@@ -93,7 +94,7 @@ impl GeofencesController {
     }
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, JsonSchema, Serialize)]
 pub struct GetNearbyGeofencesParams {
     lat: f32,
     lon: f32,
@@ -152,7 +153,7 @@ pub struct Geofence {
     r#type: String,
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Serialize, JsonSchema)]
 pub struct GetGeofenceParams {
     id: String,
 }

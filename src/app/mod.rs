@@ -2,9 +2,14 @@ use crate::controllers::*;
 use actix_web::{body::Body, post, HttpResponse};
 use bytes::Bytes;
 use futures::future;
+use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use std::{str::FromStr, time::Instant};
+use std::{
+    convert::{TryFrom, TryInto},
+    str::FromStr,
+    time::Instant,
+};
 
 /// The central structure of the webserver
 ///
@@ -67,6 +72,8 @@ impl App {
                 .get_position_history(request.params)
                 .await
                 .map(|ok| serde_json::to_value(ok).unwrap()),
+            Ok(Method::Methods) => serde_json::to_value(App::method_docs(request.params))
+                .map_err(|_| Error::invalid_request()),
             Err(_) => Err(Error::method_not_found()),
         };
         trace!(
@@ -80,9 +87,49 @@ impl App {
             Err(error) => Response::error(error, id),
         }
     }
+
+    fn method_docs<T: TryInto<MethodsParams, Error = Error>>(
+        params: T,
+    ) -> Result<Vec<MethodDoc>, Error> {
+        let params = params.try_into()?;
+        let mut docs = Vec::new();
+        for method in params
+            .methods
+            .iter()
+            .filter_map(|m| Method::from_str(&m).ok())
+        {
+            docs.push(method.docs());
+        }
+
+        Ok(docs)
+    }
 }
 
-/// Enum containing each supported JSON RPC method
+#[derive(Serialize, Deserialize, Debug)]
+pub struct MethodDoc {
+    name: String,
+    description: String,
+    params: Value,
+}
+
+#[derive(Deserialize, Serialize, JsonSchema, Debug)]
+struct MethodsParams {
+    methods: Vec<String>,
+}
+
+impl TryFrom<Value> for MethodsParams {
+    type Error = Error;
+    fn try_from(value: Value) -> Result<Self, Self::Error> {
+        let params = serde_json::from_value::<Self>(value).map_err(|_| Error::invalid_params())?;
+        if params.methods.is_empty() {
+            Err(Error::invalid_params().with_message(r#""methods" must not be empty"#))
+        } else {
+            Ok(params)
+        }
+    }
+}
+
+/// Supported JSONRPC methods
 pub enum Method {
     /// Get geofences nearby a given point
     GetNearbyGeofences,
@@ -96,6 +143,65 @@ pub enum Method {
     DistanceDriven,
     /// Get every position a vehicle has recorded between two given timestamps
     PositionHistory,
+    /// Get documentation of methods
+    Methods,
+}
+
+impl From<&Method> for String {
+    fn from(method: &Method) -> Self {
+        let s = match method {
+            Method::GetNearbyGeofences => "get_nearby_geofences",
+            Method::GetGeofence => "get_geofence",
+            Method::Sleep => "sleep",
+            Method::Haversine => "haversine",
+            Method::DistanceDriven => "distance_driven",
+            Method::PositionHistory => "position_history",
+            Method::Methods => "methods",
+        };
+        s.into()
+    }
+}
+
+impl Method {
+    fn description(&self) -> String {
+        let s = match self {
+            Method::GetNearbyGeofences => "Get geofences nearby a given point",
+            Method::GetGeofence => "Get a single geofence by its id",
+            Method::Sleep => "Sleep for a given amount of time",
+            Method::Haversine => {
+                "Calculate the Haversine distance (distance on a sphere) between two coordinates"
+            }
+            Method::DistanceDriven => {
+                "Calculate the distance that a vehicle has driven between two given timestamps"
+            }
+            Method::PositionHistory => {
+                "Get every position a vehicle has recorded between two given timestamps"
+            }
+            Method::Methods => "Get documentation of methods",
+        };
+
+        s.into()
+    }
+
+    pub fn docs(&self) -> MethodDoc {
+        let name = String::from(self);
+        let description = self.description();
+        let params_schema = match self {
+            Method::GetNearbyGeofences => GetNearbyGeofencesParams::schema(),
+            Method::GetGeofence => GetGeofenceParams::schema(),
+            Method::Sleep => SleepParams::schema(),
+            Method::Haversine => HaversineParams::schema(),
+            Method::DistanceDriven => GetDrivenDistanceParams::schema(),
+            Method::PositionHistory => GetPositionHistoryParams::schema(),
+            Method::Methods => MethodsParams::schema(),
+        };
+
+        MethodDoc {
+            name,
+            description,
+            params: params_schema,
+        }
+    }
 }
 
 impl FromStr for Method {
@@ -108,6 +214,7 @@ impl FromStr for Method {
             "haversine" => Self::Haversine,
             "distance_driven" => Self::DistanceDriven,
             "position_history" => Self::PositionHistory,
+            "methods" => Self::Methods,
             invalid => {
                 error!("invalid method: {}", invalid);
                 Err(format!("invalid method: {}", invalid))?
@@ -278,12 +385,7 @@ pub async fn handle_request(body: Bytes) -> HttpResponse {
         }
         // If the body is a valid JSON array, then try to handle that as a batch of requests
         Ok(Value::Array(arr)) => {
-            let responses = handle_batch(
-                arr.into_iter()
-                    .map(|v| serde_json::from_value(v).unwrap())
-                    .collect(),
-            )
-            .await;
+            let responses = handle_batch(arr).await;
             HttpResponse::Ok()
                 .content_type("application/json")
                 .body(serde_json::to_value(responses).unwrap())
@@ -324,7 +426,7 @@ async fn handle_batch(values: Vec<Value>) -> Vec<Response> {
     trace!("handling batch of requests {:?}", batch_id);
     let start = Instant::now();
 
-    // create a `Future` for each JSON value and await them in parallell
+    // create a Future for each JSON value and await them in parallell
     let responses =
         future::join_all(values.into_iter().map(|v| async { handle_single(v).await })).await;
 

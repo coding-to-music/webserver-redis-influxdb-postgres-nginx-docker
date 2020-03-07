@@ -43,13 +43,6 @@ pub struct HaversineParams {
     points: Vec<Coord>,
 }
 
-impl Schema for HaversineParams {
-    fn schema() -> Value {
-        let schema = schema_for!(HaversineParams);
-        serde_json::to_value(&schema).unwrap()
-    }
-}
-
 impl TryFrom<Value> for HaversineParams {
     type Error = Error;
     fn try_from(value: Value) -> Result<Self, Self::Error> {
