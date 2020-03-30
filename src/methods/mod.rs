@@ -1,21 +1,15 @@
-use add::add;
-use futures::future;
-use multiply::multiply;
+pub use geofencing::GeofencingController;
+pub use math::MathController;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use sleep::sleep;
-use std::convert::Infallible;
-use subtract::subtract;
-use warp::reject::Rejection;
-use warp::Reply;
-use warp::filters::body::BodyDeserializeError;
+pub use sleep::SleepController;
+use std::{convert::Infallible, str::FromStr};
 
-mod add;
-mod multiply;
+mod geofencing;
+mod math;
 mod sleep;
-mod subtract;
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone)]
 pub enum JsonRpcVersion {
     #[serde(alias = "1.0", rename = "1.0")]
     One,
@@ -31,6 +25,24 @@ pub struct JsonRpcRequest {
     id: Option<String>,
 }
 
+impl JsonRpcRequest {
+    pub fn version(&self) -> &JsonRpcVersion {
+        &self.jsonrpc
+    }
+
+    pub fn method(&self) -> &str {
+        &self.method
+    }
+
+    pub fn params(&self) -> &Value {
+        &self.params
+    }
+
+    pub fn id(&self) -> &Option<String> {
+        &self.id
+    }
+}
+
 #[derive(Serialize)]
 pub struct JsonRpcResponse {
     jsonrpc: JsonRpcVersion,
@@ -41,12 +53,91 @@ pub struct JsonRpcResponse {
     id: Option<String>,
 }
 
+impl JsonRpcResponse {
+    pub fn from_result<T>(
+        jsonrpc: JsonRpcVersion,
+        result: Result<T, Error>,
+        id: Option<String>,
+    ) -> Self
+    where
+        T: Serialize,
+    {
+        match result {
+            Ok(s) => Self::success(jsonrpc, s, id),
+            Err(e) => Self::error(jsonrpc, e, id),
+        }
+    }
+
+    pub fn success<T: Serialize>(jsonrpc: JsonRpcVersion, result: T, id: Option<String>) -> Self {
+        Self {
+            jsonrpc,
+            result: Some(serde_json::to_value(result).expect("infallible")),
+            error: None,
+            id,
+        }
+    }
+
+    pub fn error(jsonrpc: JsonRpcVersion, error: Error, id: Option<String>) -> Self {
+        Self {
+            jsonrpc,
+            result: None,
+            error: Some(error),
+            id,
+        }
+    }
+}
+
 #[derive(Serialize)]
 pub struct Error {
     code: i32,
     message: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     data: Option<Value>,
+}
+
+impl Error {
+    pub fn new(code: i32, message: String) -> Self {
+        Self {
+            code,
+            message,
+            data: None,
+        }
+    }
+
+    pub fn with_data<T: Serialize>(mut self, data: T) -> Self {
+        self.data = Some(serde_json::to_value(data).expect("infallible"));
+        self
+    }
+
+    pub fn method_not_found() -> Self {
+        Self {
+            code: ErrorCode::MethodNotFound.into(),
+            message: "Method not found".into(),
+            data: None,
+        }
+    }
+
+    pub fn invalid_request() -> Self {
+        Self {
+            code: ErrorCode::InvalidRequest.into(),
+            message: "Invalid request".into(),
+            data: None,
+        }
+    }
+
+    pub fn invalid_params() -> Self {
+        Self {
+            code: ErrorCode::InvalidParams.into(),
+            message: "Invalid params".into(),
+            data: None,
+        }
+    }
+}
+
+impl From<Infallible> for super::Error {
+    fn from(_: Infallible) -> Self {
+        unreachable!()
+    }
 }
 
 pub enum ErrorCode {
@@ -69,82 +160,22 @@ impl From<ErrorCode> for i32 {
     }
 }
 
-pub async fn handle_request(body: Value) -> Result<impl Reply, Infallible> {
-    if body.is_object() {
-        Ok(warp::reply::json(
-            &handle_single(serde_json::from_value(body).unwrap()).await,
-        ))
-    } else if let Value::Array(values) = body {
-        Ok(warp::reply::json(
-            &handle_batch(
-                values
-                    .into_iter()
-                    .map(|value| serde_json::from_value(value).unwrap())
-                    .collect(),
-            )
-            .await,
-        ))
-    } else {
-        Ok(warp::reply::json(&JsonRpcResponse {
-            jsonrpc: JsonRpcVersion::Two,
-            result: None,
-            error: Some(Error {
-                code: i32::from(ErrorCode::InvalidRequest),
-                message: "Invalid Request".to_string(),
-                data: None,
-            }),
-            id: None,
-        }))
+pub enum Method {
+    Sleep,
+    Add,
+    Subtract,
+    GetGeofence,
+}
+
+impl FromStr for Method {
+    type Err = ();
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "sleep" => Ok(Self::Sleep),
+            "add" => Ok(Self::Add),
+            "subtract" => Ok(Self::Subtract),
+            "get_geofence" => Ok(Self::GetGeofence),
+            _ => Err(()),
+        }
     }
-}
-
-async fn handle_single(req: JsonRpcRequest) -> JsonRpcResponse {
-    info!("method: {}", req.method);
-    match req.method.as_str() {
-        "add" => add(req),
-        "subtract" => subtract(req),
-        "multiply" => multiply(req),
-        "sleep" => sleep(req).await,
-        _ => JsonRpcResponse {
-            jsonrpc: req.jsonrpc,
-            result: None,
-            error: Some(Error {
-                code: i32::from(ErrorCode::MethodNotFound),
-                message: "Method not found".to_string(),
-                data: None,
-            }),
-            id: req.id,
-        },
-    }
-}
-
-async fn handle_batch(reqs: Vec<JsonRpcRequest>) -> Vec<JsonRpcResponse> {
-    future::join_all(
-        reqs.into_iter()
-            .map(|req| handle_single(req))
-            .collect::<Vec<_>>(),
-    )
-    .await
-}
-
-pub async fn handle_rejection(err: Rejection) -> Result<impl Reply, Infallible> {
-    let (code, message) = if let Some(_) = err.find::<BodyDeserializeError>() {
-        (i32::from(ErrorCode::InvalidRequest), "Invalid Request")
-    } else {
-        eprintln!("unhandled rejection: {:?}", err);
-        (-32000, "Server Error")
-    };
-
-    let json = warp::reply::json(&JsonRpcResponse {
-        jsonrpc: JsonRpcVersion::Two,
-        result: None,
-        error: Some(Error {
-            code: code,
-            message: message.into(),
-            data: None,
-        }),
-        id: None,
-    });
-
-    Ok(json)
 }

@@ -1,19 +1,57 @@
-use super::{JsonRpcRequest, JsonRpcResponse};
-use serde::{Deserialize, Serialize};
-use std::time::Duration;
+use std::convert::{TryFrom, TryInto};
 
-#[derive(Serialize, Deserialize)]
-pub(super) struct SleepParams {
-    s: u64,
-}
+pub struct SleepController {}
 
-pub(super) async fn sleep(req: JsonRpcRequest) -> JsonRpcResponse {
-    let params: SleepParams = serde_json::from_value(req.params).unwrap();
-    tokio::time::delay_for(Duration::from_secs(params.s)).await;
-    JsonRpcResponse {
-        jsonrpc: req.jsonrpc,
-        result: Some(params.s.into()),
-        error: None,
-        id: req.id,
+impl SleepController {
+    pub fn new() -> Self {
+        info!("Creating new SleepController");
+        Self {}
+    }
+
+    pub async fn sleep<T: TryInto<SleepParams, Error = SleepParamsInvalid>>(
+        &self,
+        p: T,
+    ) -> Result<SleepResult, super::Error> {
+        let params: SleepParams = p.try_into()?;
+        tokio::time::delay_for(std::time::Duration::from_secs(params.seconds.into())).await;
+
+        Ok(SleepResult {})
     }
 }
+
+#[derive(serde::Deserialize)]
+pub struct SleepParams {
+    seconds: u32,
+}
+
+impl TryFrom<serde_json::Value> for SleepParams {
+    type Error = SleepParamsInvalid;
+    fn try_from(value: serde_json::Value) -> Result<Self, Self::Error> {
+        let params: SleepParams =
+            serde_json::from_value(value).map_err(|_| SleepParamsInvalid::InvalidFormat)?;
+
+        if params.seconds > 10 {
+            Err(Self::Error::SecondsTooHigh)
+        } else if params.seconds == 0 {
+            Err(Self::Error::SecondsAreZero)
+        } else {
+            Ok(params)
+        }
+    }
+}
+
+#[derive(Debug)]
+pub enum SleepParamsInvalid {
+    SecondsTooHigh,
+    SecondsAreZero,
+    InvalidFormat,
+}
+
+impl From<SleepParamsInvalid> for super::Error {
+    fn from(_: SleepParamsInvalid) -> Self {
+        Self::invalid_params()
+    }
+}
+
+#[derive(serde::Serialize)]
+pub struct SleepResult {}
