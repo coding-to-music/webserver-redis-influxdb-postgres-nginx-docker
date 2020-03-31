@@ -1,4 +1,4 @@
-use crate::clients::geofencing::GeofencingClient;
+use geofencing_client::GeofencingClient;
 use get_geofence::*;
 use std::convert::TryInto;
 
@@ -9,8 +9,10 @@ pub struct GeofencingController {
 impl GeofencingController {
     pub fn new() -> Self {
         info!("Creating new GeofencingController");
+        let url = crate::get_env_var("IOT_GEOFENCING_API_URL");
+        let key = crate::get_env_var("IOT_GEOFENCING_API_KEY");
         Self {
-            client: GeofencingClient::new(),
+            client: GeofencingClient::new(url, key),
         }
     }
 
@@ -19,33 +21,32 @@ impl GeofencingController {
         T: TryInto<GetGeofenceParams, Error = GeofenceParamsInvalid>,
     {
         let params = params.try_into()?;
-        let response = self.client.get_geofence(params.into()).await;
-        unimplemented!();
+        let geofence = self
+            .client
+            .get_geofence_v2(params.id())
+            .await
+            .map_err(|_| super::Error::internal_error())?
+            .map(|g| Geofence::from(g));
+
+        Ok(GetGeofenceResult::new(geofence))
     }
 }
 
 #[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
 pub struct Geofence {
     id: String,
-    latitude: f32,
-    longitude: f32,
-    r#type: String,
+    name: String,
 }
 
 impl Geofence {
-    pub fn new(id: String, latitude: f32, longitude: f32, r#type: String) -> Self {
-        Self {
-            id,
-            latitude,
-            longitude,
-            r#type,
-        }
+    pub fn new(id: String, name: String) -> Self {
+        Self { id, name }
     }
 }
 
-impl From<crate::clients::geofencing::Geofence> for Geofence {
-    fn from(source: crate::clients::geofencing::Geofence) -> Self {
-        Geofence::new(source.id, source.latitude, source.longitude, source.r#type)
+impl From<geofencing_client::Geofence> for Geofence {
+    fn from(source: geofencing_client::Geofence) -> Geofence {
+        Geofence::new(source.id().into(), source.name().into())
     }
 }
 
@@ -61,12 +62,6 @@ mod get_geofence {
     impl GetGeofenceParams {
         pub fn id(&self) -> &str {
             &self.id
-        }
-    }
-
-    impl From<GetGeofenceParams> for crate::clients::geofencing::GetGeofenceRequest {
-        fn from(source: GetGeofenceParams) -> Self {
-            Self::new(source.id().to_owned())
         }
     }
 

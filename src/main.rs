@@ -10,7 +10,6 @@ use warp::Reply;
 #[macro_use]
 extern crate log;
 
-mod clients;
 mod methods;
 
 #[tokio::main]
@@ -35,6 +34,7 @@ pub struct App {
     sleep_controller: SleepController,
     math_controller: MathController,
     geofencing_controller: GeofencingController,
+    bookmark_controller: BookmarkController,
 }
 
 impl App {
@@ -43,6 +43,7 @@ impl App {
             sleep_controller: SleepController::new(),
             math_controller: MathController::new(),
             geofencing_controller: GeofencingController::new(),
+            bookmark_controller: BookmarkController::new(),
         }
     }
 
@@ -72,6 +73,13 @@ impl App {
                     version,
                     self.geofencing_controller
                         .get_geofence(req.params().to_owned())
+                        .await,
+                    id,
+                ),
+                Method::SearchBookmark => JsonRpcResponse::from_result(
+                    version,
+                    self.bookmark_controller
+                        .search(req.params().to_owned())
                         .await,
                     id,
                 ),

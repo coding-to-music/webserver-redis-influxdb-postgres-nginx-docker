@@ -1,3 +1,4 @@
+pub use bookmark::BookmarkController;
 pub use geofencing::GeofencingController;
 pub use math::MathController;
 use serde::{Deserialize, Serialize};
@@ -5,6 +6,7 @@ use serde_json::Value;
 pub use sleep::SleepController;
 use std::{convert::Infallible, str::FromStr};
 
+mod bookmark;
 mod geofencing;
 mod math;
 mod sleep;
@@ -132,6 +134,14 @@ impl Error {
             data: None,
         }
     }
+
+    pub fn internal_error() -> Self {
+        Self {
+            code: ErrorCode::InternalError.into(),
+            message: "Internal error".into(),
+            data: None,
+        }
+    }
 }
 
 impl From<Infallible> for super::Error {
@@ -165,6 +175,7 @@ pub enum Method {
     Add,
     Subtract,
     GetGeofence,
+    SearchBookmark,
 }
 
 impl FromStr for Method {
@@ -175,6 +186,7 @@ impl FromStr for Method {
             "add" => Ok(Self::Add),
             "subtract" => Ok(Self::Subtract),
             "get_geofence" => Ok(Self::GetGeofence),
+            "search_bookmark" => Ok(Self::SearchBookmark),
             _ => Err(()),
         }
     }
