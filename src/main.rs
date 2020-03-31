@@ -50,8 +50,13 @@ impl App {
     async fn handle_single(&self, req: JsonRpcRequest) -> JsonRpcResponse {
         let version = req.version().clone();
         let id = req.id().clone();
-        info!("method: {}", req.method());
-        match Method::from_str(req.method()) {
+        let now = std::time::Instant::now();
+        info!(
+            "handling request with id {:?} with method: {}",
+            id,
+            req.method()
+        );
+        let response = match Method::from_str(req.method()) {
             Err(_) => JsonRpcResponse::error(version, Error::method_not_found(), id),
             Ok(method) => match method {
                 Method::Sleep => JsonRpcResponse::from_result(
@@ -84,7 +89,16 @@ impl App {
                     id,
                 ),
             },
-        }
+        };
+
+        info!(
+            "handled request with id {:?} with method: {} in {:?}",
+            req.id(),
+            req.method(),
+            now.elapsed()
+        );
+
+        response
     }
 
     async fn handle_batch(&self, reqs: Vec<JsonRpcRequest>) -> Vec<JsonRpcResponse> {
