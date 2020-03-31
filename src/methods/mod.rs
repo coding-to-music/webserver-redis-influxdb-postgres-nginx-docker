@@ -182,6 +182,7 @@ pub enum Method {
     Subtract,
     GetGeofence,
     SearchBookmark,
+    AddBookmark,
 }
 
 impl FromStr for Method {
@@ -193,6 +194,7 @@ impl FromStr for Method {
             "subtract" => Ok(Self::Subtract),
             "get_geofence" => Ok(Self::GetGeofence),
             "search_bookmark" => Ok(Self::SearchBookmark),
+            "add_bookmark" => Ok(Self::AddBookmark),
             _ => Err(()),
         }
     }

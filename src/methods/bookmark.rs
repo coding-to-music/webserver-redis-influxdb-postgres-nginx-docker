@@ -13,6 +13,30 @@ impl BookmarkController {
         Self { db_path }
     }
 
+    fn get_connection(&self) -> Result<Connection, super::Error> {
+        let db = Connection::open(&self.db_path).map_err(|e| {
+            error!("{:?}", e);
+            super::Error::internal_error()
+        });
+        info!("Connected to db");
+        db
+    }
+
+    fn insert_bookmark(&self, bookmark: Bookmark) {
+        let db = self.get_connection().ok();
+        match db {
+            None => return,
+            Some(db) => {
+                db.execute(
+                    "INSERT INTO bookmark (url, name, description)
+                    VALUES (?1, ?2, ?3)",
+                    params![bookmark.url, bookmark.name, bookmark.description],
+                )
+                .ok();
+            }
+        }
+    }
+
     pub async fn search<
         T: TryInto<search::SearchBookmarkParams, Error = search::SearchBookmarkParamsInvalid>,
     >(
@@ -20,12 +44,7 @@ impl BookmarkController {
         params: T,
     ) -> Result<search::SearchBookmarkResult, super::Error> {
         let params: search::SearchBookmarkParams = params.try_into()?;
-        let db = Connection::open(&self.db_path).map_err(|e| {
-            error!("{:?}", e);
-            super::Error::internal_error()
-        })?;
-
-        info!("Connected to db");
+        let db = self.get_connection()?;
 
         let mut stmt = db
             .prepare("SELECT url, name, description FROM bookmark WHERE name LIKE ?1")
@@ -45,9 +64,20 @@ impl BookmarkController {
 
         Ok(search::SearchBookmarkResult::new(bookmarks))
     }
+
+    pub async fn add<T: TryInto<add::AddBookmarkParams, Error = add::AddBookmarkParamsInvalid>>(
+        &self,
+        params: T,
+    ) -> Result<add::AddBookmarkResult, super::Error> {
+        let params = params.try_into()?;
+
+        self.insert_bookmark(params.bookmark);
+
+        Ok(add::AddBookmarkResult::new())
+    }
 }
 
-#[derive(serde::Serialize, Debug, Clone)]
+#[derive(serde::Deserialize, serde::Serialize, Debug, Clone)]
 pub struct Bookmark {
     url: String,
     name: String,
@@ -112,6 +142,45 @@ mod search {
     impl SearchBookmarkResult {
         pub fn new(bookmarks: Vec<Bookmark>) -> Self {
             Self { bookmarks }
+        }
+    }
+}
+
+mod add {
+    use super::*;
+    use std::convert::TryFrom;
+
+    #[derive(serde::Deserialize)]
+    pub struct AddBookmarkParams {
+        pub(super) bookmark: Bookmark,
+    }
+
+    impl TryFrom<serde_json::Value> for AddBookmarkParams {
+        type Error = AddBookmarkParamsInvalid;
+        fn try_from(value: serde_json::Value) -> Result<Self, Self::Error> {
+            let params = serde_json::from_value(value)
+                .map_err(|_| AddBookmarkParamsInvalid::InvalidFormat)?;
+
+            Ok(params)
+        }
+    }
+
+    pub enum AddBookmarkParamsInvalid {
+        InvalidFormat,
+    }
+
+    impl From<AddBookmarkParamsInvalid> for crate::methods::Error {
+        fn from(_: AddBookmarkParamsInvalid) -> Self {
+            Self::internal_error()
+        }
+    }
+
+    #[derive(serde::Serialize)]
+    pub struct AddBookmarkResult {}
+
+    impl AddBookmarkResult {
+        pub fn new() -> Self {
+            Self {}
         }
     }
 }

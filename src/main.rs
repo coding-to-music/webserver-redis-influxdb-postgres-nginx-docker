@@ -88,6 +88,11 @@ impl App {
                         .await,
                     id,
                 ),
+                Method::AddBookmark => JsonRpcResponse::from_result(
+                    version,
+                    self.bookmark_controller.add(req.params().to_owned()).await,
+                    id,
+                ),
             },
         };
 
