@@ -40,11 +40,10 @@ impl BookmarkController {
             .query_map(params![params.input()], |row| {
                 Ok(Bookmark::new(row.get(0)?, row.get(1)?, row.get(2)?))
             })?
+            .filter_map(|b| b.ok())
             .collect();
 
-        info!("{:?}", bookmarks);
-
-        unimplemented!()
+        Ok(search::SearchBookmarkResult::new(bookmarks))
     }
 }
 
@@ -108,5 +107,11 @@ mod search {
     #[derive(serde::Serialize)]
     pub struct SearchBookmarkResult {
         bookmarks: Vec<Bookmark>,
+    }
+
+    impl SearchBookmarkResult {
+        pub fn new(bookmarks: Vec<Bookmark>) -> Self {
+            Self { bookmarks }
+        }
     }
 }
