@@ -24,14 +24,17 @@ impl BookmarkController {
             error!("{:?}", e);
             super::Error::internal_error()
         })?;
-        info!("{}", db.is_autocommit());
 
-        let query = match params.input() {
-            Some(input) => format!("SELECT * FROM bookmark WHERE name LIKE '{}'", input),
-            None => format!("SELECT * FROM bookmark"),
+        info!("Connected to db");
+
+        let (query, args) = match params.input() {
+            Some(input) => ("SELECT * FROM bookmark WHERE name LIKE ?", vec![input]),
+            None => ("SELECT * FROM bookmark", Vec::new()),
         };
 
-        match db.execute(query) {
+        info!("Executing query {}", query);
+
+        match db.execute(query, &args) {
             Ok(count) => info!("Success: {}", count),
             Err(e) => error!("{:?}", e),
         }
