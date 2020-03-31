@@ -28,7 +28,7 @@ impl BookmarkController {
         info!("Connected to db");
 
         let mut stmt = db
-            .prepare("SELECT url, name, description FROM bookmark WHERE name LIKE '?'")
+            .prepare("SELECT url, name, description FROM bookmark WHERE name LIKE ?1")
             .map_err(|e| {
                 error!("{:?}", e);
                 super::Error::internal_error()
