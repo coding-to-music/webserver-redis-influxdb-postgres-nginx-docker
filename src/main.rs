@@ -27,7 +27,7 @@ async fn main() {
         .and_then(move |body| handle_request(app.clone(), body))
         .with(log);
 
-    warp::serve(handler).run(([127, 0, 0, 1], 3000)).await;
+    warp::serve(handler).run(([0, 0, 0, 0], 3000)).await;
 }
 
 pub struct App {
