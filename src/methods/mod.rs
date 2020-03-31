@@ -144,9 +144,15 @@ impl Error {
     }
 }
 
-impl From<Infallible> for super::Error {
+impl From<Infallible> for Error {
     fn from(_: Infallible) -> Self {
         unreachable!()
+    }
+}
+
+impl From<rusqlite::Error> for Error {
+    fn from(_: rusqlite::Error) -> Self {
+        Self::internal_error()
     }
 }
 
