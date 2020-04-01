@@ -31,24 +31,18 @@ async fn main() {
 }
 
 pub struct App {
-    sleep_controller: SleepController,
-    math_controller: MathController,
-    geofencing_controller: GeofencingController,
     bookmark_controller: BookmarkController,
 }
 
 impl App {
     pub fn new() -> Self {
         Self {
-            sleep_controller: SleepController::new(),
-            math_controller: MathController::new(),
-            geofencing_controller: GeofencingController::new(),
             bookmark_controller: BookmarkController::new(),
         }
     }
 
     async fn handle_single(&self, req: JsonRpcRequest) -> JsonRpcResponse {
-        let version = req.version().clone();
+        let jsonrpc = req.version().clone();
         let id = req.id().clone();
         let now = std::time::Instant::now();
         info!(
@@ -57,40 +51,23 @@ impl App {
             req.method()
         );
         let response = match Method::from_str(req.method()) {
-            Err(_) => JsonRpcResponse::error(version, Error::method_not_found(), id),
+            Err(_) => JsonRpcResponse::error(jsonrpc, Error::method_not_found(), id),
             Ok(method) => match method {
-                Method::Sleep => JsonRpcResponse::from_result(
-                    version,
-                    self.sleep_controller.sleep(req.params().to_owned()).await,
-                    id,
-                ),
-                Method::Add => JsonRpcResponse::from_result(
-                    version,
-                    self.math_controller.add(req.params().to_owned()),
-                    id,
-                ),
-                Method::Subtract => JsonRpcResponse::from_result(
-                    version,
-                    self.math_controller.subtract(req.params().to_owned()),
-                    id,
-                ),
-                Method::GetGeofence => JsonRpcResponse::from_result(
-                    version,
-                    self.geofencing_controller
-                        .get_geofence(req.params().to_owned())
-                        .await,
-                    id,
-                ),
                 Method::SearchBookmark => JsonRpcResponse::from_result(
-                    version,
+                    jsonrpc,
                     self.bookmark_controller
                         .search(req.params().to_owned())
                         .await,
                     id,
                 ),
                 Method::AddBookmark => JsonRpcResponse::from_result(
-                    version,
+                    jsonrpc,
                     self.bookmark_controller.add(req.params().to_owned()).await,
+                    id,
+                ),
+                Method::DeleteBookmark => JsonRpcResponse::from_result(
+                    jsonrpc,
+                    self.bookmark_controller.delete(req.params().to_owned()).await,
                     id,
                 ),
             },

@@ -1,15 +1,9 @@
 pub use bookmark::BookmarkController;
-pub use geofencing::GeofencingController;
-pub use math::MathController;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-pub use sleep::SleepController;
 use std::{convert::Infallible, str::FromStr};
 
 mod bookmark;
-mod geofencing;
-mod math;
-mod sleep;
 
 #[derive(Serialize, Deserialize, Clone)]
 pub enum JsonRpcVersion {
@@ -177,24 +171,18 @@ impl From<ErrorCode> for i32 {
 }
 
 pub enum Method {
-    Sleep,
-    Add,
-    Subtract,
-    GetGeofence,
     SearchBookmark,
     AddBookmark,
+    DeleteBookmark,
 }
 
 impl FromStr for Method {
     type Err = ();
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s {
-            "sleep" => Ok(Self::Sleep),
-            "add" => Ok(Self::Add),
-            "subtract" => Ok(Self::Subtract),
-            "get_geofence" => Ok(Self::GetGeofence),
             "search_bookmark" => Ok(Self::SearchBookmark),
             "add_bookmark" => Ok(Self::AddBookmark),
+            "delete_bookmark" => Ok(Self::DeleteBookmark),
             _ => Err(()),
         }
     }

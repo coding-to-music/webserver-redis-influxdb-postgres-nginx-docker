@@ -24,16 +24,20 @@ impl BookmarkController {
 
     fn insert_bookmark(&self, bookmark: Bookmark) {
         let db = self.get_connection().ok();
-        match db {
-            None => return,
-            Some(db) => {
-                db.execute(
-                    "INSERT INTO bookmark (url, name, description)
-                    VALUES (?1, ?2, ?3)",
-                    params![bookmark.url, bookmark.name, bookmark.description],
-                )
+        if let Some(db) = db {
+            db.execute(
+                "INSERT INTO bookmark (name, url) VALUES (?1, ?2)",
+                params![bookmark.name, bookmark.url],
+            )
+            .ok();
+        }
+    }
+
+    fn delete_bookmark(&self, id: u32) {
+        let db = self.get_connection().ok();
+        if let Some(db) = db {
+            db.execute("DELETE FROM bookmark WHERE id = ?1", params![id])
                 .ok();
-            }
         }
     }
 
@@ -47,7 +51,7 @@ impl BookmarkController {
         let db = self.get_connection()?;
 
         let mut stmt = db
-            .prepare("SELECT url, name, description FROM bookmark WHERE name LIKE ?1")
+            .prepare("SELECT name, url FROM bookmark WHERE name LIKE %?1%")
             .map_err(|e| {
                 error!("{:?}", e);
                 super::Error::internal_error()
@@ -57,7 +61,7 @@ impl BookmarkController {
 
         let bookmarks: Vec<_> = stmt
             .query_map(params![params.input()], |row| {
-                Ok(Bookmark::new(row.get(0)?, row.get(1)?, row.get(2)?))
+                Ok(Bookmark::new(row.get(0)?, row.get(1)?))
             })?
             .filter_map(|b| b.ok())
             .collect();
@@ -75,22 +79,30 @@ impl BookmarkController {
 
         Ok(add::AddBookmarkResult::new())
     }
+
+    pub async fn delete<
+        T: TryInto<delete::DeleteBookmarkParams, Error = delete::DeleteBookmarkParamsInvalid>,
+    >(
+        &self,
+        params: T,
+    ) -> Result<delete::DeleteBookmarkResult, super::Error> {
+        let params = params.try_into()?;
+
+        self.delete_bookmark(params.id);
+
+        Ok(delete::DeleteBookmarkResult::new())
+    }
 }
 
 #[derive(serde::Deserialize, serde::Serialize, Debug, Clone)]
 pub struct Bookmark {
-    url: String,
     name: String,
-    description: String,
+    url: String,
 }
 
 impl Bookmark {
-    pub fn new(url: String, name: String, description: String) -> Self {
-        Self {
-            url,
-            name,
-            description,
-        }
+    pub fn new(name: String, url: String) -> Self {
+        Self { name, url }
     }
 }
 
@@ -179,6 +191,44 @@ mod add {
     pub struct AddBookmarkResult {}
 
     impl AddBookmarkResult {
+        pub fn new() -> Self {
+            Self {}
+        }
+    }
+}
+
+mod delete {
+    use std::convert::TryFrom;
+
+    #[derive(serde::Deserialize)]
+    pub struct DeleteBookmarkParams {
+        pub(super) id: u32,
+    }
+
+    impl TryFrom<serde_json::Value> for DeleteBookmarkParams {
+        type Error = DeleteBookmarkParamsInvalid;
+        fn try_from(value: serde_json::Value) -> Result<Self, Self::Error> {
+            let params = serde_json::from_value(value)
+                .map_err(|_| DeleteBookmarkParamsInvalid::InvalidFormat)?;
+
+            Ok(params)
+        }
+    }
+
+    pub enum DeleteBookmarkParamsInvalid {
+        InvalidFormat,
+    }
+
+    impl From<DeleteBookmarkParamsInvalid> for crate::methods::Error {
+        fn from(_: DeleteBookmarkParamsInvalid) -> Self {
+            Self::internal_error()
+        }
+    }
+
+    #[derive(serde::Serialize)]
+    pub struct DeleteBookmarkResult {}
+
+    impl DeleteBookmarkResult {
         pub fn new() -> Self {
             Self {}
         }
