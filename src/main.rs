@@ -67,7 +67,9 @@ impl App {
                 ),
                 Method::DeleteBookmark => JsonRpcResponse::from_result(
                     jsonrpc,
-                    self.bookmark_controller.delete(req.params().to_owned()).await,
+                    self.bookmark_controller
+                        .delete(req.params().to_owned())
+                        .await,
                     id,
                 ),
             },

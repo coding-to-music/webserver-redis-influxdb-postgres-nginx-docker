@@ -51,7 +51,7 @@ impl BookmarkController {
         let db = self.get_connection()?;
 
         let mut stmt = db
-            .prepare("SELECT name, url FROM bookmark WHERE name LIKE %?1%")
+            .prepare("SELECT name, url FROM bookmark WHERE name LIKE ?1")
             .map_err(|e| {
                 error!("{:?}", e);
                 super::Error::internal_error()
@@ -60,7 +60,7 @@ impl BookmarkController {
         info!("Executing query {:?}", stmt);
 
         let bookmarks: Vec<_> = stmt
-            .query_map(params![params.input()], |row| {
+            .query_map(params![format!("%{}%", params.input())], |row| {
                 Ok(Bookmark::new(row.get(0)?, row.get(1)?))
             })?
             .filter_map(|b| b.ok())
