@@ -183,7 +183,7 @@ mod add {
 
     impl From<AddBookmarkParamsInvalid> for crate::methods::Error {
         fn from(_: AddBookmarkParamsInvalid) -> Self {
-            Self::internal_error()
+            Self::invalid_params()
         }
     }
 
