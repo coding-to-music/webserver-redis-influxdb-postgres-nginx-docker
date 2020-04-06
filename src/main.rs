@@ -7,18 +7,12 @@ use std::{fmt::Debug, str::FromStr, sync::Arc};
 use warp::Filter;
 use warp::Reply;
 
+mod methods;
+
 #[macro_use]
 extern crate log;
-#[macro_use]
-extern crate lazy_static;
 
-use actix_web::{middleware, App, HttpServer};
-use dotenv::dotenv;
-
-mod app;
-mod controllers;
-
-#[actix_rt::main]
+#[tokio::main]
 async fn main() {
     dotenv().ok();
     pretty_env_logger::init();

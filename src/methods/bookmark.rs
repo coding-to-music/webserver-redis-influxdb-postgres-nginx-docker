@@ -15,30 +15,31 @@ impl BookmarkController {
 
     fn get_connection(&self) -> Result<Connection, super::Error> {
         let db = Connection::open(&self.db_path).map_err(|e| {
-            error!("{:?}", e);
+            error!("failed to connect to database: {:?}", e);
             super::Error::internal_error()
-        });
+        })?;
+
         info!("Connected to db");
-        db
+        Ok(db)
     }
 
-    fn insert_bookmark(&self, bookmark: Bookmark) {
-        let db = self.get_connection().ok();
-        if let Some(db) = db {
-            db.execute(
-                "INSERT INTO bookmark (name, url) VALUES (?1, ?2)",
-                params![bookmark.name, bookmark.url],
-            )
-            .ok();
-        }
+    fn insert_bookmark(&self, bookmark: Bookmark) -> Result<bool, super::Error> {
+        let db = self.get_connection()?;
+
+        let changed_rows = db.execute(
+            "INSERT INTO bookmark (name, url) VALUES (?1, ?2)",
+            params![bookmark.name, bookmark.url],
+        )?;
+
+        Ok(changed_rows == 1)
     }
 
-    fn delete_bookmark(&self, id: u32) {
-        let db = self.get_connection().ok();
-        if let Some(db) = db {
-            db.execute("DELETE FROM bookmark WHERE id = ?1", params![id])
-                .ok();
-        }
+    fn delete_bookmark(&self, id: u32) -> Result<bool, super::Error> {
+        let db = self.get_connection()?;
+
+        let changed_rows = db.execute("DELETE FROM bookmark WHERE id = ?1", params![id])?;
+
+        Ok(changed_rows == 1)
     }
 
     pub async fn search<
@@ -75,9 +76,9 @@ impl BookmarkController {
     ) -> Result<add::AddBookmarkResult, super::Error> {
         let params = params.try_into()?;
 
-        self.insert_bookmark(params.bookmark);
+        let result = self.insert_bookmark(params.bookmark)?;
 
-        Ok(add::AddBookmarkResult::new())
+        Ok(add::AddBookmarkResult::new(result))
     }
 
     pub async fn delete<
@@ -88,9 +89,9 @@ impl BookmarkController {
     ) -> Result<delete::DeleteBookmarkResult, super::Error> {
         let params = params.try_into()?;
 
-        self.delete_bookmark(params.id);
+        let result = self.delete_bookmark(params.id)?;
 
-        Ok(delete::DeleteBookmarkResult::new())
+        Ok(delete::DeleteBookmarkResult::new(result))
     }
 }
 
@@ -188,11 +189,13 @@ mod add {
     }
 
     #[derive(serde::Serialize)]
-    pub struct AddBookmarkResult {}
+    pub struct AddBookmarkResult {
+        inserted: bool,
+    }
 
     impl AddBookmarkResult {
-        pub fn new() -> Self {
-            Self {}
+        pub fn new(inserted: bool) -> Self {
+            Self { inserted }
         }
     }
 }
@@ -226,11 +229,13 @@ mod delete {
     }
 
     #[derive(serde::Serialize)]
-    pub struct DeleteBookmarkResult {}
+    pub struct DeleteBookmarkResult {
+        deleted: bool,
+    }
 
     impl DeleteBookmarkResult {
-        pub fn new() -> Self {
-            Self {}
+        pub fn new(deleted: bool) -> Self {
+            Self { deleted }
         }
     }
 }
