@@ -1,11 +1,13 @@
 pub use bookmark::BookmarkController;
 pub use prediction::PredictionController;
+pub use sleep::SleepController;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::{convert::Infallible, str::FromStr};
 
 mod bookmark;
 mod prediction;
+mod sleep;
 
 #[derive(Serialize, Deserialize, Clone)]
 pub enum JsonRpcVersion {
@@ -175,6 +177,7 @@ pub enum Method {
     AddBookmark,
     DeleteBookmark,
     AddPrediction,
+    Sleep
 }
 
 impl FromStr for Method {
@@ -185,6 +188,7 @@ impl FromStr for Method {
             "add_bookmark" => Ok(Self::AddBookmark),
             "delete_bookmark" => Ok(Self::DeleteBookmark),
             "add_prediction" => Ok(Self::AddPrediction),
+            "sleep" => Ok(Self::Sleep),
             _ => Err(()),
         }
     }

@@ -33,6 +33,7 @@ async fn main() {
 pub struct App {
     bookmark_controller: BookmarkController,
     prediction_controller: PredictionController,
+    sleep_controller: SleepController,
 }
 
 impl App {
@@ -40,6 +41,7 @@ impl App {
         Self {
             bookmark_controller: BookmarkController::new(),
             prediction_controller: PredictionController::new(),
+            sleep_controller: SleepController::new(),
         }
     }
 
@@ -78,6 +80,11 @@ impl App {
                 Method::AddPrediction => JsonRpcResponse::from_result(
                     jsonrpc,
                     self.prediction_controller.add(req).await,
+                    id,
+                ),
+                Method::Sleep => JsonRpcResponse::from_result(
+                    jsonrpc,
+                    self.sleep_controller.sleep(req).await,
                     id,
                 ),
             },
