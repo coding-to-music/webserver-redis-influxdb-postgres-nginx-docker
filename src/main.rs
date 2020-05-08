@@ -52,39 +52,38 @@ impl App {
             id,
             req.method()
         );
-        let params_clone = req.params().clone();
+        let handled_message = format!(
+            "handled request with id {:?} and method: {}",
+            req.id(),
+            req.method()
+        );
         let response = match Method::from_str(req.method()) {
             Err(_) => JsonRpcResponse::error(jsonrpc, Error::method_not_found(), id),
             Ok(method) => match method {
                 Method::SearchBookmark => JsonRpcResponse::from_result(
                     jsonrpc,
-                    self.bookmark_controller.search(params_clone).await,
+                    self.bookmark_controller.search(req).await,
                     id,
                 ),
                 Method::AddBookmark => JsonRpcResponse::from_result(
                     jsonrpc,
-                    self.bookmark_controller.add(params_clone).await,
+                    self.bookmark_controller.add(req).await,
                     id,
                 ),
                 Method::DeleteBookmark => JsonRpcResponse::from_result(
                     jsonrpc,
-                    self.bookmark_controller.delete(params_clone).await,
+                    self.bookmark_controller.delete(req).await,
                     id,
                 ),
                 Method::AddPrediction => JsonRpcResponse::from_result(
                     jsonrpc,
-                    self.prediction_controller.add(params_clone).await,
+                    self.prediction_controller.add(req).await,
                     id,
                 ),
             },
         };
 
-        info!(
-            "handled request with id {:?} with method: {} in {:?}",
-            req.id(),
-            req.method(),
-            now.elapsed()
-        );
+        info!("{} in {:?}", handled_message, now.elapsed());
 
         response
     }

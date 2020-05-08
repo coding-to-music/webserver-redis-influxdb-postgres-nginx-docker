@@ -79,6 +79,13 @@ mod add {
         }
     }
 
+    impl TryFrom<crate::JsonRpcRequest> for AddPredictionParams {
+        type Error = AddPredictionParamsInvalid;
+        fn try_from(value: crate::JsonRpcRequest) -> Result<Self, Self::Error> {
+            value.params.try_into()
+        }
+    }
+
     pub enum AddPredictionParamsInvalid {
         InvalidFormat,
     }

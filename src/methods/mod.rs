@@ -32,10 +32,6 @@ impl JsonRpcRequest {
         &self.method
     }
 
-    pub fn params(&self) -> &Value {
-        &self.params
-    }
-
     pub fn id(&self) -> &Option<String> {
         &self.id
     }

@@ -142,6 +142,13 @@ mod search {
         }
     }
 
+    impl TryFrom<crate::JsonRpcRequest> for SearchBookmarkParams {
+        type Error = SearchBookmarkParamsInvalid;
+        fn try_from(value: crate::JsonRpcRequest) -> Result<Self, Self::Error> {
+            value.params.try_into()
+        }
+    }
+
     pub enum SearchBookmarkParamsInvalid {
         InvalidFormat,
         InputIsEmpty,
@@ -181,6 +188,13 @@ mod add {
                 .map_err(|_| AddBookmarkParamsInvalid::InvalidFormat)?;
 
             Ok(params)
+        }
+    }
+
+    impl TryFrom<crate::JsonRpcRequest> for AddBookmarkParams {
+        type Error = AddBookmarkParamsInvalid;
+        fn try_from(value: crate::JsonRpcRequest) -> Result<Self, Self::Error> {
+            value.params.try_into()
         }
     }
 
@@ -225,13 +239,20 @@ mod delete {
         }
     }
 
+    impl TryFrom<crate::JsonRpcRequest> for DeleteBookmarkParams {
+        type Error = DeleteBookmarkParamsInvalid;
+        fn try_from(value: crate::JsonRpcRequest) -> Result<Self, Self::Error> {
+            value.params.try_into()
+        }
+    }
+
     pub enum DeleteBookmarkParamsInvalid {
         InvalidFormat,
     }
 
     impl From<DeleteBookmarkParamsInvalid> for crate::methods::Error {
         fn from(_: DeleteBookmarkParamsInvalid) -> Self {
-            Self::internal_error()
+            Self::invalid_params()
         }
     }
 
