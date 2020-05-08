@@ -155,8 +155,13 @@ mod search {
     }
 
     impl From<SearchBookmarkParamsInvalid> for crate::methods::Error {
-        fn from(_: SearchBookmarkParamsInvalid) -> Self {
-            Self::invalid_params()
+        fn from(error: SearchBookmarkParamsInvalid) -> Self {
+            match error {
+                SearchBookmarkParamsInvalid::InvalidFormat => Self::invalid_params(),
+                SearchBookmarkParamsInvalid::InputIsEmpty => {
+                    Self::invalid_params().with_data("input can't be empty")
+                }
+            }
         }
     }
 
