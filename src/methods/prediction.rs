@@ -60,6 +60,12 @@ pub struct Prediction {
     passphrase: String,
 }
 
+impl Prediction {
+    fn has_strong_passphrase(&self) -> bool {
+        self.passphrase.len() > 10
+    }
+}
+
 mod add {
     use super::*;
     use std::convert::TryFrom;
@@ -72,10 +78,14 @@ mod add {
     impl TryFrom<serde_json::Value> for AddPredictionParams {
         type Error = AddPredictionParamsInvalid;
         fn try_from(value: serde_json::Value) -> Result<Self, Self::Error> {
-            let params = serde_json::from_value(value)
+            let params: AddPredictionParams = serde_json::from_value(value)
                 .map_err(|_| AddPredictionParamsInvalid::InvalidFormat)?;
 
-            Ok(params)
+            if !params.prediction.has_strong_passphrase() {
+                Err(AddPredictionParamsInvalid::WeakPassphrase)
+            } else {
+                Ok(params)
+            }
         }
     }
 
@@ -88,11 +98,16 @@ mod add {
 
     pub enum AddPredictionParamsInvalid {
         InvalidFormat,
+        WeakPassphrase,
     }
 
     impl From<AddPredictionParamsInvalid> for crate::methods::Error {
-        fn from(_: AddPredictionParamsInvalid) -> Self {
-            Self::invalid_params()
+        fn from(error: AddPredictionParamsInvalid) -> Self {
+            match error {
+                AddPredictionParamsInvalid::InvalidFormat => Self::invalid_params(),
+                AddPredictionParamsInvalid::WeakPassphrase => Self::invalid_params()
+                    .with_data("please use a passphrase with more than 10 characters"),
+            }
         }
     }
 
