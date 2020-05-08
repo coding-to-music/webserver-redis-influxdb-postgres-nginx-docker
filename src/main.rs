@@ -52,33 +52,28 @@ impl App {
             id,
             req.method()
         );
+        let params_clone = req.params().clone();
         let response = match Method::from_str(req.method()) {
             Err(_) => JsonRpcResponse::error(jsonrpc, Error::method_not_found(), id),
             Ok(method) => match method {
                 Method::SearchBookmark => JsonRpcResponse::from_result(
                     jsonrpc,
-                    self.bookmark_controller
-                        .search(req.params().to_owned())
-                        .await,
+                    self.bookmark_controller.search(params_clone).await,
                     id,
                 ),
                 Method::AddBookmark => JsonRpcResponse::from_result(
                     jsonrpc,
-                    self.bookmark_controller.add(req.params().to_owned()).await,
+                    self.bookmark_controller.add(params_clone).await,
                     id,
                 ),
                 Method::DeleteBookmark => JsonRpcResponse::from_result(
                     jsonrpc,
-                    self.bookmark_controller
-                        .delete(req.params().to_owned())
-                        .await,
+                    self.bookmark_controller.delete(params_clone).await,
                     id,
                 ),
                 Method::AddPrediction => JsonRpcResponse::from_result(
                     jsonrpc,
-                    self.prediction_controller
-                        .add(req.params().to_owned())
-                        .await,
+                    self.prediction_controller.add(params_clone).await,
                     id,
                 ),
             },
@@ -101,6 +96,12 @@ impl App {
                 .collect::<Vec<_>>(),
         )
         .await
+    }
+}
+
+impl Default for App {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
@@ -134,7 +135,7 @@ where
     <T as FromStr>::Err: Debug,
 {
     std::env::var(var)
-        .expect(&format!(r#"could not find env var "{}""#, var))
+        .unwrap_or_else(|_| panic!(r#"could not find env var "{}""#, var))
         .parse()
-        .expect(&format!(r#"could not parse env var "{}""#, var))
+        .unwrap_or_else(|_| panic!(r#"could not parse env var "{}""#, var))
 }

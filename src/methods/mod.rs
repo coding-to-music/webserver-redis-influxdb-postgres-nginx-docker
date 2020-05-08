@@ -94,6 +94,7 @@ pub struct Error {
 }
 
 impl Error {
+    #[allow(dead_code)]
     pub fn new(code: i32, message: String) -> Self {
         Self {
             code,
@@ -102,6 +103,7 @@ impl Error {
         }
     }
 
+    #[allow(dead_code)]
     pub fn with_data<T: Serialize>(mut self, data: T) -> Self {
         self.data = Some(serde_json::to_value(data).expect("infallible"));
         self
