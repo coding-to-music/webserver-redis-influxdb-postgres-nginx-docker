@@ -4,6 +4,7 @@ pub struct SleepController;
 
 impl SleepController {
     pub fn new() -> Self {
+        info!("Creating new SleepController");
         Self
     }
 
