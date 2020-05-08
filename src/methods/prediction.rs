@@ -1,4 +1,5 @@
 use super::Database;
+use chrono::prelude::*;
 use rusqlite::{params, Connection};
 use std::convert::TryInto;
 
@@ -29,13 +30,11 @@ impl PredictionController {
     fn insert_prediction(&self, prediction: Prediction) -> Result<bool, super::Error> {
         let db = self.get_connection()?;
 
+        let timestamp = Utc::now().timestamp() as u32;
+
         let changed_rows = db.execute(
             "INSERT INTO prediction (text, timestamp_s, passphrase) VALUES (?1, ?2, ?3)",
-            params![
-                prediction.text,
-                prediction.timestamp_s,
-                prediction.passphrase
-            ],
+            params![prediction.text, timestamp, prediction.passphrase],
         )?;
 
         Ok(changed_rows == 1)
@@ -58,7 +57,6 @@ impl PredictionController {
 #[derive(serde::Deserialize, serde::Serialize, Debug, Clone)]
 pub struct Prediction {
     text: String,
-    timestamp_s: u32,
     passphrase: String,
 }
 
