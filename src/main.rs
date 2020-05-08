@@ -32,12 +32,14 @@ async fn main() {
 
 pub struct App {
     bookmark_controller: BookmarkController,
+    prediction_controller: PredictionController,
 }
 
 impl App {
     pub fn new() -> Self {
         Self {
             bookmark_controller: BookmarkController::new(),
+            prediction_controller: PredictionController::new(),
         }
     }
 
@@ -69,6 +71,13 @@ impl App {
                     jsonrpc,
                     self.bookmark_controller
                         .delete(req.params().to_owned())
+                        .await,
+                    id,
+                ),
+                Method::AddPrediction => JsonRpcResponse::from_result(
+                    jsonrpc,
+                    self.prediction_controller
+                        .add(req.params().to_owned())
                         .await,
                     id,
                 ),

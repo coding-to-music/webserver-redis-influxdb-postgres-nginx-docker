@@ -1,8 +1,21 @@
+use super::Database;
 use rusqlite::{params, Connection};
 use std::convert::TryInto;
 
 pub struct BookmarkController {
     db_path: String,
+}
+
+impl Database for BookmarkController {
+    fn get_connection(&self) -> Result<Connection, super::Error> {
+        let db = Connection::open(&self.db_path).map_err(|e| {
+            error!("Failed to connect to database: {:?}", e);
+            super::Error::internal_error()
+        })?;
+
+        info!("Connected to db");
+        Ok(db)
+    }
 }
 
 impl BookmarkController {
@@ -11,16 +24,6 @@ impl BookmarkController {
         let db_path = crate::get_env_var("WEBSERVER_SQLITE_PATH");
 
         Self { db_path }
-    }
-
-    fn get_connection(&self) -> Result<Connection, super::Error> {
-        let db = Connection::open(&self.db_path).map_err(|e| {
-            error!("failed to connect to database: {:?}", e);
-            super::Error::internal_error()
-        })?;
-
-        info!("Connected to db");
-        Ok(db)
     }
 
     fn insert_bookmark(&self, bookmark: Bookmark) -> Result<bool, super::Error> {
@@ -34,10 +37,13 @@ impl BookmarkController {
         Ok(changed_rows == 1)
     }
 
-    fn delete_bookmark(&self, id: u32) -> Result<bool, super::Error> {
+    fn delete_bookmark(&self, bookmark: Bookmark) -> Result<bool, super::Error> {
         let db = self.get_connection()?;
 
-        let changed_rows = db.execute("DELETE FROM bookmark WHERE id = ?1", params![id])?;
+        let changed_rows = db.execute(
+            "DELETE FROM bookmark WHERE name = ?1 AND url = ?2",
+            params![bookmark.name, bookmark.url],
+        )?;
 
         Ok(changed_rows == 1)
     }
@@ -89,7 +95,7 @@ impl BookmarkController {
     ) -> Result<delete::DeleteBookmarkResult, super::Error> {
         let params = params.try_into()?;
 
-        let result = self.delete_bookmark(params.id)?;
+        let result = self.delete_bookmark(params.bookmark)?;
 
         Ok(delete::DeleteBookmarkResult::new(result))
     }
@@ -201,11 +207,12 @@ mod add {
 }
 
 mod delete {
+    use super::*;
     use std::convert::TryFrom;
 
     #[derive(serde::Deserialize)]
     pub struct DeleteBookmarkParams {
-        pub(super) id: u32,
+        pub(super) bookmark: Bookmark,
     }
 
     impl TryFrom<serde_json::Value> for DeleteBookmarkParams {

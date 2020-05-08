@@ -1,9 +1,11 @@
 pub use bookmark::BookmarkController;
+pub use prediction::PredictionController;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::{convert::Infallible, str::FromStr};
 
 mod bookmark;
+mod prediction;
 
 #[derive(Serialize, Deserialize, Clone)]
 pub enum JsonRpcVersion {
@@ -174,6 +176,7 @@ pub enum Method {
     SearchBookmark,
     AddBookmark,
     DeleteBookmark,
+    AddPrediction,
 }
 
 impl FromStr for Method {
@@ -183,7 +186,12 @@ impl FromStr for Method {
             "search_bookmark" => Ok(Self::SearchBookmark),
             "add_bookmark" => Ok(Self::AddBookmark),
             "delete_bookmark" => Ok(Self::DeleteBookmark),
+            "add_prediction" => Ok(Self::AddPrediction),
             _ => Err(()),
         }
     }
+}
+
+trait Database {
+    fn get_connection(&self) -> Result<rusqlite::Connection, Error>;
 }
