@@ -83,6 +83,10 @@ mod add {
 
             if !params.prediction.has_strong_passphrase() {
                 Err(AddPredictionParamsInvalid::WeakPassphrase)
+            } else if params.prediction.text.is_empty() {
+                Err(AddPredictionParamsInvalid::EmptyText)
+            } else if params.prediction.text.len() > 50 {
+                Err(AddPredictionParamsInvalid::TextTooLong)
             } else {
                 Ok(params)
             }
@@ -99,6 +103,8 @@ mod add {
     pub enum AddPredictionParamsInvalid {
         InvalidFormat,
         WeakPassphrase,
+        EmptyText,
+        TextTooLong,
     }
 
     impl From<AddPredictionParamsInvalid> for crate::methods::Error {
@@ -107,6 +113,11 @@ mod add {
                 AddPredictionParamsInvalid::InvalidFormat => Self::invalid_params(),
                 AddPredictionParamsInvalid::WeakPassphrase => Self::invalid_params()
                     .with_data("please use a passphrase with more than 10 characters"),
+                AddPredictionParamsInvalid::EmptyText => {
+                    Self::invalid_params().with_data("prediction can't be empty")
+                }
+                AddPredictionParamsInvalid::TextTooLong => Self::invalid_params()
+                    .with_data("prediction must not be longer than 50 characters"),
             }
         }
     }
