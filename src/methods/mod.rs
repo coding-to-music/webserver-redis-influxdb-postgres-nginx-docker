@@ -3,9 +3,11 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 pub use sleep::SleepController;
 use std::{convert::Infallible, str::FromStr};
+pub use user::UserController;
 
 mod prediction;
 mod sleep;
+mod user;
 
 #[derive(Serialize, Deserialize, Clone)]
 pub enum JsonRpcVersion {
@@ -169,6 +171,8 @@ pub enum Method {
     DeletePredictions,
     /// Sleep for a specified amount of time
     Sleep,
+    /// Add a user
+    AddUser,
 }
 
 impl FromStr for Method {
@@ -178,6 +182,7 @@ impl FromStr for Method {
             "add_prediction" => Ok(Self::AddPrediction),
             "get_predictions" => Ok(Self::GetPredictions),
             "delete_predictions" => Ok(Self::DeletePredictions),
+            "add_user" => Ok(Self::AddUser),
             "sleep" => Ok(Self::Sleep),
             _ => Err(()),
         }

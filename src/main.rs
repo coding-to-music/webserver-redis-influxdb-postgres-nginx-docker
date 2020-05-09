@@ -32,14 +32,16 @@ async fn main() {
 
 pub struct App {
     prediction_controller: PredictionController,
+    user_controller: UserController,
     sleep_controller: SleepController,
 }
 
 impl App {
     pub fn new() -> Self {
-        let webserver_db_path = get_env_var("WEBSERVER_SQLITE_PATH");
+        let webserver_db_path: String = get_env_var("WEBSERVER_SQLITE_PATH");
         Self {
-            prediction_controller: PredictionController::new(webserver_db_path),
+            prediction_controller: PredictionController::new(webserver_db_path.clone()),
+            user_controller: UserController::new(webserver_db_path.clone()),
             sleep_controller: SleepController::new(),
         }
     }
@@ -77,6 +79,9 @@ impl App {
                     self.prediction_controller.delete(req).await,
                     id,
                 ),
+                Method::AddUser => {
+                    JsonRpcResponse::from_result(jsonrpc, self.user_controller.add(req).await, id)
+                }
                 Method::Sleep => JsonRpcResponse::from_result(
                     jsonrpc,
                     self.sleep_controller.sleep(req).await,
