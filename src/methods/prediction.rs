@@ -52,8 +52,6 @@ impl PredictionController {
                 super::Error::internal_error()
             })?;
 
-        info!("Executing query {:?}", stmt);
-
         let prediction_rows: Vec<_> = stmt
             .query_map(params![passphrase], |row| {
                 Ok(PredictionRow::new(row.get(0)?, row.get(1)?, row.get(2)?))
@@ -84,10 +82,12 @@ impl PredictionController {
         let params = params.try_into()?;
 
         let prediction_row = PredictionRow::new(
-            params.prediction.text,
+            params.prediction().text().to_owned(),
             Utc::now().timestamp() as u32,
-            params.prediction.passphrase,
+            params.prediction().passphrase().to_owned(),
         );
+
+        info!("inserting prediction: {:?}", prediction_row);
 
         let result = self.insert_prediction(prediction_row)?;
 
@@ -106,7 +106,7 @@ impl PredictionController {
 
         let predictions: Vec<_> = prediction_rows
             .into_iter()
-            .map(|row| Prediction::from(row))
+            .map(|row| get::Prediction::from(row))
             .collect();
 
         Ok(get::GetPredictionsResult::new(predictions))
@@ -126,6 +126,7 @@ impl PredictionController {
     }
 }
 
+#[derive(Debug)]
 struct PredictionRow {
     text: String,
     timestamp_s: u32,
@@ -142,35 +143,39 @@ impl PredictionRow {
     }
 }
 
-#[derive(serde::Deserialize, serde::Serialize, Debug, Clone)]
-pub struct Prediction {
-    text: String,
-    passphrase: String,
-}
-
-impl Prediction {
-    pub fn new(text: String, passphrase: String) -> Self {
-        Self { text, passphrase }
-    }
-
-    fn has_strong_passphrase(&self) -> bool {
-        self.passphrase.len() > 10
-    }
-}
-
-impl From<PredictionRow> for Prediction {
-    fn from(row: PredictionRow) -> Self {
-        Prediction::new(row.text, row.passphrase)
-    }
-}
-
 mod add {
     use super::*;
     use std::convert::TryFrom;
 
     #[derive(serde::Deserialize)]
+    pub struct Prediction {
+        text: String,
+        passphrase: String,
+    }
+
+    impl Prediction {
+        pub fn text(&self) -> &str {
+            &self.text
+        }
+
+        pub fn passphrase(&self) -> &str {
+            &self.passphrase
+        }
+
+        fn has_strong_passphrase(&self) -> bool {
+            self.passphrase.len() > 10
+        }
+    }
+
+    #[derive(serde::Deserialize)]
     pub struct AddPredictionParams {
-        pub(super) prediction: Prediction,
+        prediction: Prediction,
+    }
+
+    impl AddPredictionParams {
+        pub fn prediction(&self) -> &Prediction {
+            &self.prediction
+        }
     }
 
     impl TryFrom<serde_json::Value> for AddPredictionParams {
@@ -235,6 +240,24 @@ mod add {
 mod get {
     use super::*;
     use std::convert::TryFrom;
+
+    #[derive(serde::Serialize)]
+    pub struct Prediction {
+        text: String,
+        timestamp_s: u32,
+    }
+
+    impl Prediction {
+        pub fn new(text: String, timestamp_s: u32) -> Self {
+            Self { text, timestamp_s }
+        }
+    }
+
+    impl From<PredictionRow> for Prediction {
+        fn from(row: PredictionRow) -> Self {
+            Self::new(row.text, row.timestamp_s)
+        }
+    }
 
     #[derive(serde::Deserialize)]
     pub struct GetPredictionsParams {
