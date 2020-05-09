@@ -245,17 +245,24 @@ mod get {
     pub struct Prediction {
         text: String,
         timestamp_s: u32,
+        timestamp_nice: String,
     }
 
     impl Prediction {
-        pub fn new(text: String, timestamp_s: u32) -> Self {
-            Self { text, timestamp_s }
+        pub fn new(text: String, timestamp_s: u32, timestamp_nice: String) -> Self {
+            Self {
+                text,
+                timestamp_s,
+                timestamp_nice,
+            }
         }
     }
 
     impl From<PredictionRow> for Prediction {
         fn from(row: PredictionRow) -> Self {
-            Self::new(row.text, row.timestamp_s)
+            let datetime = chrono::NaiveDateTime::from_timestamp(row.timestamp_s as i64, 0);
+
+            Self::new(row.text, row.timestamp_s, datetime.to_string())
         }
     }
 
