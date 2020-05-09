@@ -27,17 +27,52 @@ impl PredictionController {
         Self { db_path }
     }
 
-    fn insert_prediction(&self, prediction: Prediction) -> Result<bool, super::Error> {
+    fn insert_prediction(&self, prediction: PredictionRow) -> Result<bool, super::Error> {
         let db = self.get_connection()?;
-
-        let timestamp = Utc::now().timestamp() as u32;
 
         let changed_rows = db.execute(
             "INSERT INTO prediction (text, timestamp_s, passphrase) VALUES (?1, ?2, ?3)",
-            params![prediction.text, timestamp, prediction.passphrase],
+            params![
+                prediction.text,
+                prediction.timestamp_s,
+                prediction.passphrase
+            ],
         )?;
 
         Ok(changed_rows == 1)
+    }
+
+    fn get_predictions(&self, passphrase: &str) -> Result<Vec<PredictionRow>, super::Error> {
+        let db = self.get_connection()?;
+
+        let mut stmt = db
+            .prepare("SELECT text, timestamp_s, passphrase FROM prediction WHERE passphrase = ?1")
+            .map_err(|e| {
+                error!("{:?}", e);
+                super::Error::internal_error()
+            })?;
+
+        info!("Executing query {:?}", stmt);
+
+        let prediction_rows: Vec<_> = stmt
+            .query_map(params![passphrase], |row| {
+                Ok(PredictionRow::new(row.get(0)?, row.get(1)?, row.get(2)?))
+            })?
+            .filter_map(|b| b.ok())
+            .collect();
+
+        Ok(prediction_rows)
+    }
+
+    fn delete_predictions(&self, passphrase: &str) -> Result<usize, crate::Error> {
+        let db = self.get_connection()?;
+
+        let changed_rows = db.execute(
+            "DELETE FROM prediction WHERE passphrase = ?1",
+            params![passphrase],
+        )?;
+
+        Ok(changed_rows)
     }
 
     pub async fn add<
@@ -48,9 +83,62 @@ impl PredictionController {
     ) -> Result<add::AddPredictionResult, super::Error> {
         let params = params.try_into()?;
 
-        let result = self.insert_prediction(params.prediction)?;
+        let prediction_row = PredictionRow::new(
+            params.prediction.text,
+            Utc::now().timestamp() as u32,
+            params.prediction.passphrase,
+        );
+
+        let result = self.insert_prediction(prediction_row)?;
 
         Ok(add::AddPredictionResult::new(result))
+    }
+
+    pub async fn get<
+        T: TryInto<get::GetPredictionsParams, Error = get::GetPredictionsParamsInvalid>,
+    >(
+        &self,
+        params: T,
+    ) -> Result<get::GetPredictionsResult, crate::Error> {
+        let params = params.try_into()?;
+
+        let prediction_rows = self.get_predictions(params.passphrase())?;
+
+        let predictions: Vec<_> = prediction_rows
+            .into_iter()
+            .map(|row| Prediction::from(row))
+            .collect();
+
+        Ok(get::GetPredictionsResult::new(predictions))
+    }
+
+    pub async fn delete<
+        T: TryInto<delete::DeletePredictionsParams, Error = delete::DeletePredictionsParamsInvalid>,
+    >(
+        &self,
+        params: T,
+    ) -> Result<delete::DeletePredictionsResult, crate::Error> {
+        let params: delete::DeletePredictionsParams = params.try_into()?;
+
+        let deleted_rows = self.delete_predictions(params.passphrase())?;
+
+        Ok(delete::DeletePredictionsResult::new(deleted_rows))
+    }
+}
+
+struct PredictionRow {
+    text: String,
+    timestamp_s: u32,
+    passphrase: String,
+}
+
+impl PredictionRow {
+    fn new(text: String, timestamp_s: u32, passphrase: String) -> Self {
+        Self {
+            text,
+            timestamp_s,
+            passphrase,
+        }
     }
 }
 
@@ -61,8 +149,18 @@ pub struct Prediction {
 }
 
 impl Prediction {
+    pub fn new(text: String, passphrase: String) -> Self {
+        Self { text, passphrase }
+    }
+
     fn has_strong_passphrase(&self) -> bool {
         self.passphrase.len() > 10
+    }
+}
+
+impl From<PredictionRow> for Prediction {
+    fn from(row: PredictionRow) -> Self {
+        Prediction::new(row.text, row.passphrase)
     }
 }
 
@@ -130,6 +228,134 @@ mod add {
     impl AddPredictionResult {
         pub fn new(inserted: bool) -> Self {
             Self { inserted }
+        }
+    }
+}
+
+mod get {
+    use super::*;
+    use std::convert::TryFrom;
+
+    #[derive(serde::Deserialize)]
+    pub struct GetPredictionsParams {
+        passphrase: String,
+    }
+
+    impl GetPredictionsParams {
+        pub fn passphrase(&self) -> &str {
+            &self.passphrase
+        }
+    }
+
+    impl TryFrom<serde_json::Value> for GetPredictionsParams {
+        type Error = GetPredictionsParamsInvalid;
+        fn try_from(value: serde_json::Value) -> Result<Self, Self::Error> {
+            let params: Self = serde_json::from_value(value)
+                .map_err(|_| GetPredictionsParamsInvalid::InvalidFormat)?;
+
+            if params.passphrase.is_empty() {
+                Err(GetPredictionsParamsInvalid::PassphraseIsEmpty)
+            } else {
+                Ok(params)
+            }
+        }
+    }
+
+    impl TryFrom<crate::JsonRpcRequest> for GetPredictionsParams {
+        type Error = GetPredictionsParamsInvalid;
+        fn try_from(value: crate::JsonRpcRequest) -> Result<Self, Self::Error> {
+            value.params.try_into()
+        }
+    }
+
+    pub enum GetPredictionsParamsInvalid {
+        InvalidFormat,
+        PassphraseIsEmpty,
+    }
+
+    impl From<GetPredictionsParamsInvalid> for crate::Error {
+        fn from(error: GetPredictionsParamsInvalid) -> Self {
+            match error {
+                GetPredictionsParamsInvalid::InvalidFormat => Self::invalid_params(),
+                GetPredictionsParamsInvalid::PassphraseIsEmpty => {
+                    Self::invalid_params().with_data("passphrase can't be empty")
+                }
+            }
+        }
+    }
+
+    #[derive(serde::Serialize)]
+    pub struct GetPredictionsResult {
+        predictions: Vec<Prediction>,
+    }
+
+    impl GetPredictionsResult {
+        pub fn new(predictions: Vec<Prediction>) -> Self {
+            Self { predictions }
+        }
+    }
+}
+
+mod delete {
+    use super::*;
+    use std::convert::TryFrom;
+
+    #[derive(serde::Deserialize)]
+    pub struct DeletePredictionsParams {
+        passphrase: String,
+    }
+
+    impl DeletePredictionsParams {
+        pub fn passphrase(&self) -> &str {
+            &self.passphrase
+        }
+    }
+
+    impl TryFrom<serde_json::Value> for DeletePredictionsParams {
+        type Error = DeletePredictionsParamsInvalid;
+        fn try_from(value: serde_json::Value) -> Result<Self, Self::Error> {
+            let params: Self = serde_json::from_value(value)
+                .map_err(|_| DeletePredictionsParamsInvalid::InvalidFormat)?;
+
+            if params.passphrase.is_empty() {
+                Err(DeletePredictionsParamsInvalid::PassphraseIsEmpty)
+            } else {
+                Ok(params)
+            }
+        }
+    }
+
+    impl TryFrom<crate::JsonRpcRequest> for DeletePredictionsParams {
+        type Error = DeletePredictionsParamsInvalid;
+        fn try_from(value: crate::JsonRpcRequest) -> Result<Self, Self::Error> {
+            value.params.try_into()
+        }
+    }
+
+    pub enum DeletePredictionsParamsInvalid {
+        InvalidFormat,
+        PassphraseIsEmpty,
+    }
+
+    impl From<DeletePredictionsParamsInvalid> for crate::Error {
+        fn from(error: DeletePredictionsParamsInvalid) -> Self {
+            match error {
+                DeletePredictionsParamsInvalid::InvalidFormat => Self::invalid_params(),
+                DeletePredictionsParamsInvalid::PassphraseIsEmpty => {
+                    Self::invalid_params().with_data("passphrase can't be empty")
+                }
+            }
+        }
+    }
+
+    #[derive(serde::Serialize)]
+    pub struct DeletePredictionsResult {
+        rows: usize,
+    }
+
+    impl DeletePredictionsResult {
+        pub fn new(rows: usize) -> Self {
+            Self { rows }
         }
     }
 }

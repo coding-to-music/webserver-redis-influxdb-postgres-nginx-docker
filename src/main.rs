@@ -82,6 +82,16 @@ impl App {
                     self.prediction_controller.add(req).await,
                     id,
                 ),
+                Method::GetPredictions => JsonRpcResponse::from_result(
+                    jsonrpc,
+                    self.prediction_controller.get(req).await,
+                    id,
+                ),
+                Method::DeletePredictions => JsonRpcResponse::from_result(
+                    jsonrpc,
+                    self.prediction_controller.delete(req).await,
+                    id,
+                ),
                 Method::Sleep => JsonRpcResponse::from_result(
                     jsonrpc,
                     self.sleep_controller.sleep(req).await,

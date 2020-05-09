@@ -1,8 +1,8 @@
 pub use bookmark::BookmarkController;
 pub use prediction::PredictionController;
-pub use sleep::SleepController;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+pub use sleep::SleepController;
 use std::{convert::Infallible, str::FromStr};
 
 mod bookmark;
@@ -177,7 +177,9 @@ pub enum Method {
     AddBookmark,
     DeleteBookmark,
     AddPrediction,
-    Sleep
+    GetPredictions,
+    DeletePredictions,
+    Sleep,
 }
 
 impl FromStr for Method {
@@ -188,6 +190,8 @@ impl FromStr for Method {
             "add_bookmark" => Ok(Self::AddBookmark),
             "delete_bookmark" => Ok(Self::DeleteBookmark),
             "add_prediction" => Ok(Self::AddPrediction),
+            "get_predictions" => Ok(Self::GetPredictions),
+            "delete_predictions" => Ok(Self::DeletePredictions),
             "sleep" => Ok(Self::Sleep),
             _ => Err(()),
         }
