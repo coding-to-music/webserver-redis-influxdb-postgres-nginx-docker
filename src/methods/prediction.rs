@@ -262,7 +262,11 @@ mod get {
         fn from(row: PredictionRow) -> Self {
             let datetime = chrono::NaiveDateTime::from_timestamp(row.timestamp_s as i64, 0);
             let datetime_utc = chrono::DateTime::<Utc>::from_utc(datetime, Utc);
-            Self::new(row.text, row.timestamp_s, datetime_utc.to_string())
+            Self::new(
+                row.text,
+                row.timestamp_s,
+                datetime_utc.to_rfc3339_opts(SecondsFormat::Millis, true),
+            )
         }
     }
 
