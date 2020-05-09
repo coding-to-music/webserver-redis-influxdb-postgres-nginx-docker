@@ -4,6 +4,7 @@ use methods::*;
 use serde_json::Value;
 use std::convert::Infallible;
 use std::{fmt::Debug, str::FromStr, sync::Arc};
+use structopt::StructOpt;
 use warp::Filter;
 use warp::Reply;
 
@@ -12,10 +13,17 @@ mod methods;
 #[macro_use]
 extern crate log;
 
+#[derive(StructOpt)]
+struct Opts {
+    #[structopt(long, default_value = "3000")]
+    port: u16,
+}
+
 #[tokio::main]
 async fn main() {
     dotenv().ok();
     pretty_env_logger::init();
+    let opts = Opts::from_args();
 
     let app = Arc::new(App::new());
 
@@ -27,7 +35,7 @@ async fn main() {
         .and_then(move |body| handle_request(app.clone(), body))
         .with(log);
 
-    warp::serve(handler).run(([0, 0, 0, 0], 3000)).await;
+    warp::serve(handler).run(([0, 0, 0, 0], opts.port)).await;
 }
 
 pub struct App {
