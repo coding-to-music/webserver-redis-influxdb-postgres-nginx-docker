@@ -261,8 +261,8 @@ mod get {
     impl From<PredictionRow> for Prediction {
         fn from(row: PredictionRow) -> Self {
             let datetime = chrono::NaiveDateTime::from_timestamp(row.timestamp_s as i64, 0);
-
-            Self::new(row.text, row.timestamp_s, datetime.to_string())
+            let datetime_utc = chrono::DateTime::<Utc>::from_utc(datetime, Utc);
+            Self::new(row.text, row.timestamp_s, datetime_utc.to_string())
         }
     }
 
