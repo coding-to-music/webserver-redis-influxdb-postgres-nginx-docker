@@ -87,9 +87,14 @@ impl PredictionController {
             params.prediction().passphrase().to_owned(),
         );
 
-        info!("inserting prediction: {:?}", prediction_row);
+        trace!("Inserting prediction: {:?}", prediction_row);
 
         let result = self.insert_prediction(prediction_row)?;
+
+        match result {
+            true => trace!("Successfully inserted prediction"),
+            false => error!("Failed to insert prediction"),
+        }
 
         Ok(add::AddPredictionResult::new(result))
     }
@@ -102,12 +107,23 @@ impl PredictionController {
     ) -> Result<get::GetPredictionsResult, crate::Error> {
         let params = params.try_into()?;
 
+        trace!(
+            "Getting predictions with passphrase: {}",
+            params.passphrase()
+        );
+
         let prediction_rows = self.get_predictions(params.passphrase())?;
 
         let predictions: Vec<_> = prediction_rows
             .into_iter()
             .map(|row| get::Prediction::from(row))
             .collect();
+
+        trace!(
+            "Got {} predictions with passphrase: {}",
+            predictions.len(),
+            params.passphrase()
+        );
 
         Ok(get::GetPredictionsResult::new(predictions))
     }
@@ -120,7 +136,18 @@ impl PredictionController {
     ) -> Result<delete::DeletePredictionsResult, crate::Error> {
         let params: delete::DeletePredictionsParams = params.try_into()?;
 
+        trace!(
+            "Deleting predictions with passphrase: {}",
+            params.passphrase()
+        );
+
         let deleted_rows = self.delete_predictions(params.passphrase())?;
+
+        trace!(
+            "Deleted {} predictions with passphrase: {}",
+            deleted_rows,
+            params.passphrase()
+        );
 
         Ok(delete::DeletePredictionsResult::new(deleted_rows))
     }

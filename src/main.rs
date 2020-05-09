@@ -43,6 +43,7 @@ impl App {
         }
     }
 
+    /// Handle a single JSON RPC request
     async fn handle_single(&self, req: JsonRpcRequest) -> JsonRpcResponse {
         let jsonrpc = req.version().clone();
         let id = req.id().clone();
@@ -88,6 +89,7 @@ impl App {
         response
     }
 
+    /// Handle multiple JSON RPC requests concurrently by awaiting them all
     async fn handle_batch(&self, reqs: Vec<JsonRpcRequest>) -> Vec<JsonRpcResponse> {
         future::join_all(
             reqs.into_iter()
@@ -104,6 +106,8 @@ impl Default for App {
     }
 }
 
+/// Process the raw JSON body of a request
+/// If the request is a JSON array, handle it as a batch request
 pub async fn handle_request(app: Arc<App>, body: Value) -> Result<impl Reply, Infallible> {
     if body.is_object() {
         Ok(warp::reply::json(
@@ -129,6 +133,7 @@ pub async fn handle_request(app: Arc<App>, body: Value) -> Result<impl Reply, In
     }
 }
 
+/// Parse an environment variable as some type
 pub fn get_env_var<T: FromStr>(var: &str) -> T
 where
     <T as FromStr>::Err: Debug,

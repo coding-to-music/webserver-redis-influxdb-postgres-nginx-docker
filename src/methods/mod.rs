@@ -90,16 +90,6 @@ pub struct Error {
 }
 
 impl Error {
-    #[allow(dead_code)]
-    pub fn new(code: i32, message: String) -> Self {
-        Self {
-            code,
-            message,
-            data: None,
-        }
-    }
-
-    #[allow(dead_code)]
     pub fn with_data<T: Serialize>(mut self, data: T) -> Self {
         self.data = Some(serde_json::to_value(data).expect("infallible"));
         self
@@ -171,14 +161,18 @@ impl From<ErrorCode> for i32 {
 }
 
 pub enum Method {
+    /// Add a prediction to the database
     AddPrediction,
+    /// Get predictions from the database
     GetPredictions,
+    /// Delete predictions from the database
     DeletePredictions,
+    /// Sleep for a specified amount of time
     Sleep,
 }
 
 impl FromStr for Method {
-    type Err = ();
+    type Err = (); // any failure means the method simply doesn't exist
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s {
             "add_prediction" => Ok(Self::AddPrediction),

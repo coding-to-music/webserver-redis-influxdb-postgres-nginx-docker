@@ -14,9 +14,13 @@ impl SleepController {
     ) -> Result<sleep::SleepResult, crate::Error> {
         let params: sleep::SleepParams = request.try_into()?;
 
+        trace!("Sleeping for {} seconds...", params.seconds());
+
         let now = std::time::Instant::now();
         tokio::time::delay_for(std::time::Duration::from_secs_f32(params.seconds())).await;
         let elapsed = now.elapsed();
+
+        trace!("Slept for {:?}", elapsed);
 
         Ok(sleep::SleepResult::new(elapsed.as_secs_f32()))
     }
