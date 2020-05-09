@@ -31,7 +31,6 @@ async fn main() {
 }
 
 pub struct App {
-    bookmark_controller: BookmarkController,
     prediction_controller: PredictionController,
     sleep_controller: SleepController,
 }
@@ -39,7 +38,6 @@ pub struct App {
 impl App {
     pub fn new() -> Self {
         Self {
-            bookmark_controller: BookmarkController::new(),
             prediction_controller: PredictionController::new(),
             sleep_controller: SleepController::new(),
         }
@@ -62,21 +60,6 @@ impl App {
         let response = match Method::from_str(req.method()) {
             Err(_) => JsonRpcResponse::error(jsonrpc, Error::method_not_found(), id),
             Ok(method) => match method {
-                Method::SearchBookmark => JsonRpcResponse::from_result(
-                    jsonrpc,
-                    self.bookmark_controller.search(req).await,
-                    id,
-                ),
-                Method::AddBookmark => JsonRpcResponse::from_result(
-                    jsonrpc,
-                    self.bookmark_controller.add(req).await,
-                    id,
-                ),
-                Method::DeleteBookmark => JsonRpcResponse::from_result(
-                    jsonrpc,
-                    self.bookmark_controller.delete(req).await,
-                    id,
-                ),
                 Method::AddPrediction => JsonRpcResponse::from_result(
                     jsonrpc,
                     self.prediction_controller.add(req).await,
