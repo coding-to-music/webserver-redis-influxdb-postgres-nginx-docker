@@ -37,8 +37,9 @@ pub struct App {
 
 impl App {
     pub fn new() -> Self {
+        let webserver_db_path = get_env_var("WEBSERVER_SQLITE_PATH");
         Self {
-            prediction_controller: PredictionController::new(),
+            prediction_controller: PredictionController::new(webserver_db_path),
             sleep_controller: SleepController::new(),
         }
     }

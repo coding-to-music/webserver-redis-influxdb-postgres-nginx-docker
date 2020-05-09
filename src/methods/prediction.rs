@@ -20,10 +20,8 @@ impl Database for PredictionController {
 }
 
 impl PredictionController {
-    pub fn new() -> Self {
+    pub fn new(db_path: String) -> Self {
         info!("Creating new PredictionController");
-        let db_path = crate::get_env_var("WEBSERVER_SQLITE_PATH");
-
         Self { db_path }
     }
 

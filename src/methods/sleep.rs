@@ -1,3 +1,4 @@
+use crate::Error;
 use std::convert::TryInto;
 
 pub struct SleepController;
@@ -11,7 +12,7 @@ impl SleepController {
     pub async fn sleep<T: TryInto<sleep::SleepParams, Error = sleep::SleepParamsInvalid>>(
         &self,
         request: T,
-    ) -> Result<sleep::SleepResult, crate::Error> {
+    ) -> Result<sleep::SleepResult, Error> {
         let params: sleep::SleepParams = request.try_into()?;
 
         trace!("Sleeping for {} seconds...", params.seconds());
@@ -28,6 +29,7 @@ impl SleepController {
 
 mod sleep {
     use super::*;
+    use crate::Error;
     use std::convert::TryFrom;
 
     #[derive(serde::Deserialize)]
@@ -64,7 +66,7 @@ mod sleep {
         }
     }
 
-    impl From<SleepParamsInvalid> for crate::methods::Error {
+    impl From<SleepParamsInvalid> for Error {
         fn from(error: SleepParamsInvalid) -> Self {
             match error {
                 SleepParamsInvalid::InvalidFormat => Self::invalid_params(),
