@@ -91,14 +91,8 @@ impl UserController {
 
         let user_row = UserRow::new(
             params.user().username().to_owned(),
-            String::from_utf8(hashed_password.to_vec()).map_err(|e| {
-                error!("invalid utf8: {}", e);
-                crate::Error::internal_error()
-            })?,
-            String::from_utf8(salt.to_vec()).map_err(|e| {
-                error!("invalid utf8: {}", e);
-                crate::Error::internal_error()
-            })?,
+            hashed_password.to_vec(),
+            salt.to_vec(),
         );
 
         let rows = self.add_user(user_row)?;
@@ -127,12 +121,12 @@ impl UserController {
 
 pub struct UserRow {
     username: String,
-    password: String,
-    salt: String,
+    password: Vec<u8>,
+    salt: Vec<u8>,
 }
 
 impl UserRow {
-    pub fn new(username: String, password: String, salt: String) -> Self {
+    pub fn new(username: String, password: Vec<u8>, salt: Vec<u8>) -> Self {
         Self {
             username,
             password,
