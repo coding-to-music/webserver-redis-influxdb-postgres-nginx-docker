@@ -90,6 +90,11 @@ impl App {
                     self.user_controller.change_password(req).await,
                     id,
                 ),
+                Method::ValidateUser => JsonRpcResponse::from_result(
+                    jsonrpc,
+                    self.user_controller.validate_user(req).await,
+                    id,
+                ),
                 Method::Sleep => JsonRpcResponse::from_result(
                     jsonrpc,
                     self.sleep_controller.sleep(req).await,

@@ -171,6 +171,8 @@ pub enum Method {
     AddUser,
     /// Change password for a user
     ChangePassword,
+    /// Validate a username, password tuple
+    ValidateUser,
 }
 
 impl FromStr for Method {
@@ -180,6 +182,7 @@ impl FromStr for Method {
             "add_prediction" => Ok(Self::AddPrediction),
             "add_user" => Ok(Self::AddUser),
             "change_password" => Ok(Self::ChangePassword),
+            "validate_user" => Ok(Self::ValidateUser),
             "sleep" => Ok(Self::Sleep),
             _ => Err(()),
         }
