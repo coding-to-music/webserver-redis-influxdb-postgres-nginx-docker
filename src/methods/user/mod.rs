@@ -39,7 +39,7 @@ impl UserController {
             crate::Error::internal_error()
         })?;
 
-        let hashed_password = self.encrypt(params.user().password(), &salt);
+        let hashed_password = Self::encrypt(params.user().password(), &salt);
 
         let user_row = db::User::new(
             params.user().username().to_owned(),
@@ -68,10 +68,15 @@ impl UserController {
                 .db
                 .get_user(params.user().username())?
                 .ok_or_else(|| crate::Error::internal_error())?;
+
+            let current_salt = user_row.salt();
+
+            let new_password = Self::encrypt(params.new_password(), &current_salt);
+
             let new_user_row = db::User::new(
                 user_row.username().to_owned(),
-                params.new_password().as_bytes().to_vec(),
-                user_row.salt().to_vec(),
+                new_password.to_vec(),
+                current_salt.to_vec(),
             );
 
             let result = self.db.update_user(new_user_row)?;
@@ -95,7 +100,6 @@ impl UserController {
     }
 
     fn encrypt(
-        &self,
         password: &str,
         salt: &[u8; digest::SHA512_OUTPUT_LEN],
     ) -> [u8; digest::SHA512_OUTPUT_LEN] {
