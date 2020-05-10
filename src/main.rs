@@ -8,6 +8,7 @@ use structopt::StructOpt;
 use warp::Filter;
 use warp::Reply;
 
+mod db;
 mod methods;
 
 #[macro_use]
@@ -47,9 +48,13 @@ pub struct App {
 impl App {
     pub fn new() -> Self {
         let webserver_db_path: String = get_env_var("WEBSERVER_SQLITE_PATH");
+        let user_db: Arc<db::Database<db::User>> =
+            Arc::new(db::Database::new(webserver_db_path.clone()));
+        let prediction_db: Arc<db::Database<db::Prediction>> =
+            Arc::new(db::Database::new(webserver_db_path.clone()));
         Self {
-            prediction_controller: PredictionController::new(webserver_db_path.clone()),
-            user_controller: UserController::new(webserver_db_path.clone()),
+            prediction_controller: PredictionController::new(prediction_db, user_db.clone()),
+            user_controller: UserController::new(user_db),
             sleep_controller: SleepController::new(),
         }
     }
@@ -75,16 +80,6 @@ impl App {
                 Method::AddPrediction => JsonRpcResponse::from_result(
                     jsonrpc,
                     self.prediction_controller.add(req).await,
-                    id,
-                ),
-                Method::GetPredictions => JsonRpcResponse::from_result(
-                    jsonrpc,
-                    self.prediction_controller.get(req).await,
-                    id,
-                ),
-                Method::DeletePredictions => JsonRpcResponse::from_result(
-                    jsonrpc,
-                    self.prediction_controller.delete(req).await,
                     id,
                 ),
                 Method::AddUser => {

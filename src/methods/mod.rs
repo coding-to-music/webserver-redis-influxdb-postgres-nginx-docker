@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 pub use sleep::SleepController;
 use std::{convert::Infallible, str::FromStr};
-pub use user::UserController;
+pub use user::{User, UserController};
 
 mod prediction;
 mod sleep;
@@ -165,10 +165,6 @@ impl From<ErrorCode> for i32 {
 pub enum Method {
     /// Add a prediction to the database
     AddPrediction,
-    /// Get predictions from the database
-    GetPredictions,
-    /// Delete predictions from the database
-    DeletePredictions,
     /// Sleep for a specified amount of time
     Sleep,
     /// Add a user
@@ -180,15 +176,9 @@ impl FromStr for Method {
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s {
             "add_prediction" => Ok(Self::AddPrediction),
-            "get_predictions" => Ok(Self::GetPredictions),
-            "delete_predictions" => Ok(Self::DeletePredictions),
             "add_user" => Ok(Self::AddUser),
             "sleep" => Ok(Self::Sleep),
             _ => Err(()),
         }
     }
-}
-
-trait Database {
-    fn get_connection(&self) -> Result<rusqlite::Connection, Error>;
 }
