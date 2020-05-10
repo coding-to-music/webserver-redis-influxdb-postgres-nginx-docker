@@ -39,6 +39,17 @@ impl Database<User> {
         Ok(changed_rows)
     }
 
+    pub fn update_user(&self, user: User) -> Result<bool, crate::Error> {
+        let db = self.get_connection()?;
+
+        let changed_rows = db.execute(
+            "UPDATE user SET password = ?1 WHERE username = ?2",
+            params![user.password, user.username],
+        )?;
+
+        Ok(changed_rows == 1)
+    }
+
     pub fn get_user(&self, username: &str) -> Result<Option<User>, crate::Error> {
         let db = self.get_connection()?;
 
@@ -143,6 +154,10 @@ impl User {
             password,
             salt,
         }
+    }
+
+    pub fn username(&self) -> &str {
+        &self.username
     }
 
     pub fn password(&self) -> [u8; digest::SHA512_OUTPUT_LEN] {

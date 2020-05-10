@@ -48,6 +48,35 @@ impl UserController {
         Ok(add::AddUserResult::new(rows == 1))
     }
 
+    pub async fn change_password<
+        T: TryInto<
+            change_password::ChangePasswordParams,
+            Error = change_password::ChangePasswordParamsInvalid,
+        >,
+    >(
+        &self,
+        request: T,
+    ) -> Result<change_password::ChangePasswordResult, crate::Error> {
+        let params: change_password::ChangePasswordParams = request.try_into()?;
+
+        if self.db.validate_user(params.user()) {
+            let user_row = self
+                .db
+                .get_user(params.user().username())?
+                .ok_or_else(|| crate::Error::internal_error())?;
+            let new_user_row = db::User::new(
+                user_row.username().to_owned(),
+                params.new_password().as_bytes().to_vec(),
+                user_row.salt().to_vec(),
+            );
+
+            let result = self.db.update_user(new_user_row)?;
+            Ok(change_password::ChangePasswordResult::new(result))
+        } else {
+            Ok(change_password::ChangePasswordResult::new(false))
+        }
+    }
+
     fn encrypt(
         &self,
         password: &str,
@@ -136,6 +165,65 @@ mod add {
     }
 
     impl AddUserResult {
+        pub fn new(success: bool) -> Self {
+            Self { success }
+        }
+    }
+}
+
+mod change_password {
+    use super::*;
+    use std::convert::TryFrom;
+
+    #[derive(serde::Deserialize)]
+    pub struct ChangePasswordParams {
+        user: User,
+        new_password: String,
+    }
+
+    impl ChangePasswordParams {
+        pub fn user(&self) -> &User {
+            &self.user
+        }
+
+        pub fn new_password(&self) -> &str {
+            &self.new_password
+        }
+    }
+
+    impl TryFrom<serde_json::Value> for ChangePasswordParams {
+        type Error = ChangePasswordParamsInvalid;
+        fn try_from(value: serde_json::Value) -> Result<Self, Self::Error> {
+            let params = serde_json::from_value(value)
+                .map_err(|_| ChangePasswordParamsInvalid::InvalidFormat)?;
+
+            Ok(params)
+        }
+    }
+
+    impl TryFrom<crate::JsonRpcRequest> for ChangePasswordParams {
+        type Error = ChangePasswordParamsInvalid;
+        fn try_from(value: crate::JsonRpcRequest) -> Result<Self, Self::Error> {
+            value.params.try_into()
+        }
+    }
+
+    impl From<ChangePasswordParamsInvalid> for crate::Error {
+        fn from(_: ChangePasswordParamsInvalid) -> Self {
+            Self::invalid_params()
+        }
+    }
+
+    pub enum ChangePasswordParamsInvalid {
+        InvalidFormat,
+    }
+
+    #[derive(serde::Serialize)]
+    pub struct ChangePasswordResult {
+        success: bool,
+    }
+
+    impl ChangePasswordResult {
         pub fn new(success: bool) -> Self {
             Self { success }
         }

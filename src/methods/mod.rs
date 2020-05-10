@@ -169,6 +169,8 @@ pub enum Method {
     Sleep,
     /// Add a user
     AddUser,
+    /// Change password for a user
+    ChangePassword,
 }
 
 impl FromStr for Method {
@@ -177,6 +179,7 @@ impl FromStr for Method {
         match s {
             "add_prediction" => Ok(Self::AddPrediction),
             "add_user" => Ok(Self::AddUser),
+            "change_password" => Ok(Self::ChangePassword),
             "sleep" => Ok(Self::Sleep),
             _ => Err(()),
         }
