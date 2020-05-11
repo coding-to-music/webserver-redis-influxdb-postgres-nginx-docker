@@ -32,8 +32,8 @@ impl Database<User> {
         let db = self.get_connection()?;
 
         let changed_rows = db.execute(
-            "INSERT INTO user (username, password, salt) VALUES (?1, ?2, ?3)",
-            params![user.username, user.password, user.salt],
+            "INSERT INTO user (username, password, salt, created_s) VALUES (?1, ?2, ?3, ?4)",
+            params![user.username, user.password, user.salt, user.created_s],
         )?;
 
         Ok(changed_rows)
@@ -54,7 +54,7 @@ impl Database<User> {
         let db = self.get_connection()?;
 
         let mut stmt = db
-            .prepare("SELECT username, password, salt FROM user WHERE username = ?1")
+            .prepare("SELECT username, password, salt, created_s FROM user WHERE username = ?1")
             .map_err(|e| {
                 error!("{:?}", e);
                 super::Error::internal_error()
@@ -62,7 +62,12 @@ impl Database<User> {
 
         let mut user_rows: Vec<_> = stmt
             .query_map(params![username], |row| {
-                Ok(User::new(row.get(0)?, row.get(1)?, row.get(2)?))
+                Ok(User::new(
+                    row.get(0)?,
+                    row.get(1)?,
+                    row.get(2)?,
+                    row.get(3)?,
+                ))
             })?
             .filter_map(|b| b.ok())
             .collect();
@@ -145,14 +150,16 @@ pub struct User {
     username: String,
     password: Vec<u8>,
     salt: Vec<u8>,
+    created_s: u32,
 }
 
 impl User {
-    pub fn new(username: String, password: Vec<u8>, salt: Vec<u8>) -> Self {
+    pub fn new(username: String, password: Vec<u8>, salt: Vec<u8>, created_s: u32) -> Self {
         Self {
             username,
             password,
             salt,
+            created_s,
         }
     }
 
@@ -180,5 +187,9 @@ impl User {
         }
 
         bytes
+    }
+
+    pub fn created_s(&self) -> u32 {
+        self.created_s
     }
 }

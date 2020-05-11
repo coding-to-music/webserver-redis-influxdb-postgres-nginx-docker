@@ -1,4 +1,5 @@
 use crate::db;
+use chrono::prelude::*;
 use rand::SystemRandom;
 use ring::{
     digest,
@@ -45,6 +46,7 @@ impl UserController {
             params.user().username().to_owned(),
             hashed_password.to_vec(),
             salt.to_vec(),
+            Utc::now().timestamp() as u32,
         );
 
         let rows = self.db.add_user(user_row)?;
@@ -77,6 +79,7 @@ impl UserController {
                 user_row.username().to_owned(),
                 new_password.to_vec(),
                 current_salt.to_vec(),
+                user_row.created_s(),
             );
 
             let result = self.db.update_user(new_user_row)?;
