@@ -1,7 +1,6 @@
 use super::User;
 use std::convert::{TryFrom, TryInto};
 
-#[derive(serde::Deserialize)]
 pub struct ValidateUserParams {
     user: User,
 }
@@ -12,13 +11,24 @@ impl ValidateUserParams {
     }
 }
 
+#[derive(serde::Deserialize)]
+pub struct ValidateUserParamsBuilder {
+    user: User,
+}
+
+impl ValidateUserParamsBuilder {
+    pub fn build(self) -> Result<ValidateUserParams, ValidateUserParamsInvalid> {
+        Ok(ValidateUserParams { user: self.user })
+    }
+}
+
 impl TryFrom<serde_json::Value> for ValidateUserParams {
     type Error = ValidateUserParamsInvalid;
     fn try_from(value: serde_json::Value) -> Result<Self, Self::Error> {
-        let params: ValidateUserParams =
+        let builder: ValidateUserParamsBuilder =
             serde_json::from_value(value).map_err(|_| ValidateUserParamsInvalid::InvalidFormat)?;
 
-        Ok(params)
+        builder.build()
     }
 }
 

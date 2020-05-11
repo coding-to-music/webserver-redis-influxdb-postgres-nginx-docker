@@ -1,7 +1,6 @@
 use super::User;
 use std::convert::{TryFrom, TryInto};
 
-#[derive(serde::Deserialize)]
 pub struct AddUserParams {
     user: User,
 }
@@ -9,6 +8,21 @@ pub struct AddUserParams {
 impl AddUserParams {
     pub fn user(&self) -> &User {
         &self.user
+    }
+}
+
+#[derive(serde::Deserialize)]
+pub struct AddUserParamsBuilder {
+    user: User,
+}
+
+impl AddUserParamsBuilder {
+    pub fn build(self) -> Result<AddUserParams, AddUserParamsInvalid> {
+        if self.user.password.len() < 10 {
+            Err(AddUserParamsInvalid::PasswordTooShort)
+        } else {
+            Ok(AddUserParams { user: self.user })
+        }
     }
 }
 
@@ -30,14 +44,10 @@ pub enum AddUserParamsInvalid {
 impl TryFrom<serde_json::Value> for AddUserParams {
     type Error = AddUserParamsInvalid;
     fn try_from(value: serde_json::Value) -> Result<Self, Self::Error> {
-        let params: AddUserParams =
+        let builder: AddUserParamsBuilder =
             serde_json::from_value(value).map_err(|_| AddUserParamsInvalid::InvalidFormat)?;
 
-        if params.user.password.len() < 10 {
-            Err(AddUserParamsInvalid::PasswordTooShort)
-        } else {
-            Ok(params)
-        }
+        builder.build()
     }
 }
 

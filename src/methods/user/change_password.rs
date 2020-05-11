@@ -1,7 +1,6 @@
 use super::User;
 use std::convert::{TryFrom, TryInto};
 
-#[derive(serde::Deserialize)]
 pub struct ChangePasswordParams {
     user: User,
     new_password: String,
@@ -17,13 +16,28 @@ impl ChangePasswordParams {
     }
 }
 
+#[derive(serde::Deserialize)]
+pub struct ChangePasswordParamsBuilder {
+    user: User,
+    new_password: String,
+}
+
+impl ChangePasswordParamsBuilder {
+    pub fn build(self) -> Result<ChangePasswordParams, ChangePasswordParamsInvalid> {
+        Ok(ChangePasswordParams {
+            user: self.user,
+            new_password: self.new_password,
+        })
+    }
+}
+
 impl TryFrom<serde_json::Value> for ChangePasswordParams {
     type Error = ChangePasswordParamsInvalid;
     fn try_from(value: serde_json::Value) -> Result<Self, Self::Error> {
-        let params = serde_json::from_value(value)
+        let builder: ChangePasswordParamsBuilder = serde_json::from_value(value)
             .map_err(|_| ChangePasswordParamsInvalid::InvalidFormat)?;
 
-        Ok(params)
+        builder.build()
     }
 }
 
