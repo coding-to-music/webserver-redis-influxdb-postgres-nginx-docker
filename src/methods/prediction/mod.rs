@@ -3,6 +3,7 @@ use chrono::prelude::*;
 use std::{convert::TryInto, sync::Arc};
 
 mod add;
+mod delete;
 
 pub struct PredictionController {
     prediction_db: Arc<db::Database<db::Prediction>>,
@@ -41,5 +42,18 @@ impl PredictionController {
         } else {
             Err(crate::Error::invalid_params().with_data("invalid user"))
         }
+    }
+
+    pub async fn delete<
+        T: TryInto<delete::DeletePredictionParams, Error = delete::DeletePredictionParamsInvalid>,
+    >(
+        &self,
+        params: T,
+    ) -> Result<delete::DeletePredictionResult, crate::Error> {
+        let params: delete::DeletePredictionParams = params.try_into()?;
+
+        let success = self.prediction_db.delete_prediction(params.id())?;
+
+        Ok(delete::DeletePredictionResult::new(success))
     }
 }

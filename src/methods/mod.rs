@@ -163,10 +163,12 @@ impl From<ErrorCode> for i32 {
 }
 
 pub enum Method {
-    /// Add a prediction to the database
-    AddPrediction,
     /// Sleep for a specified amount of time
     Sleep,
+    /// Add a prediction to the database
+    AddPrediction,
+    /// Delete a prediction by its database id
+    DeletePrediction,
     /// Add a user
     AddUser,
     /// Change password for a user
@@ -180,6 +182,7 @@ impl FromStr for Method {
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s {
             "add_prediction" => Ok(Self::AddPrediction),
+            "delete_prediction" => Ok(Self::DeletePrediction),
             "add_user" => Ok(Self::AddUser),
             "change_password" => Ok(Self::ChangePassword),
             "validate_user" => Ok(Self::ValidateUser),

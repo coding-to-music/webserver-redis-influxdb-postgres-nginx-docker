@@ -16,19 +16,13 @@ impl<T> Database<T> {
         }
     }
 
-    pub fn get_connection(&self) -> Result<Connection, crate::Error> {
-        let db = Connection::open(&self.path).map_err(|e| {
-            error!("Failed to connect to database: {:?}", e);
-            super::Error::internal_error()
-        })?;
-
-        info!("Connected to db");
-        Ok(db)
+    pub fn get_connection(&self) -> Result<Connection, rusqlite::Error> {
+        Connection::open(&self.path)
     }
 }
 
 impl Database<User> {
-    pub fn add_user(&self, user: User) -> Result<usize, crate::Error> {
+    pub fn add_user(&self, user: User) -> Result<usize, rusqlite::Error> {
         let db = self.get_connection()?;
 
         let changed_rows = db.execute(
@@ -39,7 +33,7 @@ impl Database<User> {
         Ok(changed_rows)
     }
 
-    pub fn update_user(&self, user: User) -> Result<bool, crate::Error> {
+    pub fn update_user(&self, user: User) -> Result<bool, rusqlite::Error> {
         let db = self.get_connection()?;
 
         let changed_rows = db.execute(
@@ -50,15 +44,12 @@ impl Database<User> {
         Ok(changed_rows == 1)
     }
 
-    pub fn get_user(&self, username: &str) -> Result<Option<User>, crate::Error> {
+    pub fn get_user(&self, username: &str) -> Result<Option<User>, rusqlite::Error> {
         let db = self.get_connection()?;
 
-        let mut stmt = db
-            .prepare("SELECT username, password, salt, created_s FROM user WHERE username = ?1")
-            .map_err(|e| {
-                error!("{:?}", e);
-                super::Error::internal_error()
-            })?;
+        let mut stmt = db.prepare(
+            "SELECT ROWID, username, password, salt, created_s FROM user WHERE username = ?1",
+        )?;
 
         let mut user_rows: Vec<_> = stmt
             .query_map(params![username], |row| {
@@ -76,7 +67,7 @@ impl Database<User> {
             Ok(None)
         } else if user_rows.len() > 1 {
             error!(r#"more than 1 user with username: "{}""#, username);
-            Err(crate::Error::internal_error())
+            Ok(None)
         } else {
             Ok(Some(user_rows.swap_remove(0)))
         }
@@ -118,7 +109,7 @@ impl Database<User> {
 }
 
 impl Database<Prediction> {
-    pub fn insert_prediction(&self, prediction: Prediction) -> Result<bool, super::Error> {
+    pub fn insert_prediction(&self, prediction: Prediction) -> Result<bool, rusqlite::Error> {
         let db = self.get_connection()?;
 
         let changed_rows = db.execute(
@@ -128,9 +119,18 @@ impl Database<Prediction> {
 
         Ok(changed_rows == 1)
     }
+
+    pub fn delete_prediction(&self, id: i64) -> Result<bool, rusqlite::Error> {
+        let db = self.get_connection()?;
+
+        let changed_rows = db.execute("DELETE FROM prediction WHERE rowid = ?1", params![id])?;
+
+        Ok(changed_rows == 1)
+    }
 }
 
 pub struct Prediction {
+    id: Option<u32>,
     username: String,
     text: String,
     timestamp_s: u32,
@@ -139,6 +139,7 @@ pub struct Prediction {
 impl Prediction {
     pub fn new(username: String, text: String, timestamp_s: u32) -> Self {
         Self {
+            id: None,
             username,
             text,
             timestamp_s,
