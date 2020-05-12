@@ -87,6 +87,11 @@ impl App {
                     self.prediction_controller.delete(req).await,
                     id,
                 ),
+                Method::SearchPredictions => JsonRpcResponse::from_result(
+                    jsonrpc,
+                    self.prediction_controller.search(req).await,
+                    id,
+                ),
                 Method::AddUser => {
                     JsonRpcResponse::from_result(jsonrpc, self.user_controller.add(req).await, id)
                 }

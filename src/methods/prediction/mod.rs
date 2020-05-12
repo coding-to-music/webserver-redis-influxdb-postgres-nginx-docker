@@ -4,6 +4,7 @@ use std::{convert::TryInto, sync::Arc};
 
 mod add;
 mod delete;
+mod search;
 
 pub struct PredictionController {
     prediction_db: Arc<db::Database<db::Prediction>>,
@@ -31,6 +32,7 @@ impl PredictionController {
 
         if self.user_db.validate_user(params.user()) {
             let prediction_row = db::Prediction::new(
+                None,
                 params.user().username().to_owned(),
                 params.prediction().to_owned(),
                 Utc::now().timestamp() as u32,
@@ -55,5 +57,45 @@ impl PredictionController {
         let success = self.prediction_db.delete_prediction(params.id())?;
 
         Ok(delete::DeletePredictionResult::new(success))
+    }
+
+    pub async fn search<
+        T: TryInto<search::SearchPredictionsParams, Error = search::SearchPredictionsParamsInvalid>,
+    >(
+        &self,
+        params: T,
+    ) -> Result<search::SearchPredictionsResult, crate::Error> {
+        let params: search::SearchPredictionsParams = params.try_into()?;
+
+        let valid_user =
+            params.user().is_some() && self.user_db.validate_user(params.user().unwrap());
+
+        let predictions = self
+            .prediction_db
+            .get_predictions_by_user(params.username())?;
+
+        match (params.user(), valid_user) {
+            (Some(user), true) => Ok(search::SearchPredictionsResult::new(
+                predictions
+                    .into_iter()
+                    .map(|db_pred| {
+                        if user.username() == params.username() {
+                            search::Prediction::from_db_with_id(db_pred)
+                        } else {
+                            search::Prediction::from_db_without_id(db_pred)
+                        }
+                    })
+                    .collect(),
+            )),
+            (Some(_user), false) => {
+                Err(crate::Error::invalid_params().with_data("invalid username or password"))
+            }
+            (None, _) => Ok(search::SearchPredictionsResult::new(
+                predictions
+                    .into_iter()
+                    .map(|db_pred| search::Prediction::from_db_without_id(db_pred))
+                    .collect(),
+            )),
+        }
     }
 }

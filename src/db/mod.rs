@@ -127,23 +127,63 @@ impl Database<Prediction> {
 
         Ok(changed_rows == 1)
     }
+
+    pub fn get_predictions_by_user(
+        &self,
+        username: &str,
+    ) -> Result<Vec<Prediction>, rusqlite::Error> {
+        let db = self.get_connection()?;
+
+        let mut stmt = db.prepare(
+            "SELECT rowid, username, text, timestamp_s FROM prediction WHERE username = ?1",
+        )?;
+
+        let user_rows: Vec<_> = stmt
+            .query_map(params![username], |row| {
+                let rowid = row.get(0)?;
+                let username = row.get(1)?;
+                let text = row.get(2)?;
+                let timestamp_s = row.get(3)?;
+                Ok(Prediction::new(Some(rowid), username, text, timestamp_s))
+            })?
+            .filter_map(|b| b.ok())
+            .collect();
+
+        Ok(user_rows)
+    }
 }
 
 pub struct Prediction {
-    id: Option<u32>,
+    id: Option<i64>,
     username: String,
     text: String,
     timestamp_s: u32,
 }
 
 impl Prediction {
-    pub fn new(username: String, text: String, timestamp_s: u32) -> Self {
+    pub fn new(id: Option<i64>, username: String, text: String, timestamp_s: u32) -> Self {
         Self {
-            id: None,
+            id,
             username,
             text,
             timestamp_s,
         }
+    }
+
+    pub fn id(&self) -> Option<i64> {
+        self.id
+    }
+
+    pub fn username(&self) -> &str {
+        &self.username
+    }
+
+    pub fn text(&self) -> &str {
+        &self.text
+    }
+
+    pub fn timestamp_s(&self) -> u32 {
+        self.timestamp_s
     }
 }
 

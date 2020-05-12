@@ -169,6 +169,8 @@ pub enum Method {
     AddPrediction,
     /// Delete a prediction by its database id
     DeletePrediction,
+    /// Search predictions
+    SearchPredictions,
     /// Add a user
     AddUser,
     /// Change password for a user
@@ -183,6 +185,7 @@ impl FromStr for Method {
         match s {
             "add_prediction" => Ok(Self::AddPrediction),
             "delete_prediction" => Ok(Self::DeletePrediction),
+            "search_predictions" => Ok(Self::SearchPredictions),
             "add_user" => Ok(Self::AddUser),
             "change_password" => Ok(Self::ChangePassword),
             "validate_user" => Ok(Self::ValidateUser),
