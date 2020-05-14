@@ -94,9 +94,9 @@ impl Database<User> {
             .all(|(left, right)| left == right);
 
         trace!(
-            r#"user "{}" is {} a valid user"#,
+            r#"user "{}" is {}a valid user"#,
             user.username(),
-            if valid { "" } else { "not" }
+            if valid { "" } else { "not " }
         );
 
         valid
