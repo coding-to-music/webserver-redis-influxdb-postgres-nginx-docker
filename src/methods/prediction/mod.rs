@@ -121,7 +121,7 @@ impl PredictionController {
             (None, _) => Ok(search::SearchPredictionsResult::new(
                 predictions
                     .into_iter()
-                    .map(|db_pred| search::Prediction::from_db_without_id(db_pred))
+                    .map(search::Prediction::from_db_without_id)
                     .collect(),
             )),
         }

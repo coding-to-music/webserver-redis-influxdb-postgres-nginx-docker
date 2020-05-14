@@ -43,8 +43,8 @@ pub enum DeletePredictionParamsInvalid {
 impl TryFrom<serde_json::Value> for DeletePredictionParams {
     type Error = DeletePredictionParamsInvalid;
     fn try_from(value: serde_json::Value) -> Result<Self, Self::Error> {
-        let builder: DeletePredictionParamsBuilder = serde_json::from_value(value)
-            .map_err(|e| DeletePredictionParamsInvalid::InvalidFormat(e))?;
+        let builder: DeletePredictionParamsBuilder =
+            serde_json::from_value(value).map_err(DeletePredictionParamsInvalid::InvalidFormat)?;
 
         builder.build()
     }

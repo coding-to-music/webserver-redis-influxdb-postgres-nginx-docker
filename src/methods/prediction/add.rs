@@ -41,8 +41,8 @@ impl AddPredictionParamsBuilder {
 impl TryFrom<serde_json::Value> for AddPredictionParams {
     type Error = AddPredictionParamsInvalid;
     fn try_from(value: serde_json::Value) -> Result<Self, Self::Error> {
-        let builder: AddPredictionParamsBuilder = serde_json::from_value(value)
-            .map_err(|e| AddPredictionParamsInvalid::InvalidFormat(e))?;
+        let builder: AddPredictionParamsBuilder =
+            serde_json::from_value(value).map_err(AddPredictionParamsInvalid::InvalidFormat)?;
 
         builder.build()
     }

@@ -51,7 +51,7 @@ impl App {
         let user_db: Arc<db::Database<db::User>> =
             Arc::new(db::Database::new(webserver_db_path.clone()));
         let prediction_db: Arc<db::Database<db::Prediction>> =
-            Arc::new(db::Database::new(webserver_db_path.clone()));
+            Arc::new(db::Database::new(webserver_db_path));
         Self {
             prediction_controller: PredictionController::new(prediction_db, user_db.clone()),
             user_controller: UserController::new(user_db),

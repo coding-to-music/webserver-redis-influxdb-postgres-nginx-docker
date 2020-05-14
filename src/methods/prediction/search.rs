@@ -41,8 +41,8 @@ pub enum SearchPredictionsParamsInvalid {
 impl TryFrom<serde_json::Value> for SearchPredictionsParams {
     type Error = SearchPredictionsParamsInvalid;
     fn try_from(value: serde_json::Value) -> Result<Self, Self::Error> {
-        let builder: SearchPredictionsParamsBuilder = serde_json::from_value(value)
-            .map_err(|e| SearchPredictionsParamsInvalid::InvalidFormat(e))?;
+        let builder: SearchPredictionsParamsBuilder =
+            serde_json::from_value(value).map_err(SearchPredictionsParamsInvalid::InvalidFormat)?;
 
         builder.build()
     }

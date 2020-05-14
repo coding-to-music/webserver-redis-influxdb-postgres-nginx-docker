@@ -68,7 +68,7 @@ impl UserController {
             let user_row = self
                 .db
                 .get_user(params.user().username())?
-                .ok_or_else(|| crate::Error::internal_error())?;
+                .ok_or_else(crate::Error::internal_error)?;
 
             let current_salt = user_row.salt();
 
