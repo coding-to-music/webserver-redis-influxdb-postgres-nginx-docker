@@ -31,6 +31,7 @@ impl PredictionController {
         let params: add::AddPredictionParams = params.try_into()?;
 
         if self.user_db.validate_user(params.user()) {
+            trace!(r#"user "{}" is a valid user"#, params.user().username());
             let prediction_row = db::Prediction::new(
                 None,
                 params.user().username().to_owned(),

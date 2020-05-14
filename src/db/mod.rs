@@ -74,9 +74,12 @@ impl Database<User> {
     }
 
     pub fn validate_user(&self, user: &crate::methods::User) -> bool {
+        trace!("validating user: {}", user.username());
         let user_row = if let Ok(Some(user)) = self.get_user(user.username()) {
+            trace!(r#"user "{}" exists"#, user.username());
             user
         } else {
+            trace!(r#"user "{}" does not exist"#, user.username());
             return false;
         };
 
