@@ -2,7 +2,7 @@ pub use prediction::PredictionController;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 pub use sleep::SleepController;
-use std::{convert::Infallible, str::FromStr};
+use std::{convert::Infallible, fmt::Debug, str::FromStr};
 pub use user::{User, UserController};
 
 mod prediction;
@@ -81,6 +81,13 @@ impl JsonRpcResponse {
             id,
         }
     }
+
+    pub fn get_error(&self) -> Option<&Error> {
+        match &self.error {
+            None => None,
+            Some(err) => Some(&err),
+        }
+    }
 }
 
 #[derive(Serialize)]
@@ -89,6 +96,8 @@ pub struct Error {
     message: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     data: Option<Value>,
+    #[serde(skip_serializing)]
+    internal_data: Option<String>,
 }
 
 impl Error {
@@ -97,11 +106,17 @@ impl Error {
         self
     }
 
+    pub fn with_internal_data<T: Debug>(mut self, data: T) -> Self {
+        self.internal_data = Some(format!("{:?}", data));
+        self
+    }
+
     pub fn method_not_found() -> Self {
         Self {
             code: ErrorCode::MethodNotFound.into(),
             message: "Method not found".into(),
             data: None,
+            internal_data: None,
         }
     }
 
@@ -110,6 +125,7 @@ impl Error {
             code: ErrorCode::InvalidRequest.into(),
             message: "Invalid request".into(),
             data: None,
+            internal_data: None,
         }
     }
 
@@ -118,6 +134,7 @@ impl Error {
             code: ErrorCode::InvalidParams.into(),
             message: "Invalid params".into(),
             data: None,
+            internal_data: None,
         }
     }
 
@@ -126,6 +143,14 @@ impl Error {
             code: ErrorCode::InternalError.into(),
             message: "Internal error".into(),
             data: None,
+            internal_data: None,
+        }
+    }
+
+    pub fn get_internal_data(&self) -> Option<&str> {
+        match &self.internal_data {
+            None => None,
+            Some(data) => Some(data),
         }
     }
 }
@@ -137,8 +162,8 @@ impl From<Infallible> for Error {
 }
 
 impl From<rusqlite::Error> for Error {
-    fn from(_: rusqlite::Error) -> Self {
-        Self::internal_error()
+    fn from(e: rusqlite::Error) -> Self {
+        Self::internal_error().with_internal_data(e)
     }
 }
 

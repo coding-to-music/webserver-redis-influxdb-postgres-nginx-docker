@@ -36,7 +36,7 @@ impl UserController {
         let mut salt = [0u8; digest::SHA512_OUTPUT_LEN];
 
         rng.fill(&mut salt)
-            .map_err(|e| crate::Error::internal_error().with_data(format!("{}", e)))?;
+            .map_err(|e| crate::Error::internal_error().with_data(format!("rng error: {}", e)))?;
 
         let hashed_password = Self::encrypt(params.user().password(), &salt);
 

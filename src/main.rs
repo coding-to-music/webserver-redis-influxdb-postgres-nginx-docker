@@ -113,6 +113,12 @@ impl App {
             },
         };
 
+        if let Some(err) = response.get_error() {
+            if let Some(data) = err.get_internal_data() {
+                error!(r#"returning an error with internal data: "{}""#, data);
+            }
+        }
+
         info!("{} in {:?}", handled_message, now.elapsed());
 
         response
