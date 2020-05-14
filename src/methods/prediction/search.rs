@@ -78,6 +78,7 @@ impl SearchPredictionsResult {
 
 #[derive(serde::Serialize)]
 pub struct Prediction {
+    #[serde(skip_serializing_if = "Option::is_none")]
     id: Option<i64>,
     prediction: String,
     timestamp_s: u32,

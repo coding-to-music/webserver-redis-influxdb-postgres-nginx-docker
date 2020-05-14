@@ -88,10 +88,18 @@ impl Database<User> {
 
         let encrypted_password = Database::<User>::encrypt(user.password(), &salt_array);
 
-        encrypted_password
+        let valid = encrypted_password
             .iter()
             .zip(user_row.password().iter())
-            .all(|(left, right)| left == right)
+            .all(|(left, right)| left == right);
+
+        trace!(
+            r#"user "{}" is {} a valid user"#,
+            user.username(),
+            if valid { "" } else { "not" }
+        );
+
+        valid
     }
 
     pub fn encrypt(
@@ -176,10 +184,6 @@ impl Prediction {
 
     pub fn id(&self) -> Option<i64> {
         self.id
-    }
-
-    pub fn username(&self) -> &str {
-        &self.username
     }
 
     pub fn text(&self) -> &str {

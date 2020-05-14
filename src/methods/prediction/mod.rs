@@ -71,9 +71,20 @@ impl PredictionController {
         let valid_user =
             params.user().is_some() && self.user_db.validate_user(params.user().unwrap());
 
+        trace!(
+            r#"searching for predictions made by "{}""#,
+            params.username()
+        );
+
         let predictions = self
             .prediction_db
             .get_predictions_by_user(params.username())?;
+
+        trace!(
+            r#"found {} predictions made by "{}""#,
+            predictions.len(),
+            params.username()
+        );
 
         match (params.user(), valid_user) {
             (Some(user), true) => Ok(search::SearchPredictionsResult::new(
