@@ -41,6 +41,7 @@ impl UserController {
         let hashed_password = Self::encrypt(params.user().password(), &salt);
 
         let user_row = db::User::new(
+            None,
             params.user().username().to_owned(),
             hashed_password.to_vec(),
             salt.to_vec(),
@@ -74,6 +75,7 @@ impl UserController {
             let new_password = Self::encrypt(params.new_password(), &current_salt);
 
             let new_user_row = db::User::new(
+                user_row.id(),
                 user_row.username().to_owned(),
                 new_password.to_vec(),
                 current_salt.to_vec(),

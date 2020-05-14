@@ -58,6 +58,7 @@ impl Database<User> {
                     row.get(1)?,
                     row.get(2)?,
                     row.get(3)?,
+                    row.get(4)?,
                 ))
             })?
             .filter_map(|b| b.ok())
@@ -191,6 +192,7 @@ impl Prediction {
 }
 
 pub struct User {
+    id: Option<i64>,
     username: String,
     password: Vec<u8>,
     salt: Vec<u8>,
@@ -198,13 +200,24 @@ pub struct User {
 }
 
 impl User {
-    pub fn new(username: String, password: Vec<u8>, salt: Vec<u8>, created_s: u32) -> Self {
+    pub fn new(
+        id: Option<i64>,
+        username: String,
+        password: Vec<u8>,
+        salt: Vec<u8>,
+        created_s: u32,
+    ) -> Self {
         Self {
+            id,
             username,
             password,
             salt,
             created_s,
         }
+    }
+
+    pub fn id(&self) -> Option<i64> {
+        self.id
     }
 
     pub fn username(&self) -> &str {
