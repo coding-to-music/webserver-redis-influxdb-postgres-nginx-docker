@@ -1,8 +1,10 @@
+use crate::methods;
 use std::convert::{TryFrom, TryInto};
 
 #[derive(serde::Deserialize)]
 pub struct DeletePredictionParamsBuilder {
     id: i64,
+    user: methods::User,
 }
 
 impl DeletePredictionParamsBuilder {
@@ -10,18 +12,26 @@ impl DeletePredictionParamsBuilder {
         if self.id <= 0 {
             Err(DeletePredictionParamsInvalid::InvalidId)
         } else {
-            Ok(DeletePredictionParams { id: self.id })
+            Ok(DeletePredictionParams {
+                id: self.id,
+                user: self.user,
+            })
         }
     }
 }
 
 pub struct DeletePredictionParams {
     id: i64,
+    user: methods::User,
 }
 
 impl DeletePredictionParams {
     pub fn id(&self) -> i64 {
         self.id
+    }
+
+    pub fn user(&self) -> &methods::User {
+        &self.user
     }
 }
 

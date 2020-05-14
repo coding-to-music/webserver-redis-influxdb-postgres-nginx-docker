@@ -31,7 +31,6 @@ impl PredictionController {
         let params: add::AddPredictionParams = params.try_into()?;
 
         if self.user_db.validate_user(params.user()) {
-            trace!(r#"user "{}" is a valid user"#, params.user().username());
             let prediction_row = db::Prediction::new(
                 None,
                 params.user().username().to_owned(),
@@ -55,9 +54,23 @@ impl PredictionController {
     ) -> Result<delete::DeletePredictionResult, crate::Error> {
         let params: delete::DeletePredictionParams = params.try_into()?;
 
-        let success = self.prediction_db.delete_prediction(params.id())?;
+        if self.user_db.validate_user(params.user()) {
+            let prediction = self.prediction_db.get_predictions_by_id(params.id())?;
+            let same_user = prediction.username() == params.user().username();
 
-        Ok(delete::DeletePredictionResult::new(success))
+            match (prediction, same_user) {
+                (Some(prediction), true) => {
+                    let success = self.prediction_db.delete_prediction(params.id())?;
+
+                    Ok(delete::DeletePredictionResult::new(success))
+                }
+                _ => Err(crate::Error::invalid_params().with_data(
+                    "can't delete predictions that don't exist, or belong to another user",
+                )),
+            }
+        } else {
+            Err(crate::Error::invalid_params().with_data("invalid username or password"))
+        }
     }
 
     pub async fn search<

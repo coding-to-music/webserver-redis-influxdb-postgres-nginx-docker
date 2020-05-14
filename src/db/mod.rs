@@ -121,6 +121,34 @@ impl Database<User> {
 }
 
 impl Database<Prediction> {
+    pub fn get_predictions_by_id(&self, id: i64) -> Result<Option<Prediction>, rusqlite::Error> {
+        let db = self.get_connection()?;
+
+        let mut stmt = db.prepare(
+            "SELECT ROWID, username, text, timestamp_s FROM prediction WHERE ROWID = ?1",
+        )?;
+
+        let mut prediction_rows: Vec<_> = stmt
+            .query_map(params![id], |row| {
+                let rowid = row.get(0)?;
+                let username = row.get(1)?;
+                let text = row.get(2)?;
+                let timestamp_s = row.get(3)?;
+                Ok(Prediction::new(rowid, username, text, timestamp_s))
+            })?
+            .filter_map(|r| r.ok())
+            .collect();
+
+        if prediction_rows.is_empty() {
+            Ok(None)
+        } else if prediction_rows.len() == 1 {
+            Ok(Some(prediction_rows.swap_remove(0)))
+        } else {
+            error!("more than 1 prediction with id {}", id);
+            Ok(None)
+        }
+    }
+
     pub fn insert_prediction(&self, prediction: Prediction) -> Result<bool, rusqlite::Error> {
         let db = self.get_connection()?;
 
@@ -184,6 +212,10 @@ impl Prediction {
 
     pub fn id(&self) -> Option<i64> {
         self.id
+    }
+
+    pub fn username(&self) -> &str {
+        &self.username
     }
 
     pub fn text(&self) -> &str {
