@@ -56,10 +56,13 @@ impl PredictionController {
 
         if self.user_db.validate_user(params.user()) {
             let prediction = self.prediction_db.get_predictions_by_id(params.id())?;
-            let same_user = prediction.username() == params.user().username();
+            let same_user = prediction
+                .as_ref()
+                .map(|pred| pred.username() == params.user().username())
+                .unwrap_or(false);
 
             match (prediction, same_user) {
-                (Some(prediction), true) => {
+                (Some(_prediction), true) => {
                     let success = self.prediction_db.delete_prediction(params.id())?;
 
                     Ok(delete::DeletePredictionResult::new(success))
