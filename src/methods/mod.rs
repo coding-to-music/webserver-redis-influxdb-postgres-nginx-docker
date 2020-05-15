@@ -17,11 +17,17 @@ pub enum JsonRpcVersion {
     Two,
 }
 
+/// A JSONRPC request.
 #[derive(Serialize, Deserialize)]
 pub struct JsonRpcRequest {
+    /// JSONRPC version.
     jsonrpc: JsonRpcVersion,
+    /// RPC method to call.
     method: String,
+    /// Parameters to pass to the method.
     params: Value,
+    /// A response to this request should contain this same id (provided by the requester).
+    /// If the request is a notification, then `id` is `None`.
     id: Option<String>,
 }
 
@@ -39,17 +45,23 @@ impl JsonRpcRequest {
     }
 }
 
+/// A JSONRPC response object. Contains _either_ a `result` (in case of success) or `error` (in case of failure) property.
 #[derive(Serialize)]
 pub struct JsonRpcResponse {
+    /// JSONRPC version of the response.
     jsonrpc: JsonRpcVersion,
+    /// Optional structured data to be returned in case of success
     #[serde(skip_serializing_if = "Option::is_none")]
     result: Option<Value>,
+    /// Optional data to be returned in case of failure
     #[serde(skip_serializing_if = "Option::is_none")]
     error: Option<Error>,
+    /// Id corresponding to `id` property of request (if any)
     id: Option<String>,
 }
 
 impl JsonRpcResponse {
+    /// Create a `JsonRpcResponse` from a `Result`.
     pub fn from_result<T>(
         jsonrpc: JsonRpcVersion,
         result: Result<T, Error>,
@@ -64,6 +76,7 @@ impl JsonRpcResponse {
         }
     }
 
+    /// Create a `JsonRpcResponse` with a `result` property (indicating success).
     pub fn success<T: Serialize>(jsonrpc: JsonRpcVersion, result: T, id: Option<String>) -> Self {
         Self {
             jsonrpc,
@@ -73,6 +86,7 @@ impl JsonRpcResponse {
         }
     }
 
+    /// Create a `JsonRpcResponse` with an `error` property (indicating failure).
     pub fn error(jsonrpc: JsonRpcVersion, error: Error, id: Option<String>) -> Self {
         Self {
             jsonrpc,
@@ -90,27 +104,45 @@ impl JsonRpcResponse {
     }
 }
 
+/// Error object to be returned in a `JsonRpcResponse` if something failed.
 #[derive(Serialize)]
 pub struct Error {
+    /// JSONRPC error code.
     code: i32,
+    /// Short description of what went wrong.
     message: String,
+    /// Optional field containing structured error information.
     #[serde(skip_serializing_if = "Option::is_none")]
     data: Option<Value>,
+    /// Contains debug information about what caused an error.
+    /// This property is not exposed to callers of the api.
     #[serde(skip_serializing)]
     internal_data: Option<String>,
 }
 
 impl Error {
+    /// Set the `message` property on `self`.
+    pub fn with_message<T>(mut self, message: T) -> Self
+    where
+        T: Into<String>,
+    {
+        self.message = message.into();
+        self
+    }
+
+    /// Set the `data` property on `self`.
     pub fn with_data<T: Serialize>(mut self, data: T) -> Self {
         self.data = Some(serde_json::to_value(data).expect("infallible"));
         self
     }
 
+    /// Set the `internal_data` property on `self`.
     pub fn with_internal_data<T: Debug>(mut self, data: T) -> Self {
         self.internal_data = Some(format!("{:?}", data));
         self
     }
 
+    /// Constructor for a "Method not found" JSONRPC error.
     pub fn method_not_found() -> Self {
         Self {
             code: ErrorCode::MethodNotFound.into(),
@@ -120,6 +152,7 @@ impl Error {
         }
     }
 
+    /// Constructor for a "Invalid request" JSONRPC error.
     pub fn invalid_request() -> Self {
         Self {
             code: ErrorCode::InvalidRequest.into(),
@@ -129,6 +162,7 @@ impl Error {
         }
     }
 
+    /// Constructor for an "Invalid params" JSONRPC error.
     pub fn invalid_params() -> Self {
         Self {
             code: ErrorCode::InvalidParams.into(),
@@ -138,6 +172,7 @@ impl Error {
         }
     }
 
+    /// Constructor for an "Internal error" JSONRPC error.
     pub fn internal_error() -> Self {
         Self {
             code: ErrorCode::InternalError.into(),
@@ -167,11 +202,17 @@ impl From<rusqlite::Error> for Error {
     }
 }
 
+/// Standard JSONRPC error variants as defined by the [JSONRPC specification](https://www.jsonrpc.org/specification#error_object)
 pub enum ErrorCode {
+    /// Invalid JSON was received.
     ParseError,
+    /// The JSON received was not a valid JSONRPC request object.
     InvalidRequest,
+    /// The method does not exist / is not available.
     MethodNotFound,
+    /// Invalid method parameter(s).
     InvalidParams,
+    /// Internal JSONRPC error
     InternalError,
 }
 

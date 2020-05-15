@@ -67,7 +67,7 @@ impl From<AddPredictionParamsInvalid> for crate::methods::Error {
                 Self::invalid_params().with_data(format!(r#"invalid format: "{}""#, e))
             }
             AddPredictionParamsInvalid::EmptyText => {
-                Self::invalid_params().with_data("prediction can't be empty")
+                Self::invalid_params().with_message("prediction can't be empty")
             }
             AddPredictionParamsInvalid::TextTooLong => {
                 Self::invalid_params().with_data("prediction must not be longer than 50 characters")
