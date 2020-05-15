@@ -143,7 +143,8 @@ impl Prediction {
             id,
             prediction,
             timestamp_s,
-            timestamp_s_nice: format!("{}", Self::timestamp_s_nice(timestamp_s as i64)),
+            timestamp_s_nice: Self::timestamp_s_nice(timestamp_s as i64)
+                .to_rfc3339_opts(SecondsFormat::Millis, true),
         }
     }
 
