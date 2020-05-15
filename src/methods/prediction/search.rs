@@ -1,10 +1,11 @@
-use crate::db;
+use super::Prediction;
+use crate::methods;
 use std::convert::{TryFrom, TryInto};
 
 #[derive(serde::Deserialize)]
 pub struct SearchPredictionsParamsBuilder {
     username: String,
-    user: Option<crate::methods::User>,
+    user: Option<methods::User>,
 }
 
 impl SearchPredictionsParamsBuilder {
@@ -73,39 +74,5 @@ pub struct SearchPredictionsResult {
 impl SearchPredictionsResult {
     pub fn new(predictions: Vec<Prediction>) -> Self {
         Self { predictions }
-    }
-}
-
-#[derive(serde::Serialize)]
-pub struct Prediction {
-    #[serde(skip_serializing_if = "Option::is_none")]
-    id: Option<i64>,
-    prediction: String,
-    timestamp_s: u32,
-}
-
-impl Prediction {
-    pub fn new(id: Option<i64>, prediction: String, timestamp_s: u32) -> Self {
-        Self {
-            id,
-            prediction,
-            timestamp_s,
-        }
-    }
-
-    pub fn from_db_with_id(db_prediction: db::Prediction) -> Self {
-        Self::new(
-            db_prediction.id(),
-            db_prediction.text().to_owned(),
-            db_prediction.timestamp_s(),
-        )
-    }
-
-    pub fn from_db_without_id(db_prediction: db::Prediction) -> Self {
-        Self::new(
-            None,
-            db_prediction.text().to_owned(),
-            db_prediction.timestamp_s(),
-        )
     }
 }

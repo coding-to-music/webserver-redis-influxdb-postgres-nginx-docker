@@ -5,7 +5,6 @@ pub struct SleepController;
 
 impl SleepController {
     pub fn new() -> Self {
-        info!("Creating new SleepController");
         Self
     }
 
@@ -28,11 +27,28 @@ impl SleepController {
 }
 
 mod sleep {
-    use super::*;
     use crate::Error;
-    use std::convert::TryFrom;
+    use std::convert::{TryFrom, TryInto};
 
     #[derive(serde::Deserialize)]
+    pub struct SleepParamsBuilder {
+        seconds: f32,
+    }
+
+    impl SleepParamsBuilder {
+        pub fn build(self) -> Result<SleepParams, SleepParamsInvalid> {
+            if self.seconds < 0.01 {
+                Err(SleepParamsInvalid::SecondsTooLow)
+            } else if self.seconds > 10.0 {
+                Err(SleepParamsInvalid::SecondsTooHigh)
+            } else {
+                Ok(SleepParams {
+                    seconds: self.seconds,
+                })
+            }
+        }
+    }
+
     pub struct SleepParams {
         seconds: f32,
     }
@@ -46,16 +62,10 @@ mod sleep {
     impl TryFrom<serde_json::Value> for SleepParams {
         type Error = SleepParamsInvalid;
         fn try_from(value: serde_json::Value) -> Result<Self, Self::Error> {
-            let params: SleepParams =
-                serde_json::from_value(value).map_err(|_| SleepParamsInvalid::InvalidFormat)?;
+            let builder: SleepParamsBuilder =
+                serde_json::from_value(value).map_err(SleepParamsInvalid::InvalidFormat)?;
 
-            if params.seconds < 0.01 {
-                Err(SleepParamsInvalid::SecondsTooLow)
-            } else if params.seconds > 10.0 {
-                Err(SleepParamsInvalid::SecondsTooHigh)
-            } else {
-                Ok(params)
-            }
+            builder.build()
         }
     }
 
@@ -69,7 +79,9 @@ mod sleep {
     impl From<SleepParamsInvalid> for Error {
         fn from(error: SleepParamsInvalid) -> Self {
             match error {
-                SleepParamsInvalid::InvalidFormat => Self::invalid_params(),
+                SleepParamsInvalid::InvalidFormat(e) => {
+                    Self::invalid_params().with_data(format!(r#"invalid format: "{}""#, e))
+                }
                 SleepParamsInvalid::SecondsTooLow => {
                     Self::invalid_params().with_data("can't sleep for less than 0.01 seconds")
                 }
@@ -81,12 +93,12 @@ mod sleep {
     }
 
     pub enum SleepParamsInvalid {
-        InvalidFormat,
+        InvalidFormat(serde_json::Error),
         SecondsTooLow,
         SecondsTooHigh,
     }
 
-    #[derive(serde::Serialize, Clone, Debug)]
+    #[derive(serde::Serialize)]
     pub struct SleepResult {
         seconds: f32,
     }

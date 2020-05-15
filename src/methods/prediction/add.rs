@@ -1,6 +1,5 @@
-use super::*;
 use crate::methods;
-use std::convert::TryFrom;
+use std::convert::{TryFrom, TryInto};
 
 pub struct AddPredictionParams {
     prediction: String,

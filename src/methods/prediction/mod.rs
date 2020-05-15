@@ -42,7 +42,7 @@ impl PredictionController {
 
             Ok(add::AddPredictionResult::new(result))
         } else {
-            Err(crate::Error::invalid_params().with_data("invalid user"))
+            Err(crate::Error::invalid_params().with_data("invalid username or password"))
         }
     }
 
@@ -108,9 +108,9 @@ impl PredictionController {
                     .into_iter()
                     .map(|db_pred| {
                         if user.username() == params.username() {
-                            search::Prediction::from_db_with_id(db_pred)
+                            Prediction::from_db_with_id(db_pred)
                         } else {
-                            search::Prediction::from_db_without_id(db_pred)
+                            Prediction::from_db_without_id(db_pred)
                         }
                     })
                     .collect(),
@@ -121,9 +121,52 @@ impl PredictionController {
             (None, _) => Ok(search::SearchPredictionsResult::new(
                 predictions
                     .into_iter()
-                    .map(search::Prediction::from_db_without_id)
+                    .map(Prediction::from_db_without_id)
                     .collect(),
             )),
         }
+    }
+}
+
+#[derive(serde::Serialize)]
+pub struct Prediction {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    id: Option<i64>,
+    prediction: String,
+    timestamp_s: u32,
+    timestamp_s_nice: String,
+}
+
+impl Prediction {
+    pub fn new(id: Option<i64>, prediction: String, timestamp_s: u32) -> Self {
+        Self {
+            id,
+            prediction,
+            timestamp_s,
+            timestamp_s_nice: format!("{}", Self::timestamp_s_nice(timestamp_s as i64)),
+        }
+    }
+
+    pub fn from_db_with_id(db_prediction: db::Prediction) -> Self {
+        Self::new(
+            db_prediction.id(),
+            db_prediction.text().to_owned(),
+            db_prediction.timestamp_s(),
+        )
+    }
+
+    pub fn from_db_without_id(db_prediction: db::Prediction) -> Self {
+        Self::new(
+            None,
+            db_prediction.text().to_owned(),
+            db_prediction.timestamp_s(),
+        )
+    }
+
+    fn timestamp_s_nice(timestamp_s: i64) -> chrono::DateTime<chrono::Utc> {
+        chrono::DateTime::<chrono::Utc>::from_utc(
+            chrono::NaiveDateTime::from_timestamp(timestamp_s, 0),
+            chrono::Utc,
+        )
     }
 }
