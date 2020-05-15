@@ -72,7 +72,7 @@ impl From<DeletePredictionParamsInvalid> for crate::methods::Error {
     fn from(error: DeletePredictionParamsInvalid) -> Self {
         match error {
             DeletePredictionParamsInvalid::InvalidFormat(e) => {
-                Self::invalid_params().with_data(format!("{}", e))
+                Self::invalid_params().with_data(format!(r#"invalid format: "{}""#, e))
             }
             DeletePredictionParamsInvalid::InvalidId => {
                 Self::invalid_params().with_data("id must be greater than 0")

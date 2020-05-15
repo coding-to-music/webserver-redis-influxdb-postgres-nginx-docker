@@ -59,7 +59,7 @@ impl From<SearchPredictionsParamsInvalid> for crate::Error {
     fn from(error: SearchPredictionsParamsInvalid) -> Self {
         match error {
             SearchPredictionsParamsInvalid::InvalidFormat(e) => {
-                crate::Error::invalid_params().with_data(format!("invalid format: {}", e))
+                Self::invalid_params().with_data(format!(r#"invalid format: "{}""#, e))
             }
         }
     }

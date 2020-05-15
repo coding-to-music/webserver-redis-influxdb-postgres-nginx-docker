@@ -34,8 +34,8 @@ impl ChangePasswordParamsBuilder {
 impl TryFrom<serde_json::Value> for ChangePasswordParams {
     type Error = ChangePasswordParamsInvalid;
     fn try_from(value: serde_json::Value) -> Result<Self, Self::Error> {
-        let builder: ChangePasswordParamsBuilder = serde_json::from_value(value)
-            .map_err(|_| ChangePasswordParamsInvalid::InvalidFormat)?;
+        let builder: ChangePasswordParamsBuilder =
+            serde_json::from_value(value).map_err(ChangePasswordParamsInvalid::InvalidFormat)?;
 
         builder.build()
     }
@@ -49,13 +49,17 @@ impl TryFrom<crate::JsonRpcRequest> for ChangePasswordParams {
 }
 
 impl From<ChangePasswordParamsInvalid> for crate::Error {
-    fn from(_: ChangePasswordParamsInvalid) -> Self {
-        Self::invalid_params()
+    fn from(error: ChangePasswordParamsInvalid) -> Self {
+        match error {
+            ChangePasswordParamsInvalid::InvalidFormat(e) => {
+                Self::invalid_params().with_data(format!(r#"invalid format: "{}""#, e))
+            }
+        }
     }
 }
 
 pub enum ChangePasswordParamsInvalid {
-    InvalidFormat,
+    InvalidFormat(serde_json::Error),
 }
 
 #[derive(serde::Serialize)]

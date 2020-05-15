@@ -65,7 +65,7 @@ impl From<AddPredictionParamsInvalid> for crate::methods::Error {
     fn from(error: AddPredictionParamsInvalid) -> Self {
         match error {
             AddPredictionParamsInvalid::InvalidFormat(e) => {
-                Self::invalid_params().with_data(format!("{}", e))
+                Self::invalid_params().with_data(format!(r#"invalid format: "{}""#, e))
             }
             AddPredictionParamsInvalid::EmptyText => {
                 Self::invalid_params().with_data("prediction can't be empty")

@@ -37,7 +37,7 @@ impl User {
 }
 
 pub enum AddUserParamsInvalid {
-    InvalidFormat,
+    InvalidFormat(serde_json::Error),
     PasswordTooShort,
 }
 
@@ -45,7 +45,7 @@ impl TryFrom<serde_json::Value> for AddUserParams {
     type Error = AddUserParamsInvalid;
     fn try_from(value: serde_json::Value) -> Result<Self, Self::Error> {
         let builder: AddUserParamsBuilder =
-            serde_json::from_value(value).map_err(|_| AddUserParamsInvalid::InvalidFormat)?;
+            serde_json::from_value(value).map_err(AddUserParamsInvalid::InvalidFormat)?;
 
         builder.build()
     }
@@ -59,8 +59,15 @@ impl TryFrom<crate::JsonRpcRequest> for AddUserParams {
 }
 
 impl From<AddUserParamsInvalid> for crate::Error {
-    fn from(_: AddUserParamsInvalid) -> Self {
-        Self::invalid_params()
+    fn from(error: AddUserParamsInvalid) -> Self {
+        match error {
+            AddUserParamsInvalid::InvalidFormat(e) => {
+                Self::invalid_params().with_data(format!(r#"invalid format: "{}""#, e))
+            }
+            AddUserParamsInvalid::PasswordTooShort => {
+                Self::invalid_params().with_data("password is too short")
+            }
+        }
     }
 }
 

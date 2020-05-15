@@ -26,7 +26,7 @@ impl TryFrom<serde_json::Value> for ValidateUserParams {
     type Error = ValidateUserParamsInvalid;
     fn try_from(value: serde_json::Value) -> Result<Self, Self::Error> {
         let builder: ValidateUserParamsBuilder =
-            serde_json::from_value(value).map_err(|_| ValidateUserParamsInvalid::InvalidFormat)?;
+            serde_json::from_value(value).map_err(ValidateUserParamsInvalid::InvalidFormat)?;
 
         builder.build()
     }
@@ -40,12 +40,16 @@ impl TryFrom<crate::JsonRpcRequest> for ValidateUserParams {
 }
 
 pub enum ValidateUserParamsInvalid {
-    InvalidFormat,
+    InvalidFormat(serde_json::Error),
 }
 
 impl From<ValidateUserParamsInvalid> for crate::Error {
-    fn from(_: ValidateUserParamsInvalid) -> Self {
-        crate::Error::invalid_params()
+    fn from(error: ValidateUserParamsInvalid) -> Self {
+        match error {
+            ValidateUserParamsInvalid::InvalidFormat(e) => {
+                Self::invalid_params().with_data(format!(r#"invalid format: "{}""#, e))
+            }
+        }
     }
 }
 
