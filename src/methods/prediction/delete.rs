@@ -68,7 +68,7 @@ impl DeletePredictionResult {
     }
 }
 
-impl From<DeletePredictionParamsInvalid> for crate::methods::Error {
+impl From<DeletePredictionParamsInvalid> for crate::Error {
     fn from(error: DeletePredictionParamsInvalid) -> Self {
         match error {
             DeletePredictionParamsInvalid::InvalidFormat(e) => {

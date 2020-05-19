@@ -27,7 +27,7 @@ impl PredictionController {
     >(
         &self,
         params: T,
-    ) -> Result<add::AddPredictionResult, super::Error> {
+    ) -> Result<add::AddPredictionResult, crate::Error> {
         let params: add::AddPredictionParams = params.try_into()?;
 
         if self.user_db.validate_user(params.user()) {

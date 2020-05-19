@@ -60,7 +60,7 @@ pub enum AddPredictionParamsInvalid {
     TextTooLong,
 }
 
-impl From<AddPredictionParamsInvalid> for crate::methods::Error {
+impl From<AddPredictionParamsInvalid> for crate::Error {
     fn from(error: AddPredictionParamsInvalid) -> Self {
         match error {
             AddPredictionParamsInvalid::InvalidFormat(e) => {
