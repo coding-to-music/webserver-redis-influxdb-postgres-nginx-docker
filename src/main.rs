@@ -112,7 +112,7 @@ impl App {
             },
         };
 
-        if let Some(err) = response.get_error() {
+        if let ResponseKind::Error(err) = response.kind() {
             if let Some(data) = err.get_internal_data() {
                 error!(r#"returning an error with internal data: "{}""#, data);
             }
@@ -219,6 +219,14 @@ pub struct JsonRpcResponse {
 }
 
 impl JsonRpcResponse {
+    pub fn kind(&self) -> ResponseKind {
+        if let Some(err) = &self.error {
+            ResponseKind::Error(err)
+        } else {
+            ResponseKind::Success
+        }
+    }
+
     /// Create a `JsonRpcResponse` from a `Result`.
     pub fn from_result<T>(
         jsonrpc: JsonRpcVersion,
@@ -260,6 +268,11 @@ impl JsonRpcResponse {
             Some(err) => Some(&err),
         }
     }
+}
+
+pub enum ResponseKind<'a> {
+    Success,
+    Error(&'a Error),
 }
 
 /// Error object to be returned in a `JsonRpcResponse` if something failed.

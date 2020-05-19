@@ -1,132 +1,10 @@
-use crate::db;
+use crate::{db, methods};
 use chrono::prelude::*;
-use std::{convert::TryInto, sync::Arc};
+use std::convert::{TryFrom, TryInto};
 
-mod add;
-mod delete;
-mod search;
+pub use controller::PredictionController;
 
-pub struct PredictionController {
-    prediction_db: Arc<db::Database<db::Prediction>>,
-    user_db: Arc<db::Database<db::User>>,
-}
-
-impl PredictionController {
-    pub fn new(
-        prediction_db: Arc<db::Database<db::Prediction>>,
-        user_db: Arc<db::Database<db::User>>,
-    ) -> Self {
-        Self {
-            prediction_db,
-            user_db,
-        }
-    }
-
-    pub async fn add<
-        T: TryInto<add::AddPredictionParams, Error = add::AddPredictionParamsInvalid>,
-    >(
-        &self,
-        params: T,
-    ) -> Result<add::AddPredictionResult, crate::Error> {
-        let params: add::AddPredictionParams = params.try_into()?;
-
-        if self.user_db.validate_user(params.user()) {
-            let prediction_row = db::Prediction::new(
-                None,
-                params.user().username().to_owned(),
-                params.prediction().to_owned(),
-                Utc::now().timestamp() as u32,
-            );
-
-            let result = self.prediction_db.insert_prediction(prediction_row)?;
-
-            Ok(add::AddPredictionResult::new(result))
-        } else {
-            Err(crate::Error::invalid_params().with_data("invalid username or password"))
-        }
-    }
-
-    pub async fn delete<
-        T: TryInto<delete::DeletePredictionParams, Error = delete::DeletePredictionParamsInvalid>,
-    >(
-        &self,
-        params: T,
-    ) -> Result<delete::DeletePredictionResult, crate::Error> {
-        let params: delete::DeletePredictionParams = params.try_into()?;
-
-        if self.user_db.validate_user(params.user()) {
-            let prediction = self.prediction_db.get_predictions_by_id(params.id())?;
-            let same_user = prediction
-                .as_ref()
-                .map(|pred| pred.username() == params.user().username())
-                .unwrap_or(false);
-
-            match (prediction, same_user) {
-                (Some(_prediction), true) => {
-                    let success = self.prediction_db.delete_prediction(params.id())?;
-
-                    Ok(delete::DeletePredictionResult::new(success))
-                }
-                _ => Err(crate::Error::invalid_params().with_data(
-                    "can't delete predictions that don't exist, or belong to another user",
-                )),
-            }
-        } else {
-            Err(crate::Error::invalid_params().with_data("invalid username or password"))
-        }
-    }
-
-    pub async fn search<
-        T: TryInto<search::SearchPredictionsParams, Error = search::SearchPredictionsParamsInvalid>,
-    >(
-        &self,
-        params: T,
-    ) -> Result<search::SearchPredictionsResult, crate::Error> {
-        let params: search::SearchPredictionsParams = params.try_into()?;
-
-        let valid_user =
-            params.user().is_some() && self.user_db.validate_user(params.user().unwrap());
-
-        trace!(
-            r#"searching for predictions made by "{}""#,
-            params.username()
-        );
-
-        let predictions = self
-            .prediction_db
-            .get_predictions_by_user(params.username())?;
-
-        trace!(
-            r#"found {} predictions made by "{}""#,
-            predictions.len(),
-            params.username()
-        );
-
-        match (params.user(), valid_user) {
-            (Some(user), true) => Ok(search::SearchPredictionsResult::new(
-                predictions
-                    .into_iter()
-                    .map(|db_pred| {
-                        if user.username() == params.username() {
-                            Prediction::from_db_with_id(db_pred)
-                        } else {
-                            Prediction::from_db_without_id(db_pred)
-                        }
-                    })
-                    .collect(),
-            )),
-            (Some(_user), false) => {
-                Err(crate::Error::invalid_params().with_data("invalid username or password"))
-            }
-            (None, _) => Ok(search::SearchPredictionsResult::new(
-                predictions
-                    .into_iter()
-                    .map(Prediction::from_db_without_id)
-                    .collect(),
-            )),
-        }
-    }
-}
+mod controller;
 
 #[derive(serde::Serialize)]
 pub struct Prediction {
@@ -169,5 +47,246 @@ impl Prediction {
             chrono::NaiveDateTime::from_timestamp(timestamp_s, 0),
             chrono::Utc,
         )
+    }
+}
+
+pub struct AddPredictionParams {
+    prediction: String,
+    user: methods::User,
+}
+
+impl AddPredictionParams {
+    pub fn prediction(&self) -> &str {
+        &self.prediction
+    }
+
+    pub fn user(&self) -> &methods::User {
+        &self.user
+    }
+}
+
+#[derive(serde::Deserialize)]
+struct AddPredictionParamsBuilder {
+    prediction: String,
+    user: methods::User,
+}
+
+impl AddPredictionParamsBuilder {
+    fn build(self) -> Result<AddPredictionParams, AddPredictionParamsInvalid> {
+        if self.prediction.is_empty() {
+            Err(AddPredictionParamsInvalid::EmptyText)
+        } else if self.prediction.len() > 50 {
+            Err(AddPredictionParamsInvalid::TextTooLong)
+        } else {
+            Ok(AddPredictionParams {
+                prediction: self.prediction,
+                user: self.user,
+            })
+        }
+    }
+}
+
+impl TryFrom<serde_json::Value> for AddPredictionParams {
+    type Error = AddPredictionParamsInvalid;
+    fn try_from(value: serde_json::Value) -> Result<Self, Self::Error> {
+        let builder: AddPredictionParamsBuilder =
+            serde_json::from_value(value).map_err(AddPredictionParamsInvalid::InvalidFormat)?;
+
+        builder.build()
+    }
+}
+
+impl TryFrom<crate::JsonRpcRequest> for AddPredictionParams {
+    type Error = AddPredictionParamsInvalid;
+    fn try_from(value: crate::JsonRpcRequest) -> Result<Self, Self::Error> {
+        value.params.try_into()
+    }
+}
+
+pub enum AddPredictionParamsInvalid {
+    InvalidFormat(serde_json::Error),
+    EmptyText,
+    TextTooLong,
+}
+
+impl From<AddPredictionParamsInvalid> for crate::Error {
+    fn from(error: AddPredictionParamsInvalid) -> Self {
+        match error {
+            AddPredictionParamsInvalid::InvalidFormat(e) => {
+                Self::invalid_params().with_data(format!(r#"invalid format: "{}""#, e))
+            }
+            AddPredictionParamsInvalid::EmptyText => {
+                Self::invalid_params().with_message("prediction can't be empty")
+            }
+            AddPredictionParamsInvalid::TextTooLong => {
+                Self::invalid_params().with_data("prediction must not be longer than 50 characters")
+            }
+        }
+    }
+}
+
+#[derive(serde::Serialize)]
+pub struct AddPredictionResult {
+    inserted: bool,
+}
+
+impl AddPredictionResult {
+    pub fn new(inserted: bool) -> Self {
+        Self { inserted }
+    }
+}
+
+#[derive(serde::Deserialize)]
+struct DeletePredictionParamsBuilder {
+    id: i64,
+    user: methods::User,
+}
+
+impl DeletePredictionParamsBuilder {
+    fn build(self) -> Result<DeletePredictionParams, DeletePredictionParamsInvalid> {
+        if self.id <= 0 {
+            Err(DeletePredictionParamsInvalid::InvalidId)
+        } else {
+            Ok(DeletePredictionParams {
+                id: self.id,
+                user: self.user,
+            })
+        }
+    }
+}
+
+pub struct DeletePredictionParams {
+    id: i64,
+    user: methods::User,
+}
+
+impl DeletePredictionParams {
+    pub fn id(&self) -> i64 {
+        self.id
+    }
+
+    pub fn user(&self) -> &methods::User {
+        &self.user
+    }
+}
+
+pub enum DeletePredictionParamsInvalid {
+    InvalidFormat(serde_json::Error),
+    InvalidId,
+}
+
+impl TryFrom<serde_json::Value> for DeletePredictionParams {
+    type Error = DeletePredictionParamsInvalid;
+    fn try_from(value: serde_json::Value) -> Result<Self, Self::Error> {
+        let builder: DeletePredictionParamsBuilder =
+            serde_json::from_value(value).map_err(DeletePredictionParamsInvalid::InvalidFormat)?;
+
+        builder.build()
+    }
+}
+
+impl TryFrom<crate::JsonRpcRequest> for DeletePredictionParams {
+    type Error = DeletePredictionParamsInvalid;
+    fn try_from(value: crate::JsonRpcRequest) -> Result<Self, Self::Error> {
+        value.params.try_into()
+    }
+}
+
+#[derive(serde::Serialize)]
+pub struct DeletePredictionResult {
+    success: bool,
+}
+
+impl DeletePredictionResult {
+    pub fn new(success: bool) -> Self {
+        Self { success }
+    }
+}
+
+impl From<DeletePredictionParamsInvalid> for crate::Error {
+    fn from(error: DeletePredictionParamsInvalid) -> Self {
+        match error {
+            DeletePredictionParamsInvalid::InvalidFormat(e) => {
+                Self::invalid_params().with_data(format!(r#"invalid format: "{}""#, e))
+            }
+            DeletePredictionParamsInvalid::InvalidId => {
+                Self::invalid_params().with_data("id must be greater than 0")
+            }
+        }
+    }
+}
+
+#[derive(serde::Deserialize)]
+struct SearchPredictionsParamsBuilder {
+    username: String,
+    user: Option<methods::User>,
+}
+
+impl SearchPredictionsParamsBuilder {
+    fn build(self) -> Result<SearchPredictionsParams, SearchPredictionsParamsInvalid> {
+        Ok(SearchPredictionsParams {
+            username: self.username,
+            user: self.user,
+        })
+    }
+}
+
+pub struct SearchPredictionsParams {
+    username: String,
+    user: Option<crate::methods::User>,
+}
+
+impl SearchPredictionsParams {
+    pub fn username(&self) -> &str {
+        &self.username
+    }
+
+    pub fn user(&self) -> Option<&crate::methods::User> {
+        match &self.user {
+            None => None,
+            Some(user) => Some(user),
+        }
+    }
+}
+
+pub enum SearchPredictionsParamsInvalid {
+    InvalidFormat(serde_json::Error),
+}
+
+impl TryFrom<serde_json::Value> for SearchPredictionsParams {
+    type Error = SearchPredictionsParamsInvalid;
+    fn try_from(value: serde_json::Value) -> Result<Self, Self::Error> {
+        let builder: SearchPredictionsParamsBuilder =
+            serde_json::from_value(value).map_err(SearchPredictionsParamsInvalid::InvalidFormat)?;
+
+        builder.build()
+    }
+}
+
+impl TryFrom<crate::JsonRpcRequest> for SearchPredictionsParams {
+    type Error = SearchPredictionsParamsInvalid;
+    fn try_from(value: crate::JsonRpcRequest) -> Result<Self, Self::Error> {
+        value.params.try_into()
+    }
+}
+
+impl From<SearchPredictionsParamsInvalid> for crate::Error {
+    fn from(error: SearchPredictionsParamsInvalid) -> Self {
+        match error {
+            SearchPredictionsParamsInvalid::InvalidFormat(e) => {
+                Self::invalid_params().with_data(format!(r#"invalid format: "{}""#, e))
+            }
+        }
+    }
+}
+
+#[derive(serde::Serialize)]
+pub struct SearchPredictionsResult {
+    predictions: Vec<Prediction>,
+}
+
+impl SearchPredictionsResult {
+    pub fn new(predictions: Vec<Prediction>) -> Self {
+        Self { predictions }
     }
 }
