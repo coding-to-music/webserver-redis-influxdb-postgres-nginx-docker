@@ -55,16 +55,6 @@ pub struct AddPredictionParams {
     user: methods::User,
 }
 
-impl AddPredictionParams {
-    pub fn prediction(&self) -> &str {
-        &self.prediction
-    }
-
-    pub fn user(&self) -> &methods::User {
-        &self.user
-    }
-}
-
 #[derive(serde::Deserialize)]
 struct AddPredictionParamsBuilder {
     prediction: String,
@@ -160,16 +150,6 @@ pub struct DeletePredictionParams {
     user: methods::User,
 }
 
-impl DeletePredictionParams {
-    pub fn id(&self) -> i64 {
-        self.id
-    }
-
-    pub fn user(&self) -> &methods::User {
-        &self.user
-    }
-}
-
 pub enum DeletePredictionParamsInvalid {
     InvalidFormat(serde_json::Error),
     InvalidId,
@@ -234,19 +214,6 @@ impl SearchPredictionsParamsBuilder {
 pub struct SearchPredictionsParams {
     username: String,
     user: Option<crate::methods::User>,
-}
-
-impl SearchPredictionsParams {
-    pub fn username(&self) -> &str {
-        &self.username
-    }
-
-    pub fn user(&self) -> Option<&crate::methods::User> {
-        match &self.user {
-            None => None,
-            Some(user) => Some(user),
-        }
-    }
 }
 
 pub enum SearchPredictionsParamsInvalid {

@@ -25,11 +25,11 @@ impl PredictionController {
     ) -> Result<AddPredictionResult, crate::Error> {
         let params: AddPredictionParams = params.try_into()?;
 
-        if self.user_db.validate_user(params.user()) {
+        if self.user_db.validate_user(&params.user) {
             let prediction_row = db::Prediction::new(
                 None,
-                params.user().username().to_owned(),
-                params.prediction().to_owned(),
+                params.user.username().to_owned(),
+                params.prediction.to_owned(),
                 Utc::now().timestamp() as u32,
             );
 
@@ -49,16 +49,16 @@ impl PredictionController {
     ) -> Result<DeletePredictionResult, crate::Error> {
         let params: DeletePredictionParams = params.try_into()?;
 
-        if self.user_db.validate_user(params.user()) {
-            let prediction = self.prediction_db.get_predictions_by_id(params.id())?;
+        if self.user_db.validate_user(&params.user) {
+            let prediction = self.prediction_db.get_predictions_by_id(params.id)?;
             let same_user = prediction
                 .as_ref()
-                .map(|pred| pred.username() == params.user().username())
+                .map(|pred| pred.username() == params.user.username())
                 .unwrap_or(false);
 
             match (prediction, same_user) {
                 (Some(_prediction), true) => {
-                    let success = self.prediction_db.delete_prediction(params.id())?;
+                    let success = self.prediction_db.delete_prediction(params.id)?;
 
                     Ok(DeletePredictionResult::new(success))
                 }
@@ -79,30 +79,30 @@ impl PredictionController {
     ) -> Result<SearchPredictionsResult, crate::Error> {
         let params: SearchPredictionsParams = params.try_into()?;
 
-        let valid_user =
-            params.user().is_some() && self.user_db.validate_user(params.user().unwrap());
+        let valid_user = params
+            .user
+            .as_ref()
+            .map(|user| self.user_db.validate_user(user))
+            .unwrap_or(false);
 
-        trace!(
-            r#"searching for predictions made by "{}""#,
-            params.username()
-        );
+        trace!(r#"searching for predictions made by "{}""#, params.username);
 
         let predictions = self
             .prediction_db
-            .get_predictions_by_user(params.username())?;
+            .get_predictions_by_user(&params.username)?;
 
         trace!(
             r#"found {} predictions made by "{}""#,
             predictions.len(),
-            params.username()
+            params.username
         );
 
-        match (params.user(), valid_user) {
+        match (&params.user, valid_user) {
             (Some(user), true) => Ok(SearchPredictionsResult::new(
                 predictions
                     .into_iter()
                     .map(|db_pred| {
-                        if user.username() == params.username() {
+                        if user.username() == params.username {
                             Prediction::from_db_with_id(db_pred)
                         } else {
                             Prediction::from_db_without_id(db_pred)

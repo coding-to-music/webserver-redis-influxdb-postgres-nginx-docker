@@ -22,6 +22,14 @@ impl<T> Database<T> {
 }
 
 impl Database<User> {
+    pub fn username_exists(&self, username: &str) -> bool {
+        if let Ok(Some(_user)) = self.get_user(username) {
+            true
+        } else {
+            false
+        }
+    }
+
     pub fn add_user(&self, user: User) -> Result<usize, rusqlite::Error> {
         let db = self.get_connection()?;
 

@@ -16,14 +16,18 @@ pub struct User {
     password: String,
 }
 
-pub struct AddUserParams {
-    user: User,
+impl User {
+    pub fn username(&self) -> &str {
+        &self.username
+    }
+
+    pub fn password(&self) -> &str {
+        &self.password
+    }
 }
 
-impl AddUserParams {
-    pub fn user(&self) -> &User {
-        &self.user
-    }
+pub struct AddUserParams {
+    user: User,
 }
 
 #[derive(serde::Deserialize)]
@@ -38,16 +42,6 @@ impl AddUserParamsBuilder {
         } else {
             Ok(AddUserParams { user: self.user })
         }
-    }
-}
-
-impl User {
-    pub fn username(&self) -> &str {
-        &self.username
-    }
-
-    pub fn password(&self) -> &str {
-        &self.password
     }
 }
 
@@ -100,16 +94,6 @@ impl AddUserResult {
 pub struct ChangePasswordParams {
     user: User,
     new_password: String,
-}
-
-impl ChangePasswordParams {
-    pub fn user(&self) -> &User {
-        &self.user
-    }
-
-    pub fn new_password(&self) -> &str {
-        &self.new_password
-    }
 }
 
 #[derive(serde::Deserialize)]
@@ -171,12 +155,6 @@ impl ChangePasswordResult {
 
 pub struct ValidateUserParams {
     user: User,
-}
-
-impl ValidateUserParams {
-    pub fn user(&self) -> &User {
-        &self.user
-    }
 }
 
 #[derive(serde::Deserialize)]

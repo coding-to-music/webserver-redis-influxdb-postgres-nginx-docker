@@ -18,7 +18,7 @@ impl UserController {
     ) -> Result<AddUserResult, crate::Error> {
         let params: AddUserParams = request.try_into()?;
 
-        if let Ok(Some(_)) = self.db.get_user(params.user().username()) {
+        if self.db.username_exists(&params.user.username) {
             return Err(crate::Error::internal_error()
                 .with_data("a user with that username already exists"));
         }
@@ -29,11 +29,11 @@ impl UserController {
         rng.fill(&mut salt)
             .map_err(|e| crate::Error::internal_error().with_data(format!("rng error: {}", e)))?;
 
-        let hashed_password = Self::encrypt(params.user().password(), &salt);
+        let hashed_password = Self::encrypt(&params.user.password, &salt);
 
         let user_row = db::User::new(
             None,
-            params.user().username().to_owned(),
+            params.user.username.to_owned(),
             hashed_password.to_vec(),
             salt.to_vec(),
             Utc::now().timestamp() as u32,
@@ -52,15 +52,15 @@ impl UserController {
     ) -> Result<ChangePasswordResult, crate::Error> {
         let params: ChangePasswordParams = request.try_into()?;
 
-        if self.db.validate_user(params.user()) {
+        if self.db.validate_user(&params.user) {
             let user_row = self
                 .db
-                .get_user(params.user().username())?
+                .get_user(&params.user.username)?
                 .ok_or_else(crate::Error::internal_error)?;
 
             let current_salt = user_row.salt();
 
-            let new_password = Self::encrypt(params.new_password(), &current_salt);
+            let new_password = Self::encrypt(&params.new_password, &current_salt);
 
             let new_user_row = db::User::new(
                 user_row.id(),
@@ -85,7 +85,7 @@ impl UserController {
     ) -> Result<ValidateUserResult, crate::Error> {
         let params: ValidateUserParams = request.try_into()?;
 
-        let result = self.db.validate_user(params.user());
+        let result = self.db.validate_user(&params.user);
 
         Ok(ValidateUserResult::new(result))
     }
