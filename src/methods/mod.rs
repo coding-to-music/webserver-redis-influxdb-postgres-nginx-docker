@@ -1,6 +1,6 @@
+pub use mqtt::MqttController;
 pub use prediction::PredictionController;
 pub use sleep::SleepController;
-pub use mqtt::MqttController;
 use std::str::FromStr;
 pub use user::{User, UserController};
 
@@ -39,6 +39,7 @@ impl FromStr for Method {
             "change_password" => Ok(Self::ChangePassword),
             "validate_user" => Ok(Self::ValidateUser),
             "sleep" => Ok(Self::Sleep),
+            "post_local_mqtt" => Ok(Self::PostLocalMqtt),
             _ => Err(()),
         }
     }
