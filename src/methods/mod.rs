@@ -1,10 +1,8 @@
-pub use mqtt::MqttController;
 pub use prediction::PredictionController;
 pub use sleep::SleepController;
 use std::str::FromStr;
 pub use user::{User, UserController};
 
-mod mqtt;
 mod prediction;
 mod sleep;
 mod user;
@@ -24,8 +22,6 @@ pub enum Method {
     ChangePassword,
     /// Validate a username, password tuple
     ValidateUser,
-    /// Post a message to the local MQTT broker on the server
-    PostLocalMqtt,
 }
 
 impl FromStr for Method {
@@ -39,7 +35,6 @@ impl FromStr for Method {
             "change_password" => Ok(Self::ChangePassword),
             "validate_user" => Ok(Self::ValidateUser),
             "sleep" => Ok(Self::Sleep),
-            "post_local_mqtt" => Ok(Self::PostLocalMqtt),
             _ => Err(()),
         }
     }
