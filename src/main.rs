@@ -3,7 +3,7 @@ mod methods;
 
 use dotenv::dotenv;
 use futures::future;
-use methods::{Method, PredictionController, SleepController, UserController};
+use methods::{Method, MqttController, PredictionController, SleepController, UserController};
 use serde::Serialize;
 use serde_json::Value;
 use std::{any::Any, convert::Infallible, fmt::Debug, str::FromStr, sync::Arc};
@@ -42,6 +42,7 @@ pub struct App {
     prediction_controller: PredictionController,
     user_controller: UserController,
     sleep_controller: SleepController,
+    mqtt_controller: MqttController,
 }
 
 impl App {
@@ -53,8 +54,9 @@ impl App {
             Arc::new(db::Database::new(webserver_db_path));
         Self {
             prediction_controller: PredictionController::new(prediction_db, user_db.clone()),
-            user_controller: UserController::new(user_db),
+            user_controller: UserController::new(user_db.clone()),
             sleep_controller: SleepController::new(),
+            mqtt_controller: MqttController::new(user_db),
         }
     }
 
@@ -107,6 +109,11 @@ impl App {
                 Method::Sleep => JsonRpcResponse::from_result(
                     jsonrpc,
                     self.sleep_controller.sleep(req).await,
+                    id,
+                ),
+                Method::PostLocalMqtt => JsonRpcResponse::from_result(
+                    jsonrpc,
+                    self.mqtt_controller.post_local(req).await,
                     id,
                 ),
             },
