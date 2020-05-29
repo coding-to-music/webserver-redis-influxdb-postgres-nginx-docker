@@ -3,7 +3,7 @@ mod methods;
 
 use dotenv::dotenv;
 use futures::future;
-use methods::{Method, MqttController, PredictionController, SleepController, UserController};
+use methods::{Method, PredictionController, ServerController, UserController};
 use serde::Serialize;
 use serde_json::Value;
 use std::{any::Any, convert::Infallible, fmt::Debug, str::FromStr, sync::Arc};
@@ -41,8 +41,7 @@ async fn main() {
 pub struct App {
     prediction_controller: PredictionController,
     user_controller: UserController,
-    sleep_controller: SleepController,
-    mqtt_controller: MqttController,
+    server_controller: ServerController,
 }
 
 impl App {
@@ -55,8 +54,7 @@ impl App {
         Self {
             prediction_controller: PredictionController::new(prediction_db, user_db.clone()),
             user_controller: UserController::new(user_db.clone()),
-            sleep_controller: SleepController::new(),
-            mqtt_controller: MqttController::new(user_db),
+            server_controller: ServerController::new(user_db),
         }
     }
 
@@ -66,12 +64,12 @@ impl App {
         let id = req.id().clone();
         let now = std::time::Instant::now();
         info!(
-            "handling request with id {:?} with method: {}",
+            "handling request with id {:?} with method: '{}'",
             id,
             req.method()
         );
         let handled_message = format!(
-            "handled request with id {:?} and method: {}",
+            "handled request with id {:?} and method: '{}'",
             req.id(),
             req.method()
         );
@@ -108,12 +106,7 @@ impl App {
                 ),
                 Method::Sleep => JsonRpcResponse::from_result(
                     jsonrpc,
-                    self.sleep_controller.sleep(req).await,
-                    id,
-                ),
-                Method::PostLocalMqtt => JsonRpcResponse::from_result(
-                    jsonrpc,
-                    self.mqtt_controller.post_local(req).await,
+                    self.server_controller.sleep(req).await,
                     id,
                 ),
             },
@@ -121,7 +114,7 @@ impl App {
 
         if let ResponseKind::Error(err) = response.kind() {
             if let Some(data) = err.get_internal_data() {
-                error!(r#"returning an error with internal data: "{}""#, data);
+                error!("returning an error with internal data: '{}'", data);
             }
         }
 
@@ -376,7 +369,17 @@ impl From<Infallible> for Error {
 
 impl From<rusqlite::Error> for Error {
     fn from(e: rusqlite::Error) -> Self {
-        Self::internal_error().with_internal_data(e)
+        Self::internal_error()
+            .with_data("database error")
+            .with_internal_data(e)
+    }
+}
+
+impl From<reqwest::Error> for Error {
+    fn from(e: reqwest::Error) -> Self {
+        Self::internal_error()
+            .with_data("http error")
+            .with_internal_data(e)
     }
 }
 

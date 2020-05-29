@@ -1,10 +1,10 @@
 pub use prediction::PredictionController;
-pub use sleep::SleepController;
+pub use server::ServerController;
 use std::str::FromStr;
 pub use user::{User, UserController};
 
 mod prediction;
-mod sleep;
+mod server;
 mod user;
 
 pub enum Method {

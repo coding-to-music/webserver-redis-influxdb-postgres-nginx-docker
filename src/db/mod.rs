@@ -1,7 +1,7 @@
 use ring::digest;
 use rusqlite::{params, Connection};
 use std::marker::PhantomData;
-use std::num::NonZeroU32;
+use std::{fmt::Display, num::NonZeroU32, str::FromStr, time};
 
 pub struct Database<T> {
     path: String,
@@ -34,14 +34,14 @@ impl Database<User> {
         let db = self.get_connection()?;
 
         let changed_rows = db.execute(
-            "INSERT INTO user (username, password, salt, created_s) VALUES (?1, ?2, ?3, ?4)",
-            params![user.username, user.password, user.salt, user.created_s],
+            "INSERT INTO user (username, password, salt, created_s, role) VALUES (?1, ?2, ?3, ?4, ?5)",
+            params![user.username, user.password, user.salt, user.created_s, user.role.to_string()],
         )?;
 
         Ok(changed_rows)
     }
 
-    pub fn update_user(&self, user: User) -> Result<bool, rusqlite::Error> {
+    pub fn update_user_password(&self, user: User) -> Result<bool, rusqlite::Error> {
         let db = self.get_connection()?;
 
         let changed_rows = db.execute(
@@ -56,18 +56,20 @@ impl Database<User> {
         let db = self.get_connection()?;
 
         let mut stmt = db.prepare(
-            "SELECT ROWID, username, password, salt, created_s FROM user WHERE username = ?1",
+            "SELECT ROWID, username, password, salt, created_s, role FROM user WHERE username = ?1",
         )?;
 
         let mut user_rows: Vec<_> = stmt
             .query_map(params![username], |row| {
-                Ok(User::new(
-                    row.get(0)?,
-                    row.get(1)?,
-                    row.get(2)?,
-                    row.get(3)?,
-                    row.get(4)?,
-                ))
+                Ok(User {
+                    id: row.get(0)?,
+                    username: row.get(1)?,
+                    password: row.get(2)?,
+                    salt: row.get(3)?,
+                    created_s: row.get(4)?,
+                    role: UserRole::from_str(&row.get::<_, String>(5)?)
+                        .unwrap_or_else(|_| UserRole::User),
+                })
             })?
             .filter_map(|b| b.ok())
             .collect();
@@ -114,6 +116,7 @@ impl Database<User> {
         password: &str,
         salt: &[u8; digest::SHA512_OUTPUT_LEN],
     ) -> [u8; digest::SHA512_OUTPUT_LEN] {
+        let timer = time::Instant::now();
         let mut hash = [0u8; digest::SHA512_OUTPUT_LEN];
 
         ring::pbkdf2::derive(
@@ -123,6 +126,8 @@ impl Database<User> {
             password.as_bytes(),
             &mut hash,
         );
+
+        trace!("encrypted a password in {:?}", timer.elapsed());
 
         hash
     }
@@ -241,6 +246,36 @@ pub struct User {
     password: Vec<u8>,
     salt: Vec<u8>,
     created_s: u32,
+    role: UserRole,
+}
+
+pub enum UserRole {
+    User,
+    Admin,
+}
+
+impl Display for UserRole {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}",
+            match self {
+                UserRole::User => "user",
+                UserRole::Admin => "admin",
+            }
+        )
+    }
+}
+
+impl FromStr for UserRole {
+    type Err = ();
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        Ok(match s {
+            "user" => UserRole::User,
+            "admin" => UserRole::Admin,
+            _ => Err(())?,
+        })
+    }
 }
 
 impl User {
@@ -257,7 +292,13 @@ impl User {
             password,
             salt,
             created_s,
+            role: UserRole::User,
         }
+    }
+
+    pub fn with_role(mut self, role: UserRole) -> Self {
+        self.role = role;
+        self
     }
 
     pub fn id(&self) -> Option<i64> {

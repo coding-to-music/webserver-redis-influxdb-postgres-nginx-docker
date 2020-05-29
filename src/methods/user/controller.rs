@@ -70,7 +70,7 @@ impl UserController {
                 user_row.created_s(),
             );
 
-            let result = self.db.update_user(new_user_row)?;
+            let result = self.db.update_user_password(new_user_row)?;
             Ok(ChangePasswordResult::new(result))
         } else {
             Ok(ChangePasswordResult::new(false))
