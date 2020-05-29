@@ -96,20 +96,25 @@ impl UserController {
     {
         let params: SetRoleParams = request.try_into()?;
 
-        if self.db.validate_user(&params.user)
-            && self
-                .db
-                .validate_user_role(&params.user.username, UserRole::Admin)
+        if !self.db.validate_user(&params.user) {
+            return Err(crate::Error::internal_error().with_data("invalid username or password"));
+        }
+
+        if self
+            .db
+            .get_user(&params.user.username)?
+            .map(|user| *user.role())
+            .unwrap_or(UserRole::User)
+            < UserRole::Admin
         {
-            trace!("user is a valid admin");
-            if let Ok(Some(_user)) = self.db.get_user(&params.username) {
-                let result = self.db.update_user_role(&params.username, params.role)?;
-                Ok(SetRoleResult::new(result))
-            } else {
-                Err(crate::Error::internal_error().with_data("user does not exist"))
-            }
+            return Err(crate::Error::internal_error().with_data("you do not have permission"));
+        }
+
+        if let Ok(Some(_user)) = self.db.get_user(&params.username) {
+            let result = self.db.update_user_role(&params.username, params.role)?;
+            Ok(SetRoleResult::new(result))
         } else {
-            Err(crate::Error::internal_error().with_data("you do not have permission"))
+            Err(crate::Error::internal_error().with_data("user does not exist"))
         }
     }
 

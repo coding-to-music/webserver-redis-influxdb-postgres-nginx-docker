@@ -127,16 +127,6 @@ impl Database<User> {
         valid
     }
 
-    pub fn validate_user_role(&self, username: &str, role: UserRole) -> bool {
-        let user_row = if let Ok(Some(user)) = self.get_user(username) {
-            user
-        } else {
-            return false;
-        };
-
-        u16::from(user_row.role) >= u16::from(role)
-    }
-
     pub fn encrypt(
         password: &str,
         salt: &[u8; digest::SHA512_OUTPUT_LEN],
@@ -274,13 +264,26 @@ pub struct User {
     role: UserRole,
 }
 
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub enum UserRole {
     User,
     Admin,
 }
 
+impl PartialOrd for UserRole {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        u16::from(self).partial_cmp(&u16::from(other))
+    }
+}
+
 impl From<UserRole> for u16 {
     fn from(user_role: UserRole) -> Self {
+        u16::from(&user_role)
+    }
+}
+
+impl From<&UserRole> for u16 {
+    fn from(user_role: &UserRole) -> Self {
         match user_role {
             UserRole::User => 100,
             UserRole::Admin => 200,
@@ -330,11 +333,6 @@ impl User {
         }
     }
 
-    pub fn with_role(mut self, role: UserRole) -> Self {
-        self.role = role;
-        self
-    }
-
     pub fn id(&self) -> Option<i64> {
         self.id
     }
@@ -367,5 +365,9 @@ impl User {
 
     pub fn created_s(&self) -> u32 {
         self.created_s
+    }
+
+    pub fn role(&self) -> &UserRole {
+        &self.role
     }
 }
