@@ -24,6 +24,8 @@ pub enum Method {
     ValidateUser,
     /// Set the role of a given user
     SetRole,
+    /// Clear webserver logs
+    ClearLogs,
 }
 
 impl FromStr for Method {
@@ -38,6 +40,7 @@ impl FromStr for Method {
             "validate_user" => Ok(Self::ValidateUser),
             "set_role" => Ok(Self::SetRole),
             "sleep" => Ok(Self::Sleep),
+            "clear_logs" => Ok(Self::ClearLogs),
             _ => Err(()),
         }
     }

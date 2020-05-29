@@ -6,7 +6,7 @@ use futures::future;
 use methods::{Method, PredictionController, ServerController, UserController};
 use serde::Serialize;
 use serde_json::Value;
-use std::{any::Any, convert::Infallible, fmt::Debug, str::FromStr, sync::Arc};
+use std::{any::Any, convert::Infallible, fmt::Debug, path::PathBuf, str::FromStr, sync::Arc};
 use structopt::StructOpt;
 use warp::{Filter, Reply};
 
@@ -51,10 +51,12 @@ impl App {
             Arc::new(db::Database::new(webserver_db_path.clone()));
         let prediction_db: Arc<db::Database<db::Prediction>> =
             Arc::new(db::Database::new(webserver_db_path));
+        let webserver_log_path: PathBuf = from_env_var("WEBSERVER_LOG_PATH").unwrap();
+
         Self {
             prediction_controller: PredictionController::new(prediction_db, user_db.clone()),
             user_controller: UserController::new(user_db.clone()),
-            server_controller: ServerController::new(user_db),
+            server_controller: ServerController::new(user_db, webserver_log_path),
         }
     }
 
@@ -112,6 +114,11 @@ impl App {
                 Method::Sleep => JsonRpcResponse::from_result(
                     jsonrpc,
                     self.server_controller.sleep(req).await,
+                    id,
+                ),
+                Method::ClearLogs => JsonRpcResponse::from_result(
+                    jsonrpc,
+                    self.server_controller.clear_logs(req).await,
                     id,
                 ),
             },
@@ -353,6 +360,16 @@ impl Error {
         Self {
             code: ErrorCode::InternalError.into(),
             message: "Internal error".into(),
+            data: None,
+            internal_data: None,
+        }
+    }
+
+    /// Constructor for a "Method not implemented" webserver error.
+    pub fn not_implemented() -> Self {
+        Self {
+            code: ErrorCode::InternalError.into(),
+            message: "Method not implemented".into(),
             data: None,
             internal_data: None,
         }
