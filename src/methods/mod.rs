@@ -22,6 +22,8 @@ pub enum Method {
     ChangePassword,
     /// Validate a username, password tuple
     ValidateUser,
+    /// Set the role of a given user
+    SetRole,
 }
 
 impl FromStr for Method {
@@ -34,6 +36,7 @@ impl FromStr for Method {
             "add_user" => Ok(Self::AddUser),
             "change_password" => Ok(Self::ChangePassword),
             "validate_user" => Ok(Self::ValidateUser),
+            "set_role" => Ok(Self::SetRole),
             "sleep" => Ok(Self::Sleep),
             _ => Err(()),
         }

@@ -4,8 +4,12 @@ use ring::{
     digest,
     rand::{self, SecureRandom},
 };
-use std::convert::{TryFrom, TryInto};
+use std::{
+    convert::{TryFrom, TryInto},
+    str::FromStr,
+};
 
+use crate::db::UserRole;
 pub use controller::UserController;
 
 mod controller;
@@ -209,3 +213,74 @@ impl ValidateUserResult {
         Self { valid }
     }
 }
+
+pub struct SetRoleParams {
+    user: User,
+    username: String,
+    role: UserRole,
+}
+
+#[derive(serde::Deserialize)]
+struct SetRoleParamsBuilder {
+    user: User,
+    username: String,
+    role: String,
+}
+
+impl SetRoleParamsBuilder {
+    fn build(self) -> Result<SetRoleParams, SetRoleParamsInvalid> {
+        let role = UserRole::from_str(&self.role).map_err(|_| SetRoleParamsInvalid::InvalidRole)?;
+        Ok(SetRoleParams {
+            user: self.user,
+            username: self.username,
+            role,
+        })
+    }
+}
+
+impl TryFrom<serde_json::Value> for SetRoleParams {
+    type Error = SetRoleParamsInvalid;
+    fn try_from(value: serde_json::Value) -> Result<Self, Self::Error> {
+        let builder: SetRoleParamsBuilder =
+            serde_json::from_value(value).map_err(SetRoleParamsInvalid::InvalidFormat)?;
+
+        builder.build()
+    }
+}
+
+impl TryFrom<crate::JsonRpcRequest> for SetRoleParams {
+    type Error = SetRoleParamsInvalid;
+    fn try_from(value: crate::JsonRpcRequest) -> Result<Self, Self::Error> {
+        value.params.try_into()
+    }
+}
+
+pub enum SetRoleParamsInvalid {
+    InvalidFormat(serde_json::Error),
+    InvalidRole,
+}
+
+impl From<SetRoleParamsInvalid> for crate::Error {
+    fn from(error: SetRoleParamsInvalid) -> Self {
+        match error {
+            SetRoleParamsInvalid::InvalidFormat(e) => {
+                Self::invalid_params().with_data(format!(r#"invalid format: "{}""#, e))
+            }
+            SetRoleParamsInvalid::InvalidRole => {
+                Self::invalid_params().with_data(format!("invalid role"))
+            }
+        }
+    }
+}
+
+#[derive(serde::Serialize)]
+pub struct SetRoleResult {
+    success: bool,
+}
+
+impl SetRoleResult {
+    pub fn new(success: bool) -> Self { Self { success } }
+}
+
+
+

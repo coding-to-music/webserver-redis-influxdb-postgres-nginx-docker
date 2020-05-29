@@ -90,6 +90,29 @@ impl UserController {
         Ok(ValidateUserResult::new(result))
     }
 
+    pub async fn set_role<T>(&self, request: T) -> Result<SetRoleResult, crate::Error>
+    where
+        T: TryInto<SetRoleParams, Error = SetRoleParamsInvalid>,
+    {
+        let params: SetRoleParams = request.try_into()?;
+
+        if self.db.validate_user(&params.user)
+            && self
+                .db
+                .validate_user_role(&params.user.username, UserRole::Admin)
+        {
+            trace!("user is a valid admin");
+            if let Ok(Some(_user)) = self.db.get_user(&params.username) {
+                let result = self.db.update_user_role(&params.username, params.role)?;
+                Ok(SetRoleResult::new(result))
+            } else {
+                Err(crate::Error::internal_error().with_data("user does not exist"))
+            }
+        } else {
+            Err(crate::Error::internal_error().with_data("you do not have permission"))
+        }
+    }
+
     fn encrypt(
         password: &str,
         salt: &[u8; digest::SHA512_OUTPUT_LEN],

@@ -104,6 +104,11 @@ impl App {
                     self.user_controller.validate_user(req).await,
                     id,
                 ),
+                Method::SetRole => JsonRpcResponse::from_result(
+                    jsonrpc,
+                    self.user_controller.set_role(req).await,
+                    id,
+                ),
                 Method::Sleep => JsonRpcResponse::from_result(
                     jsonrpc,
                     self.server_controller.sleep(req).await,

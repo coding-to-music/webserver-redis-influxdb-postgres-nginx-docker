@@ -1,5 +1,6 @@
 use ring::digest;
 use rusqlite::{params, Connection};
+use std::convert::From;
 use std::marker::PhantomData;
 use std::{fmt::Display, num::NonZeroU32, str::FromStr, time};
 
@@ -47,6 +48,20 @@ impl Database<User> {
         let changed_rows = db.execute(
             "UPDATE user SET password = ?1 WHERE username = ?2",
             params![user.password, user.username],
+        )?;
+
+        Ok(changed_rows == 1)
+    }
+
+    pub fn update_user_role(
+        &self,
+        username: &str,
+        role: UserRole,
+    ) -> Result<bool, rusqlite::Error> {
+        let db = self.get_connection()?;
+        let changed_rows = db.execute(
+            "UPDATE user SET role = ?1 WHERE username = ?2",
+            params![role.to_string(), username],
         )?;
 
         Ok(changed_rows == 1)
@@ -110,6 +125,16 @@ impl Database<User> {
         );
 
         valid
+    }
+
+    pub fn validate_user_role(&self, username: &str, role: UserRole) -> bool {
+        let user_row = if let Ok(Some(user)) = self.get_user(username) {
+            user
+        } else {
+            return false;
+        };
+
+        u16::from(user_row.role) >= u16::from(role)
     }
 
     pub fn encrypt(
@@ -252,6 +277,15 @@ pub struct User {
 pub enum UserRole {
     User,
     Admin,
+}
+
+impl From<UserRole> for u16 {
+    fn from(user_role: UserRole) -> Self {
+        match user_role {
+            UserRole::User => 100,
+            UserRole::Admin => 200,
+        }
+    }
 }
 
 impl Display for UserRole {

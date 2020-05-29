@@ -2,7 +2,6 @@ pub use controller::ServerController;
 
 mod controller;
 
-use super::User;
 use crate::Error;
 use std::convert::{TryFrom, TryInto};
 
