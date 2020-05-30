@@ -19,10 +19,7 @@ impl ServerController {
         }
     }
 
-    pub async fn sleep<T: TryInto<SleepParams, Error = SleepParamsInvalid>>(
-        &self,
-        request: T,
-    ) -> Result<SleepResult, crate::Error> {
+    pub async fn sleep(&self, request: crate::JsonRpcRequest) -> Result<SleepResult, crate::Error> {
         let params: SleepParams = request.try_into()?;
 
         self.validate_user_is_admin(&params.user)?;
@@ -38,10 +35,10 @@ impl ServerController {
         Ok(SleepResult::new(elapsed.as_secs_f32()))
     }
 
-    pub async fn clear_logs<T>(&self, request: T) -> Result<ClearLogsResult, crate::Error>
-    where
-        T: TryInto<ClearLogsParams, Error = ClearLogsParamsInvalid>,
-    {
+    pub async fn clear_logs(
+        &self,
+        request: crate::JsonRpcRequest,
+    ) -> Result<ClearLogsResult, crate::Error> {
         let params: ClearLogsParams = request.try_into()?;
 
         self.validate_user_is_admin(&params.user)?;

@@ -19,11 +19,11 @@ impl PredictionController {
         }
     }
 
-    pub async fn add<T: TryInto<AddPredictionParams, Error = AddPredictionParamsInvalid>>(
+    pub async fn add(
         &self,
-        params: T,
+        request: crate::JsonRpcRequest,
     ) -> Result<AddPredictionResult, crate::Error> {
-        let params: AddPredictionParams = params.try_into()?;
+        let params: AddPredictionParams = request.try_into()?;
 
         if self.user_db.validate_user(&params.user) {
             let prediction_row = db::Prediction::new(
@@ -41,13 +41,11 @@ impl PredictionController {
         }
     }
 
-    pub async fn delete<
-        T: TryInto<DeletePredictionParams, Error = DeletePredictionParamsInvalid>,
-    >(
+    pub async fn delete(
         &self,
-        params: T,
+        request: crate::JsonRpcRequest,
     ) -> Result<DeletePredictionResult, crate::Error> {
-        let params: DeletePredictionParams = params.try_into()?;
+        let params: DeletePredictionParams = request.try_into()?;
 
         if self.user_db.validate_user(&params.user) {
             let prediction = self.prediction_db.get_predictions_by_id(params.id)?;
@@ -71,13 +69,11 @@ impl PredictionController {
         }
     }
 
-    pub async fn search<
-        T: TryInto<SearchPredictionsParams, Error = SearchPredictionsParamsInvalid>,
-    >(
+    pub async fn search(
         &self,
-        params: T,
+        request: crate::JsonRpcRequest,
     ) -> Result<SearchPredictionsResult, crate::Error> {
-        let params: SearchPredictionsParams = params.try_into()?;
+        let params: SearchPredictionsParams = request.try_into()?;
 
         let valid_user = params
             .user

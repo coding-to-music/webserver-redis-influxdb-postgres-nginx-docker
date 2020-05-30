@@ -4,10 +4,7 @@ use ring::{
     digest,
     rand::{self, SecureRandom},
 };
-use std::{
-    convert::{TryFrom, TryInto},
-    str::FromStr,
-};
+use std::{convert::TryFrom, str::FromStr};
 
 use crate::db::UserRole;
 pub use controller::UserController;
@@ -54,20 +51,13 @@ pub enum AddUserParamsInvalid {
     PasswordTooShort,
 }
 
-impl TryFrom<serde_json::Value> for AddUserParams {
-    type Error = AddUserParamsInvalid;
-    fn try_from(value: serde_json::Value) -> Result<Self, Self::Error> {
-        let builder: AddUserParamsBuilder =
-            serde_json::from_value(value).map_err(AddUserParamsInvalid::InvalidFormat)?;
-
-        builder.build()
-    }
-}
-
 impl TryFrom<crate::JsonRpcRequest> for AddUserParams {
     type Error = AddUserParamsInvalid;
-    fn try_from(value: crate::JsonRpcRequest) -> Result<Self, Self::Error> {
-        value.params.try_into()
+    fn try_from(request: crate::JsonRpcRequest) -> Result<Self, Self::Error> {
+        let builder: AddUserParamsBuilder =
+            serde_json::from_value(request.params).map_err(AddUserParamsInvalid::InvalidFormat)?;
+
+        builder.build()
     }
 }
 
@@ -115,20 +105,13 @@ impl ChangePasswordParamsBuilder {
     }
 }
 
-impl TryFrom<serde_json::Value> for ChangePasswordParams {
-    type Error = ChangePasswordParamsInvalid;
-    fn try_from(value: serde_json::Value) -> Result<Self, Self::Error> {
-        let builder: ChangePasswordParamsBuilder =
-            serde_json::from_value(value).map_err(ChangePasswordParamsInvalid::InvalidFormat)?;
-
-        builder.build()
-    }
-}
-
 impl TryFrom<crate::JsonRpcRequest> for ChangePasswordParams {
     type Error = ChangePasswordParamsInvalid;
-    fn try_from(value: crate::JsonRpcRequest) -> Result<Self, Self::Error> {
-        value.params.try_into()
+    fn try_from(request: crate::JsonRpcRequest) -> Result<Self, Self::Error> {
+        let builder: ChangePasswordParamsBuilder = serde_json::from_value(request.params)
+            .map_err(ChangePasswordParamsInvalid::InvalidFormat)?;
+
+        builder.build()
     }
 }
 
@@ -172,20 +155,13 @@ impl ValidateUserParamsBuilder {
     }
 }
 
-impl TryFrom<serde_json::Value> for ValidateUserParams {
-    type Error = ValidateUserParamsInvalid;
-    fn try_from(value: serde_json::Value) -> Result<Self, Self::Error> {
-        let builder: ValidateUserParamsBuilder =
-            serde_json::from_value(value).map_err(ValidateUserParamsInvalid::InvalidFormat)?;
-
-        builder.build()
-    }
-}
-
 impl TryFrom<crate::JsonRpcRequest> for ValidateUserParams {
     type Error = ValidateUserParamsInvalid;
-    fn try_from(value: crate::JsonRpcRequest) -> Result<Self, Self::Error> {
-        value.params.try_into()
+    fn try_from(request: crate::JsonRpcRequest) -> Result<Self, Self::Error> {
+        let builder: ValidateUserParamsBuilder = serde_json::from_value(request.params)
+            .map_err(ValidateUserParamsInvalid::InvalidFormat)?;
+
+        builder.build()
     }
 }
 
@@ -238,20 +214,13 @@ impl SetRoleParamsBuilder {
     }
 }
 
-impl TryFrom<serde_json::Value> for SetRoleParams {
-    type Error = SetRoleParamsInvalid;
-    fn try_from(value: serde_json::Value) -> Result<Self, Self::Error> {
-        let builder: SetRoleParamsBuilder =
-            serde_json::from_value(value).map_err(SetRoleParamsInvalid::InvalidFormat)?;
-
-        builder.build()
-    }
-}
-
 impl TryFrom<crate::JsonRpcRequest> for SetRoleParams {
     type Error = SetRoleParamsInvalid;
-    fn try_from(value: crate::JsonRpcRequest) -> Result<Self, Self::Error> {
-        value.params.try_into()
+    fn try_from(request: crate::JsonRpcRequest) -> Result<Self, Self::Error> {
+        let builder: SetRoleParamsBuilder =
+            serde_json::from_value(request.params).map_err(SetRoleParamsInvalid::InvalidFormat)?;
+
+        builder.build()
     }
 }
 
@@ -279,8 +248,7 @@ pub struct SetRoleResult {
 }
 
 impl SetRoleResult {
-    pub fn new(success: bool) -> Self { Self { success } }
+    pub fn new(success: bool) -> Self {
+        Self { success }
+    }
 }
-
-
-
