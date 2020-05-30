@@ -130,6 +130,6 @@ pub enum ClearLogsParamsInvalid {
 
 #[derive(serde::Serialize)]
 pub struct ClearLogsResult {
-    files: u16,
-    mb: u16,
+    files: usize,
+    bytes: u64,
 }

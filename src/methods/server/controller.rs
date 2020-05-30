@@ -46,7 +46,39 @@ impl ServerController {
 
         self.validate_user_is_admin(&params.user)?;
 
-        Err(crate::Error::not_implemented())
+        let paths = std::fs::read_dir(&self.log_directory)
+            .map_err(|e| crate::Error::internal_error().with_internal_data(e))?;
+
+        let log_files: Vec<_> = paths
+            .filter_map(|p| p.ok())
+            .filter_map(|p| match p.metadata() {
+                Ok(metadata) if metadata.is_file() => Some(p),
+                _ => None,
+            })
+            .collect();
+
+        info!(
+            "found {} log files in directory '{:?}'",
+            log_files.len(),
+            self.log_directory
+        );
+
+        let mut total_size = 0;
+        for f in &log_files {
+            let size = f
+                .metadata()
+                .map_err(|e| crate::Error::internal_error().with_internal_data(e))?
+                .len();
+            std::fs::remove_file(f.path())
+                .map_err(|e| crate::Error::internal_error().with_internal_data(e))?;
+
+            total_size += size;
+        }
+
+        Ok(ClearLogsResult {
+            files: log_files.len(),
+            bytes: total_size,
+        })
     }
 
     fn validate_user_is_admin(&self, user: &methods::User) -> Result<(), crate::Error> {
