@@ -69,13 +69,16 @@ impl ServerController {
                 .metadata()
                 .map_err(|e| crate::Error::internal_error().with_internal_data(e))?
                 .len();
-            std::fs::remove_file(f.path())
-                .map_err(|e| crate::Error::internal_error().with_internal_data(e))?;
+            if !params.dry_run {
+                std::fs::remove_file(f.path())
+                    .map_err(|e| crate::Error::internal_error().with_internal_data(e))?;
+            }
 
             total_size += size;
         }
 
         Ok(ClearLogsResult {
+            dry_run: params.dry_run,
             files: log_files.len(),
             bytes: total_size,
         })

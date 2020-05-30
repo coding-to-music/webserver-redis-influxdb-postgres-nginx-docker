@@ -84,16 +84,21 @@ impl SleepResult {
 
 pub struct ClearLogsParams {
     user: User,
+    dry_run: bool,
 }
 
 #[derive(serde::Deserialize)]
 struct ClearLogsParamsBuilder {
     user: User,
+    dry_run: bool,
 }
 
 impl ClearLogsParamsBuilder {
     fn build(self) -> Result<ClearLogsParams, ClearLogsParamsInvalid> {
-        Ok(ClearLogsParams { user: self.user })
+        Ok(ClearLogsParams {
+            user: self.user,
+            dry_run: self.dry_run,
+        })
     }
 }
 
@@ -130,6 +135,7 @@ pub enum ClearLogsParamsInvalid {
 
 #[derive(serde::Serialize)]
 pub struct ClearLogsResult {
+    dry_run: bool,
     files: usize,
     bytes: u64,
 }
