@@ -1,6 +1,6 @@
 use crate::{db, methods};
 use chrono::prelude::*;
-use std::convert::{TryFrom, TryInto};
+use std::convert::TryFrom;
 
 pub use controller::PredictionController;
 
@@ -76,20 +76,13 @@ impl AddPredictionParamsBuilder {
     }
 }
 
-impl TryFrom<serde_json::Value> for AddPredictionParams {
-    type Error = AddPredictionParamsInvalid;
-    fn try_from(value: serde_json::Value) -> Result<Self, Self::Error> {
-        let builder: AddPredictionParamsBuilder =
-            serde_json::from_value(value).map_err(AddPredictionParamsInvalid::InvalidFormat)?;
-
-        builder.build()
-    }
-}
-
 impl TryFrom<crate::JsonRpcRequest> for AddPredictionParams {
     type Error = AddPredictionParamsInvalid;
-    fn try_from(value: crate::JsonRpcRequest) -> Result<Self, Self::Error> {
-        value.params.try_into()
+    fn try_from(request: crate::JsonRpcRequest) -> Result<Self, Self::Error> {
+        let builder: AddPredictionParamsBuilder = serde_json::from_value(request.params)
+            .map_err(AddPredictionParamsInvalid::InvalidFormat)?;
+
+        builder.build()
     }
 }
 
@@ -155,20 +148,13 @@ pub enum DeletePredictionParamsInvalid {
     InvalidId,
 }
 
-impl TryFrom<serde_json::Value> for DeletePredictionParams {
-    type Error = DeletePredictionParamsInvalid;
-    fn try_from(value: serde_json::Value) -> Result<Self, Self::Error> {
-        let builder: DeletePredictionParamsBuilder =
-            serde_json::from_value(value).map_err(DeletePredictionParamsInvalid::InvalidFormat)?;
-
-        builder.build()
-    }
-}
-
 impl TryFrom<crate::JsonRpcRequest> for DeletePredictionParams {
     type Error = DeletePredictionParamsInvalid;
-    fn try_from(value: crate::JsonRpcRequest) -> Result<Self, Self::Error> {
-        value.params.try_into()
+    fn try_from(request: crate::JsonRpcRequest) -> Result<Self, Self::Error> {
+        let builder: DeletePredictionParamsBuilder = serde_json::from_value(request.params)
+            .map_err(DeletePredictionParamsInvalid::InvalidFormat)?;
+
+        builder.build()
     }
 }
 
@@ -204,6 +190,10 @@ struct SearchPredictionsParamsBuilder {
 
 impl SearchPredictionsParamsBuilder {
     fn build(self) -> Result<SearchPredictionsParams, SearchPredictionsParamsInvalid> {
+        if self.username.is_empty() {
+            return Err(SearchPredictionsParamsInvalid::EmptyUsername);
+        }
+
         Ok(SearchPredictionsParams {
             username: self.username,
             user: self.user,
@@ -218,22 +208,16 @@ pub struct SearchPredictionsParams {
 
 pub enum SearchPredictionsParamsInvalid {
     InvalidFormat(serde_json::Error),
-}
-
-impl TryFrom<serde_json::Value> for SearchPredictionsParams {
-    type Error = SearchPredictionsParamsInvalid;
-    fn try_from(value: serde_json::Value) -> Result<Self, Self::Error> {
-        let builder: SearchPredictionsParamsBuilder =
-            serde_json::from_value(value).map_err(SearchPredictionsParamsInvalid::InvalidFormat)?;
-
-        builder.build()
-    }
+    EmptyUsername,
 }
 
 impl TryFrom<crate::JsonRpcRequest> for SearchPredictionsParams {
     type Error = SearchPredictionsParamsInvalid;
-    fn try_from(value: crate::JsonRpcRequest) -> Result<Self, Self::Error> {
-        value.params.try_into()
+    fn try_from(request: crate::JsonRpcRequest) -> Result<Self, Self::Error> {
+        let builder: SearchPredictionsParamsBuilder = serde_json::from_value(request.params)
+            .map_err(SearchPredictionsParamsInvalid::InvalidFormat)?;
+
+        builder.build()
     }
 }
 
@@ -242,6 +226,9 @@ impl From<SearchPredictionsParamsInvalid> for crate::Error {
         match error {
             SearchPredictionsParamsInvalid::InvalidFormat(e) => {
                 Self::invalid_params().with_data(format!(r#"invalid format: "{}""#, e))
+            }
+            SearchPredictionsParamsInvalid::EmptyUsername => {
+                Self::invalid_params().with_data("username must not be empty")
             }
         }
     }

@@ -12,10 +12,7 @@ impl UserController {
         Self { db }
     }
 
-    pub async fn add<T: TryInto<AddUserParams, Error = AddUserParamsInvalid>>(
-        &self,
-        request: T,
-    ) -> Result<AddUserResult, crate::Error> {
+    pub async fn add(&self, request: crate::JsonRpcRequest) -> Result<AddUserResult, crate::Error> {
         let params: AddUserParams = request.try_into()?;
 
         if self.db.username_exists(&params.user.username) {
@@ -44,11 +41,9 @@ impl UserController {
         Ok(AddUserResult::new(rows == 1))
     }
 
-    pub async fn change_password<
-        T: TryInto<ChangePasswordParams, Error = ChangePasswordParamsInvalid>,
-    >(
+    pub async fn change_password(
         &self,
-        request: T,
+        request: crate::JsonRpcRequest,
     ) -> Result<ChangePasswordResult, crate::Error> {
         let params: ChangePasswordParams = request.try_into()?;
 
@@ -77,11 +72,9 @@ impl UserController {
         }
     }
 
-    pub async fn validate_user<
-        T: TryInto<ValidateUserParams, Error = ValidateUserParamsInvalid>,
-    >(
+    pub async fn validate_user(
         &self,
-        request: T,
+        request: crate::JsonRpcRequest,
     ) -> Result<ValidateUserResult, crate::Error> {
         let params: ValidateUserParams = request.try_into()?;
 
@@ -90,10 +83,10 @@ impl UserController {
         Ok(ValidateUserResult::new(result))
     }
 
-    pub async fn set_role<T>(&self, request: T) -> Result<SetRoleResult, crate::Error>
-    where
-        T: TryInto<SetRoleParams, Error = SetRoleParamsInvalid>,
-    {
+    pub async fn set_role(
+        &self,
+        request: crate::JsonRpcRequest,
+    ) -> Result<SetRoleResult, crate::Error> {
         let params: SetRoleParams = request.try_into()?;
 
         if !self.db.validate_user(&params.user) {

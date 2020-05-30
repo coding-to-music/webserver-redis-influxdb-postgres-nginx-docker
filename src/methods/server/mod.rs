@@ -32,20 +32,13 @@ pub struct SleepParams {
     seconds: f32,
 }
 
-impl TryFrom<serde_json::Value> for SleepParams {
-    type Error = SleepParamsInvalid;
-    fn try_from(value: serde_json::Value) -> Result<Self, Self::Error> {
-        let builder: SleepParamsBuilder =
-            serde_json::from_value(value).map_err(SleepParamsInvalid::InvalidFormat)?;
-
-        builder.build()
-    }
-}
-
 impl TryFrom<crate::JsonRpcRequest> for SleepParams {
     type Error = SleepParamsInvalid;
-    fn try_from(value: crate::JsonRpcRequest) -> Result<Self, Self::Error> {
-        value.params.try_into()
+    fn try_from(request: crate::JsonRpcRequest) -> Result<Self, Self::Error> {
+        let builder: SleepParamsBuilder =
+            serde_json::from_value(request.params).map_err(SleepParamsInvalid::InvalidFormat)?;
+
+        builder.build()
     }
 }
 
@@ -102,20 +95,13 @@ impl ClearLogsParamsBuilder {
     }
 }
 
-impl TryFrom<serde_json::Value> for ClearLogsParams {
-    type Error = ClearLogsParamsInvalid;
-    fn try_from(value: serde_json::Value) -> Result<Self, Self::Error> {
-        let builder: ClearLogsParamsBuilder =
-            serde_json::from_value(value).map_err(ClearLogsParamsInvalid::InvalidFormat)?;
-
-        builder.build()
-    }
-}
-
 impl TryFrom<crate::JsonRpcRequest> for ClearLogsParams {
     type Error = ClearLogsParamsInvalid;
-    fn try_from(value: crate::JsonRpcRequest) -> Result<Self, Self::Error> {
-        value.params.try_into()
+    fn try_from(request: crate::JsonRpcRequest) -> Result<Self, Self::Error> {
+        let builder: ClearLogsParamsBuilder = serde_json::from_value(request.params)
+            .map_err(ClearLogsParamsInvalid::InvalidFormat)?;
+
+        builder.build()
     }
 }
 

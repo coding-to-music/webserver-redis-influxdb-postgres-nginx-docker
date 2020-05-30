@@ -1,11 +1,21 @@
 pub use prediction::PredictionController;
 pub use server::ServerController;
-use std::str::FromStr;
+use std::{fmt::Display, str::FromStr};
 pub use user::{User, UserController};
 
 mod prediction;
 mod server;
 mod user;
+
+const SLEEP: &'static str = "sleep";
+const ADD_PREDICTION: &'static str = "add_prediction";
+const DELETE_PREDICTION: &'static str = "delete_prediction";
+const SEARCH_PREDICTION: &'static str = "search_predictions";
+const ADD_USER: &'static str = "add_user";
+const CHANGE_PASSWORD: &'static str = "change_password";
+const VALIDATE_USER: &'static str = "validate_user";
+const SET_ROLE: &'static str = "set_role";
+const CLEAR_LOGS: &'static str = "clear_logs";
 
 pub enum Method {
     /// Sleep for a specified amount of time
@@ -32,16 +42,36 @@ impl FromStr for Method {
     type Err = (); // any failure means the method simply doesn't exist
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s {
-            "add_prediction" => Ok(Self::AddPrediction),
-            "delete_prediction" => Ok(Self::DeletePrediction),
-            "search_predictions" => Ok(Self::SearchPredictions),
-            "add_user" => Ok(Self::AddUser),
-            "change_password" => Ok(Self::ChangePassword),
-            "validate_user" => Ok(Self::ValidateUser),
-            "set_role" => Ok(Self::SetRole),
-            "sleep" => Ok(Self::Sleep),
-            "clear_logs" => Ok(Self::ClearLogs),
+            ADD_PREDICTION => Ok(Self::AddPrediction),
+            DELETE_PREDICTION => Ok(Self::DeletePrediction),
+            SEARCH_PREDICTION => Ok(Self::SearchPredictions),
+            ADD_USER => Ok(Self::AddUser),
+            CHANGE_PASSWORD => Ok(Self::ChangePassword),
+            VALIDATE_USER => Ok(Self::ValidateUser),
+            SET_ROLE => Ok(Self::SetRole),
+            SLEEP => Ok(Self::Sleep),
+            CLEAR_LOGS => Ok(Self::ClearLogs),
             _ => Err(()),
         }
+    }
+}
+
+impl Display for Method {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}",
+            match self {
+                Method::Sleep => SLEEP,
+                Method::AddPrediction => ADD_PREDICTION,
+                Method::DeletePrediction => DELETE_PREDICTION,
+                Method::SearchPredictions => SEARCH_PREDICTION,
+                Method::AddUser => ADD_USER,
+                Method::ChangePassword => CHANGE_PASSWORD,
+                Method::ValidateUser => VALIDATE_USER,
+                Method::SetRole => SET_ROLE,
+                Method::ClearLogs => CLEAR_LOGS,
+            }
+        )
     }
 }
