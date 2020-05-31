@@ -7,15 +7,15 @@ mod prediction;
 mod server;
 mod user;
 
-const SLEEP: &'static str = "sleep";
-const ADD_PREDICTION: &'static str = "add_prediction";
-const DELETE_PREDICTION: &'static str = "delete_prediction";
-const SEARCH_PREDICTION: &'static str = "search_predictions";
-const ADD_USER: &'static str = "add_user";
-const CHANGE_PASSWORD: &'static str = "change_password";
-const VALIDATE_USER: &'static str = "validate_user";
-const SET_ROLE: &'static str = "set_role";
-const CLEAR_LOGS: &'static str = "clear_logs";
+const SLEEP: &str = "sleep";
+const ADD_PREDICTION: &str = "add_prediction";
+const DELETE_PREDICTION: &str = "delete_prediction";
+const SEARCH_PREDICTION: &str = "search_predictions";
+const ADD_USER: &str = "add_user";
+const CHANGE_PASSWORD: &str = "change_password";
+const VALIDATE_USER: &str = "validate_user";
+const SET_ROLE: &str = "set_role";
+const CLEAR_LOGS: &str = "clear_logs";
 
 pub enum Method {
     /// Sleep for a specified amount of time
