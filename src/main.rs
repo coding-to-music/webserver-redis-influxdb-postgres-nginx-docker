@@ -397,14 +397,6 @@ impl From<rusqlite::Error> for Error {
     }
 }
 
-impl From<reqwest::Error> for Error {
-    fn from(e: reqwest::Error) -> Self {
-        Self::internal_error()
-            .with_data("http error")
-            .with_internal_data(e)
-    }
-}
-
 /// Standard JSONRPC error variants as defined by the [JSONRPC specification](https://www.jsonrpc.org/specification#error_object)
 pub enum ErrorCode {
     /// Invalid JSON was received.
