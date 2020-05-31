@@ -89,6 +89,8 @@ impl ServerController {
 
             total_size += size;
         }
+        
+        self.increment_served_requests().await;
 
         Ok(ClearLogsResult::new(
             params.dry_run(),
