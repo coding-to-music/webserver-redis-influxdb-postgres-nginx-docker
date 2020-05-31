@@ -1,6 +1,6 @@
 mod controller;
 
-pub use add::{AddUserParams, AddUserParamsInvalid, AddUserResult};
+pub use add_user::{AddUserParams, AddUserParamsInvalid, AddUserResult};
 pub use change_password::{
     ChangePasswordParams, ChangePasswordParamsInvalid, ChangePasswordResult,
 };
@@ -32,7 +32,7 @@ impl User {
     }
 }
 
-mod add {
+mod add_user {
     use super::User;
     use std::convert::TryFrom;
 
@@ -148,9 +148,7 @@ mod change_password {
     impl From<ChangePasswordParamsInvalid> for crate::Error {
         fn from(error: ChangePasswordParamsInvalid) -> Self {
             match error {
-                ChangePasswordParamsInvalid::InvalidFormat(e) => {
-                    Self::invalid_params().with_data(format!(r#"invalid format: "{}""#, e))
-                }
+                ChangePasswordParamsInvalid::InvalidFormat(e) => Self::invalid_format(e),
             }
         }
     }
@@ -213,9 +211,7 @@ mod validate_user {
     impl From<ValidateUserParamsInvalid> for crate::Error {
         fn from(error: ValidateUserParamsInvalid) -> Self {
             match error {
-                ValidateUserParamsInvalid::InvalidFormat(e) => {
-                    Self::invalid_params().with_data(format!(r#"invalid format: "{}""#, e))
-                }
+                ValidateUserParamsInvalid::InvalidFormat(e) => Self::invalid_format(e),
             }
         }
     }
@@ -294,11 +290,9 @@ mod set_role {
     impl From<SetRoleParamsInvalid> for crate::Error {
         fn from(error: SetRoleParamsInvalid) -> Self {
             match error {
-                SetRoleParamsInvalid::InvalidFormat(e) => {
-                    Self::invalid_params().with_data(format!(r#"invalid format: "{}""#, e))
-                }
+                SetRoleParamsInvalid::InvalidFormat(e) => Self::invalid_format(e),
                 SetRoleParamsInvalid::InvalidRole => {
-                    Self::invalid_params().with_data(format!("invalid role"))
+                    Self::invalid_params().with_data("invalid role")
                 }
             }
         }

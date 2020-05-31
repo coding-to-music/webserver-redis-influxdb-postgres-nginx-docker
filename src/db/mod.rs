@@ -310,7 +310,7 @@ impl FromStr for UserRole {
         Ok(match s {
             "user" => UserRole::User,
             "admin" => UserRole::Admin,
-            _ => Err(())?,
+            _ => return Err(()),
         })
     }
 }

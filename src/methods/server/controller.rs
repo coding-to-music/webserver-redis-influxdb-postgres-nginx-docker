@@ -5,10 +5,12 @@ use crate::{
 };
 use std::{path::PathBuf, sync::Arc, time};
 use time::Duration;
+use tokio::sync::Mutex;
 
 pub struct ServerController {
     user_db: Arc<Database<User>>,
     log_directory: PathBuf,
+    served_requests: Mutex<u32>,
 }
 
 impl ServerController {
@@ -16,7 +18,19 @@ impl ServerController {
         Self {
             user_db,
             log_directory,
+            served_requests: Mutex::new(0),
         }
+    }
+
+    async fn increment_served_requests(&self) {
+        let mut served = self.served_requests.lock().await;
+        trace!(
+            "incrementing served requests from {} to {}...",
+            served,
+            *served + 1
+        );
+        *served += 1;
+        trace!("incremented served requests")
     }
 
     pub async fn sleep(&self, request: crate::JsonRpcRequest) -> Result<SleepResult, crate::Error> {
@@ -31,6 +45,8 @@ impl ServerController {
         let elapsed = now.elapsed();
 
         trace!("Slept for {:?}", elapsed);
+
+        self.increment_served_requests().await;
 
         Ok(SleepResult::new(elapsed.as_secs_f32()))
     }

@@ -1,10 +1,12 @@
 use crate::db;
 use chrono::prelude::*;
 
-pub use add::{AddPredictionParams, AddPredictionParamsInvalid, AddPredictionResult};
+pub use add_prediction::{AddPredictionParams, AddPredictionParamsInvalid, AddPredictionResult};
 pub use controller::PredictionController;
-pub use delete::{DeletePredictionParams, DeletePredictionParamsInvalid, DeletePredictionResult};
-pub use search::{
+pub use delete_prediction::{
+    DeletePredictionParams, DeletePredictionParamsInvalid, DeletePredictionResult,
+};
+pub use search_predictions::{
     SearchPredictionsParams, SearchPredictionsParamsInvalid, SearchPredictionsResult,
 };
 
@@ -54,7 +56,7 @@ impl Prediction {
     }
 }
 
-mod add {
+mod add_prediction {
     use crate::methods;
     use std::convert::TryFrom;
 
@@ -135,7 +137,7 @@ mod add {
     }
 }
 
-mod delete {
+mod delete_prediction {
     use crate::methods;
     use std::convert::TryFrom;
 
@@ -211,7 +213,7 @@ mod delete {
     }
 }
 
-mod search {
+mod search_predictions {
     use super::Prediction;
     use crate::methods;
     use std::convert::TryFrom;
