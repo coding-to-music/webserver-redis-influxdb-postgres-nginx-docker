@@ -6,7 +6,14 @@ use futures::future;
 use methods::{Method, PredictionController, ServerController, UserController};
 use serde::Serialize;
 use serde_json::Value;
-use std::{any::Any, convert::Infallible, fmt::Debug, path::PathBuf, str::FromStr, sync::Arc};
+use std::{
+    any::Any,
+    convert::Infallible,
+    fmt::{Debug, Display},
+    path::PathBuf,
+    str::FromStr,
+    sync::Arc,
+};
 use structopt::StructOpt;
 use warp::{Filter, Reply};
 
@@ -64,7 +71,7 @@ impl App {
     async fn handle_single(&self, req: JsonRpcRequest) -> JsonRpcResponse {
         let jsonrpc = req.version().clone();
         let id = req.id().clone();
-        let now = std::time::Instant::now();
+        let timer = std::time::Instant::now();
         info!(
             "handling request with id {:?} with method: '{}'",
             id,
@@ -130,7 +137,9 @@ impl App {
             }
         }
 
-        info!("{} in {:?}", handled_message, now.elapsed());
+        let elapsed = timer.elapsed();
+        crate::log_metric("handle_message_ms", elapsed.as_millis());
+        info!("{} in {:?}", handled_message, elapsed);
 
         response
     }
@@ -443,4 +452,11 @@ where
                 std::any::type_name::<T>()
             )
         })
+}
+
+pub fn log_metric<T>(name: &str, value: T)
+where
+    T: num_traits::Num + Display,
+{
+    info!("metric:{};{}", name, value);
 }

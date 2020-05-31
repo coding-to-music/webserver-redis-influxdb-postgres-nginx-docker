@@ -1637,6 +1637,7 @@ dependencies = [
  "dotenv",
  "futures",
  "log 0.4.8",
+ "num-traits",
  "pretty_env_logger",
  "ring",
  "rusqlite",

@@ -9,6 +9,9 @@ pub struct Database<T> {
     _phantom: PhantomData<T>,
 }
 
+const USER: &str = "user";
+const ADMIN: &str = "admin";
+
 impl<T> Database<T> {
     pub fn new(path: String) -> Self {
         Self {
@@ -142,7 +145,7 @@ impl Database<User> {
             &mut hash,
         );
 
-        trace!("encrypted a password in {:?}", timer.elapsed());
+        crate::log_metric("password_encryption_ms", timer.elapsed().as_millis());
 
         hash
     }
@@ -297,8 +300,8 @@ impl Display for UserRole {
             f,
             "{}",
             match self {
-                UserRole::User => "user",
-                UserRole::Admin => "admin",
+                UserRole::User => USER,
+                UserRole::Admin => ADMIN,
             }
         )
     }
@@ -308,8 +311,8 @@ impl FromStr for UserRole {
     type Err = ();
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         Ok(match s {
-            "user" => UserRole::User,
-            "admin" => UserRole::Admin,
+            USER => UserRole::User,
+            ADMIN => UserRole::Admin,
             _ => return Err(()),
         })
     }
