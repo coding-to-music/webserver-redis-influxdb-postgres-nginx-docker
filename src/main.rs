@@ -365,6 +365,11 @@ impl Error {
         }
     }
 
+    /// Constructor for an "Invalid format" webserver error.
+    pub fn invalid_format(serde_error: serde_json::Error) -> Self {
+        Self::invalid_params().with_data(format!("invalid format: '{}'", serde_error))
+    }
+
     /// Constructor for a "Method not implemented" webserver error.
     pub fn not_implemented() -> Self {
         Self {

@@ -113,11 +113,9 @@ mod add {
     impl From<AddPredictionParamsInvalid> for crate::Error {
         fn from(error: AddPredictionParamsInvalid) -> Self {
             match error {
-                AddPredictionParamsInvalid::InvalidFormat(e) => {
-                    Self::invalid_params().with_data(format!(r#"invalid format: "{}""#, e))
-                }
+                AddPredictionParamsInvalid::InvalidFormat(e) => Self::invalid_format(e),
                 AddPredictionParamsInvalid::EmptyText => {
-                    Self::invalid_params().with_message("prediction can't be empty")
+                    Self::invalid_params().with_data("prediction can't be empty")
                 }
                 AddPredictionParamsInvalid::TextTooLong => Self::invalid_params()
                     .with_data("prediction must not be longer than 50 characters"),
@@ -204,9 +202,7 @@ mod delete {
     impl From<DeletePredictionParamsInvalid> for crate::Error {
         fn from(error: DeletePredictionParamsInvalid) -> Self {
             match error {
-                DeletePredictionParamsInvalid::InvalidFormat(e) => {
-                    Self::invalid_params().with_data(format!(r#"invalid format: "{}""#, e))
-                }
+                DeletePredictionParamsInvalid::InvalidFormat(e) => Self::invalid_format(e),
                 DeletePredictionParamsInvalid::InvalidId => {
                     Self::invalid_params().with_data("id must be greater than 0")
                 }
@@ -216,7 +212,6 @@ mod delete {
 }
 
 mod search {
-
     use super::Prediction;
     use crate::methods;
     use std::convert::TryFrom;
@@ -276,9 +271,7 @@ mod search {
     impl From<SearchPredictionsParamsInvalid> for crate::Error {
         fn from(error: SearchPredictionsParamsInvalid) -> Self {
             match error {
-                SearchPredictionsParamsInvalid::InvalidFormat(e) => {
-                    Self::invalid_params().with_data(format!(r#"invalid format: "{}""#, e))
-                }
+                SearchPredictionsParamsInvalid::InvalidFormat(e) => Self::invalid_format(e),
                 SearchPredictionsParamsInvalid::EmptyUsername => {
                     Self::invalid_params().with_data("username must not be empty")
                 }

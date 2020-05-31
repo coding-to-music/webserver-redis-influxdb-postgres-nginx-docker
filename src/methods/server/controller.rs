@@ -22,12 +22,12 @@ impl ServerController {
     pub async fn sleep(&self, request: crate::JsonRpcRequest) -> Result<SleepResult, crate::Error> {
         let params: SleepParams = request.try_into()?;
 
-        self.validate_user_is_admin(&params.user)?;
+        self.validate_user_is_admin(params.user())?;
 
-        trace!("Sleeping for {} seconds...", params.seconds);
+        trace!("Sleeping for {} seconds...", params.seconds());
 
         let now = std::time::Instant::now();
-        tokio::time::delay_for(Duration::from_secs_f32(params.seconds)).await;
+        tokio::time::delay_for(Duration::from_secs_f32(params.seconds())).await;
         let elapsed = now.elapsed();
 
         trace!("Slept for {:?}", elapsed);
@@ -41,7 +41,7 @@ impl ServerController {
     ) -> Result<ClearLogsResult, crate::Error> {
         let params: ClearLogsParams = request.try_into()?;
 
-        self.validate_user_is_admin(&params.user)?;
+        self.validate_user_is_admin(params.user())?;
 
         let paths = std::fs::read_dir(&self.log_directory)
             .map_err(|e| crate::Error::internal_error().with_internal_data(e))?;
@@ -66,7 +66,7 @@ impl ServerController {
                 .metadata()
                 .map_err(|e| crate::Error::internal_error().with_internal_data(e))?
                 .len();
-            if !params.dry_run {
+            if !params.dry_run() {
                 std::fs::remove_file(f.path())
                     .map_err(|e| crate::Error::internal_error().with_internal_data(e))?;
             }
@@ -74,11 +74,11 @@ impl ServerController {
             total_size += size;
         }
 
-        Ok(ClearLogsResult {
-            dry_run: params.dry_run,
-            files: log_files.len(),
-            bytes: total_size,
-        })
+        Ok(ClearLogsResult::new(
+            params.dry_run(),
+            log_files.len(),
+            total_size,
+        ))
     }
 
     fn validate_user_is_admin(&self, user: &methods::User) -> Result<(), crate::Error> {
