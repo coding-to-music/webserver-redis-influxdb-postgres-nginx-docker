@@ -145,7 +145,7 @@ impl Database<User> {
             &mut hash,
         );
 
-        crate::log_metric("password_encryption_ms", timer.elapsed().as_millis());
+        crate::log_metric("password_encryption_ms", timer.elapsed().as_millis(), None);
 
         hash
     }

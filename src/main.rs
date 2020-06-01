@@ -138,7 +138,7 @@ impl App {
         }
 
         let elapsed = timer.elapsed();
-        crate::log_metric("handle_message_ms", elapsed.as_millis());
+        crate::log_metric("handle_message_ms", elapsed.as_millis(), None);
         info!("{} in {:?}", handled_message, elapsed);
 
         response
@@ -454,9 +454,14 @@ where
         })
 }
 
-pub fn log_metric<T>(name: &str, value: T)
+pub fn log_metric<T>(name: &str, value: T, timestamp: Option<i64>)
 where
     T: num_traits::Num + Display,
 {
-    info!("metric:{};{}", name, value);
+    info!(
+        "metric:{};{};{}",
+        name,
+        value,
+        timestamp.unwrap_or_else(|| chrono::Utc::now().timestamp_millis())
+    );
 }
