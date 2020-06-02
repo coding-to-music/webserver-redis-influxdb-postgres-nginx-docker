@@ -1,6 +1,7 @@
 use super::*;
-use crate::{db, methods::User};
+use crate::user::User;
 use chrono::Utc;
+use db;
 use std::{convert::TryInto, sync::Arc};
 
 pub struct PredictionController {
@@ -115,7 +116,10 @@ impl PredictionController {
         let valid = self
             .user_db
             .get_user(user.username())?
-            .map(|u| u.validate_password(user.password().as_bytes()))
+            .map(|u| {
+                let encrypted_password = crate::encrypt(user.password().as_bytes(), u.salt());
+                u.validate_password(&encrypted_password)
+            })
             .unwrap_or(false);
 
         Ok(valid)

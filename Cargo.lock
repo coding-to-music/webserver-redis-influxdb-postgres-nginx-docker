@@ -162,6 +162,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "db"
+version = "0.1.0"
+dependencies = [
+ "chrono",
+ "log 0.4.8",
+ "pretty_env_logger",
+ "rusqlite",
+]
+
+[[package]]
 name = "digest"
 version = "0.8.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -603,6 +613,20 @@ name = "memchr"
 version = "2.3.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3728d817d99e5ac407411fa471ff9800a778d88a24685968b36824eaf4bee400"
+
+[[package]]
+name = "methods"
+version = "0.1.0"
+dependencies = [
+ "chrono",
+ "db",
+ "log 0.4.8",
+ "pretty_env_logger",
+ "ring",
+ "serde",
+ "serde_json",
+ "tokio",
+]
 
 [[package]]
 name = "mime"
@@ -1634,9 +1658,11 @@ name = "webserver"
 version = "0.1.0"
 dependencies = [
  "chrono",
+ "db",
  "dotenv",
  "futures",
  "log 0.4.8",
+ "methods",
  "num-traits",
  "pretty_env_logger",
  "ring",

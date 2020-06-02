@@ -1,5 +1,5 @@
-use crate::db;
 use chrono::prelude::*;
+use db;
 
 pub use add_prediction::{AddPredictionParams, AddPredictionParamsInvalid, AddPredictionResult};
 pub use controller::PredictionController;
@@ -57,12 +57,12 @@ impl Prediction {
 }
 
 mod add_prediction {
-    use crate::methods;
+    use crate::User;
     use std::convert::TryFrom;
 
     pub struct AddPredictionParams {
         prediction: String,
-        user: methods::User,
+        user: User,
     }
 
     impl AddPredictionParams {
@@ -70,7 +70,7 @@ mod add_prediction {
             &self.prediction
         }
 
-        pub fn user(&self) -> &methods::User {
+        pub fn user(&self) -> &User {
             &self.user
         }
     }
@@ -78,7 +78,7 @@ mod add_prediction {
     #[derive(serde::Deserialize)]
     struct AddPredictionParamsBuilder {
         prediction: String,
-        user: methods::User,
+        user: User,
     }
 
     impl AddPredictionParamsBuilder {
@@ -138,13 +138,13 @@ mod add_prediction {
 }
 
 mod delete_prediction {
-    use crate::methods;
+    use crate::User;
     use std::convert::TryFrom;
 
     #[derive(serde::Deserialize)]
     struct DeletePredictionParamsBuilder {
         id: i64,
-        user: methods::User,
+        user: User,
     }
 
     impl DeletePredictionParamsBuilder {
@@ -162,7 +162,7 @@ mod delete_prediction {
 
     pub struct DeletePredictionParams {
         id: i64,
-        user: methods::User,
+        user: User,
     }
 
     impl DeletePredictionParams {
@@ -170,7 +170,7 @@ mod delete_prediction {
             self.id
         }
 
-        pub fn user(&self) -> &methods::User {
+        pub fn user(&self) -> &User {
             &self.user
         }
     }
@@ -215,13 +215,13 @@ mod delete_prediction {
 
 mod search_predictions {
     use super::Prediction;
-    use crate::methods;
+    use crate::User;
     use std::convert::TryFrom;
 
     #[derive(serde::Deserialize)]
     struct SearchPredictionsParamsBuilder {
         username: String,
-        user: Option<methods::User>,
+        user: Option<User>,
     }
 
     impl SearchPredictionsParamsBuilder {
@@ -239,7 +239,7 @@ mod search_predictions {
 
     pub struct SearchPredictionsParams {
         username: String,
-        user: Option<methods::User>,
+        user: Option<User>,
     }
 
     impl SearchPredictionsParams {
@@ -247,7 +247,7 @@ mod search_predictions {
             &self.username
         }
 
-        pub fn user(&self) -> Option<&methods::User> {
+        pub fn user(&self) -> Option<&User> {
             match &self.user {
                 Some(user) => Some(user),
                 None => None,

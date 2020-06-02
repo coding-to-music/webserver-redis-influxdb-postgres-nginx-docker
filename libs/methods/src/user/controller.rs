@@ -1,6 +1,11 @@
 use super::*;
-use crate::db;
+use db;
 use delete_user::{DeleteUserParams, DeleteUserResult};
+use rand::SystemRandom;
+use ring::{
+    digest,
+    rand::{self, SecureRandom},
+};
 use std::{
     convert::{TryFrom, TryInto},
     sync::Arc,
@@ -29,7 +34,7 @@ impl UserController {
         rng.fill(&mut salt)
             .map_err(|e| crate::Error::internal_error().with_data(format!("rng error: {}", e)))?;
 
-        let hashed_password = db::encrypt(&params.user().password().as_bytes(), &salt);
+        let hashed_password = crate::encrypt(&params.user().password().as_bytes(), &salt);
 
         let user_row = db::User::new(
             None,
@@ -55,7 +60,11 @@ impl UserController {
         // check that the user exists and that the password is valid
         if !user_row
             .as_ref()
-            .map(|u| u.validate_password(params.user().password().as_bytes()))
+            .map(|u| {
+                let encrypted_password =
+                    crate::encrypt(params.user().password().as_bytes(), u.salt());
+                u.validate_password(&encrypted_password)
+            })
             .unwrap_or(false)
         {
             return Err(crate::Error::invalid_username_or_password());
@@ -65,13 +74,13 @@ impl UserController {
 
         let current_salt = user_row.salt();
 
-        let new_password = db::encrypt(params.new_password().as_bytes(), &current_salt);
+        let new_password = crate::encrypt(params.new_password().as_bytes(), current_salt);
 
         let new_user_row = db::User::new(
             user_row.id(),
             user_row.username().to_owned(),
             new_password,
-            current_salt,
+            *current_salt,
             user_row.created_s(),
         );
 
@@ -88,7 +97,11 @@ impl UserController {
         let result = self
             .db
             .get_user(params.user().username())?
-            .map(|u| u.validate_password(params.user().password().as_bytes()))
+            .map(|u| {
+                let encrypted_password =
+                    crate::encrypt(params.user().password().as_bytes(), u.salt());
+                u.validate_password(&encrypted_password)
+            })
             .unwrap_or(false);
 
         Ok(ValidateUserResult::new(result))
@@ -104,7 +117,11 @@ impl UserController {
 
         if !user_row
             .as_ref()
-            .map(|u| u.validate_password(params.user().password().as_bytes()))
+            .map(|u| {
+                let encrypted_password =
+                    crate::encrypt(params.user().password().as_bytes(), u.salt());
+                u.validate_password(&encrypted_password)
+            })
             .unwrap_or(false)
         {
             return Err(crate::Error::invalid_username_or_password());
@@ -134,7 +151,11 @@ impl UserController {
 
         if !user_row
             .as_ref()
-            .map(|u| u.validate_password(params.user().password().as_bytes()))
+            .map(|u| {
+                let encrypted_password =
+                    crate::encrypt(params.user().password().as_bytes(), u.salt());
+                u.validate_password(&encrypted_password)
+            })
             .unwrap_or(false)
         {
             return Err(crate::Error::invalid_username_or_password());

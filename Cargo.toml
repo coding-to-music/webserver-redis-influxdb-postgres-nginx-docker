@@ -4,6 +4,12 @@ version = "0.1.0"
 authors = ["Isak Jägberg <ijagberg@gmail.com>"]
 edition = "2018"
 
+[dependencies.methods]
+path = "libs/methods"
+
+[dependencies.db]
+path = "libs/db"
+
 [dependencies]
 dotenv = "0.15.0"
 tokio = { version = "0.2", features = ["macros"] }

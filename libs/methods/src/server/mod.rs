@@ -7,13 +7,13 @@ pub use sleep::{SleepParams, SleepParamsInvalid, SleepResult};
 use std::convert::TryInto;
 
 mod sleep {
-    use crate::methods;
+    use crate::User;
     use std::convert::TryFrom;
 
     #[derive(serde::Deserialize)]
     struct SleepParamsBuilder {
         seconds: f32,
-        user: methods::User,
+        user: User,
     }
 
     impl SleepParamsBuilder {
@@ -32,12 +32,12 @@ mod sleep {
     }
 
     pub struct SleepParams {
-        user: methods::User,
+        user: User,
         seconds: f32,
     }
 
     impl SleepParams {
-        pub fn user(&self) -> &methods::User {
+        pub fn user(&self) -> &User {
             &self.user
         }
 
@@ -89,17 +89,16 @@ mod sleep {
 }
 
 mod clear_logs {
-
-    use crate::methods;
+    use crate::User;
     use std::convert::TryFrom;
 
     pub struct ClearLogsParams {
-        user: methods::User,
+        user: User,
         dry_run: bool,
     }
 
     impl ClearLogsParams {
-        pub fn user(&self) -> &methods::User {
+        pub fn user(&self) -> &User {
             &self.user
         }
 
@@ -110,7 +109,7 @@ mod clear_logs {
 
     #[derive(serde::Deserialize)]
     struct ClearLogsParamsBuilder {
-        user: methods::User,
+        user: User,
         dry_run: bool,
     }
 

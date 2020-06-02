@@ -1,5 +1,5 @@
 use super::*;
-use crate::db::{Database, User, UserRole};
+use db::{Database, User, UserRole};
 use std::{path::PathBuf, sync::Arc, time};
 use time::Duration;
 use tokio::sync::Mutex;

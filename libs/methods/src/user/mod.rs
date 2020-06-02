@@ -8,13 +8,8 @@ pub use controller::UserController;
 pub use set_role::{SetRoleParams, SetRoleParamsInvalid, SetRoleResult};
 pub use validate_user::{ValidateUserParams, ValidateUserParamsInvalid, ValidateUserResult};
 
-use crate::db::UserRole;
 use chrono::prelude::*;
-use rand::SystemRandom;
-use ring::{
-    digest,
-    rand::{self, SecureRandom},
-};
+use db::UserRole;
 
 #[derive(serde::Deserialize)]
 pub struct User {
@@ -230,7 +225,7 @@ mod validate_user {
 
 mod set_role {
     use super::User;
-    use crate::db::UserRole;
+    use db::UserRole;
     use std::{convert::TryFrom, str::FromStr};
 
     pub struct SetRoleParams {

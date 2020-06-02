@@ -1,8 +1,10 @@
-use ring::digest;
 use rusqlite::{params, Connection, Row};
 use std::convert::{From, TryFrom};
 use std::marker::PhantomData;
-use std::{fmt::Display, num::NonZeroU32, str::FromStr, time};
+use std::{fmt::Display, str::FromStr, time};
+
+#[macro_use]
+extern crate log;
 
 pub struct Database<T> {
     path: String,
@@ -20,39 +22,10 @@ impl From<rusqlite::Error> for DatabaseError {
     }
 }
 
-impl From<DatabaseError> for crate::Error {
-    fn from(e: DatabaseError) -> Self {
-        match e {
-            DatabaseError::RusqliteError(e) => Self::internal_error()
-                .with_data("database error")
-                .with_internal_data(e),
-            DatabaseError::NotAuthorized => Self::not_permitted(),
-        }
-    }
-}
-
 const USER: &str = "user";
 const ADMIN: &str = "admin";
-
-pub fn encrypt(
-    password: &[u8],
-    salt: &[u8; digest::SHA512_OUTPUT_LEN],
-) -> [u8; digest::SHA512_OUTPUT_LEN] {
-    let timer = time::Instant::now();
-    let mut hash = [0u8; digest::SHA512_OUTPUT_LEN];
-
-    ring::pbkdf2::derive(
-        ring::pbkdf2::PBKDF2_HMAC_SHA512,
-        NonZeroU32::new(100_000).unwrap(),
-        salt,
-        password,
-        &mut hash,
-    );
-
-    crate::log_metric("password_encryption_ms", timer.elapsed().as_millis(), None);
-
-    hash
-}
+pub const PASSWORD_BYTE_LEN: usize = 64;
+pub const SALT_BYTE_LEN: usize = 64;
 
 impl<T> Database<T> {
     pub fn new(path: String) -> Self {
@@ -264,8 +237,8 @@ impl<'a> TryFrom<&Row<'a>> for Prediction {
 pub struct User {
     id: Option<i64>,
     username: String,
-    password: [u8; digest::SHA512_OUTPUT_LEN],
-    salt: [u8; digest::SHA512_OUTPUT_LEN],
+    password: [u8; PASSWORD_BYTE_LEN],
+    salt: [u8; SALT_BYTE_LEN],
     created_s: u32,
     role: UserRole,
 }
@@ -276,15 +249,15 @@ impl<'a> TryFrom<&Row<'a>> for User {
         let password_vec: Vec<u8> = row.get(2)?;
         let salt_vec: Vec<u8> = row.get(3)?;
 
-        assert_eq!(password_vec.len(), digest::SHA512_OUTPUT_LEN);
-        assert_eq!(salt_vec.len(), digest::SHA512_OUTPUT_LEN);
+        assert_eq!(password_vec.len(), PASSWORD_BYTE_LEN);
+        assert_eq!(salt_vec.len(), SALT_BYTE_LEN);
 
-        let mut password_arr = [0_u8; digest::SHA512_OUTPUT_LEN];
+        let mut password_arr = [0_u8; PASSWORD_BYTE_LEN];
         for (idx, byte) in password_vec.into_iter().enumerate() {
             password_arr[idx] = byte;
         }
 
-        let mut salt_arr = [0_u8; digest::SHA512_OUTPUT_LEN];
+        let mut salt_arr = [0_u8; SALT_BYTE_LEN];
         for (idx, byte) in salt_vec.into_iter().enumerate() {
             salt_arr[idx] = byte;
         }
@@ -355,8 +328,8 @@ impl User {
     pub fn new(
         id: Option<i64>,
         username: String,
-        password: [u8; digest::SHA512_OUTPUT_LEN],
-        salt: [u8; digest::SHA512_OUTPUT_LEN],
+        password: [u8; PASSWORD_BYTE_LEN],
+        salt: [u8; SALT_BYTE_LEN],
         created_s: u32,
     ) -> Self {
         Self {
@@ -377,26 +350,12 @@ impl User {
         &self.username
     }
 
-    pub fn password(&self) -> [u8; digest::SHA512_OUTPUT_LEN] {
-        assert_eq!(self.password.len(), digest::SHA512_OUTPUT_LEN);
-
-        let mut bytes = [0u8; digest::SHA512_OUTPUT_LEN];
-        for (idx, byte) in self.password.iter().enumerate() {
-            bytes[idx] = *byte;
-        }
-
-        bytes
+    pub fn password(&self) -> &[u8; PASSWORD_BYTE_LEN] {
+        &self.password
     }
 
-    pub fn salt(&self) -> [u8; digest::SHA512_OUTPUT_LEN] {
-        assert_eq!(self.salt.len(), digest::SHA512_OUTPUT_LEN);
-
-        let mut bytes = [0u8; digest::SHA512_OUTPUT_LEN];
-        for (idx, byte) in self.salt.iter().enumerate() {
-            bytes[idx] = *byte;
-        }
-
-        bytes
+    pub fn salt(&self) -> &[u8; SALT_BYTE_LEN] {
+        &self.salt
     }
 
     pub fn created_s(&self) -> u32 {
@@ -411,9 +370,8 @@ impl User {
         self.role >= level
     }
 
-    pub fn validate_password(&self, password: &[u8]) -> bool {
-        let encrypted_password = encrypt(password, &self.salt);
-        encrypted_password
+    pub fn validate_password(&self, compare: &[u8; PASSWORD_BYTE_LEN]) -> bool {
+        compare
             .iter()
             .zip(self.password().iter())
             .all(|(left, right)| left == right)
