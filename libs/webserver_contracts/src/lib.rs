@@ -144,6 +144,10 @@ impl JsonRpcRequest {
     pub fn id(&self) -> &Option<String> {
         &self.id
     }
+
+    pub fn as_formatted_json(&self) -> String {
+        serde_json::to_string(&self).unwrap()
+    }
 }
 
 /// A JSONRPC response object. Contains _either_ a `result` (in case of success) or `error` (in case of failure) property.
@@ -210,6 +214,10 @@ impl JsonRpcResponse {
             None => None,
             Some(err) => Some(&err),
         }
+    }
+
+    pub fn as_formatted_json(&self) -> String {
+        serde_json::to_string(&self).unwrap()
     }
 }
 
@@ -325,6 +333,10 @@ impl Error {
             None => None,
             Some(data) => Some(data),
         }
+    }
+
+    pub fn as_formatted_json(&self) -> String {
+        serde_json::to_string(&self).unwrap()
     }
 }
 
