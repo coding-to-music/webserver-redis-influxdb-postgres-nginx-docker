@@ -2,7 +2,7 @@
 mod db;
 mod methods;
 
-use dotenv::dotenv;
+use dotenv;
 use futures::future;
 use methods::{Method, PredictionController, ServerController, UserController};
 use serde::Serialize;
@@ -33,12 +33,23 @@ pub struct Opts {
 
 #[tokio::main]
 async fn main() {
-    dotenv().ok();
+    let env = std::env::var("WEBSERVER_ENV").unwrap_or("test".to_string());
+
+    match env.as_str() {
+        "prod" => {
+            dotenv::from_filename("prod.env").ok();
+        }
+        "test" => {
+            dotenv::from_filename("test.env").ok();
+        }
+        invalid => panic!("invalid environment specified: '{}'", invalid),
+    }
+
     pretty_env_logger::init();
     let opts = Opts::from_args();
 
     info!("Starting webserver with opts: {:?}", opts);
-    
+
     let port = opts.port;
 
     let app = Arc::new(App::new(opts));
