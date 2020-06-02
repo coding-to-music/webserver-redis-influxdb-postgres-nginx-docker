@@ -4,8 +4,8 @@ version = "0.1.0"
 authors = ["Isak Jägberg <ijagberg@gmail.com>"]
 edition = "2018"
 
-[dependencies.methods]
-path = "libs/methods"
+[dependencies.webserver_contracts]
+path = "libs/webserver_contracts"
 
 [dependencies.db]
 path = "libs/db"

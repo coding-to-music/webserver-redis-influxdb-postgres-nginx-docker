@@ -1,8 +1,8 @@
-use super::*;
 use db::{Database, User, UserRole};
-use std::{path::PathBuf, sync::Arc, time};
+use std::{convert::TryFrom, path::PathBuf, sync::Arc, time};
 use time::Duration;
 use tokio::sync::Mutex;
+use webserver_contracts::server::*;
 
 pub struct ServerController {
     user_db: Arc<Database<User>>,
@@ -31,8 +31,7 @@ impl ServerController {
     }
 
     pub async fn sleep(&self, request: crate::JsonRpcRequest) -> Result<SleepResult, crate::Error> {
-        let params: SleepParams = request.try_into()?;
-
+        let params = SleepParams::try_from(request)?;
         if !self
             .user_db
             .get_user(params.user().username())?
@@ -55,7 +54,7 @@ impl ServerController {
         &self,
         request: crate::JsonRpcRequest,
     ) -> Result<ClearLogsResult, crate::Error> {
-        let params: ClearLogsParams = request.try_into()?;
+        let params = ClearLogsParams::try_from(request)?;
 
         if !self
             .user_db

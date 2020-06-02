@@ -1,23 +1,27 @@
 #![allow(dead_code)]
 
+use controller::*;
 use db;
 use dotenv;
 use futures::future;
-use methods::{
-    Error, JsonRpcRequest, JsonRpcResponse, JsonRpcVersion, Method, PredictionController,
-    ResponseKind, ServerController, UserController,
-};
+use ring::digest;
 use serde_json::Value;
 use std::{
     any::Any,
     convert::Infallible,
     fmt::{Debug, Display},
+    num::NonZeroU32,
     path::PathBuf,
     str::FromStr,
     sync::Arc,
 };
 use structopt::StructOpt;
 use warp::{Filter, Reply};
+use webserver_contracts::{
+    Error, JsonRpcRequest, JsonRpcResponse, JsonRpcVersion, Method, ResponseKind,
+};
+
+mod controller;
 
 #[macro_use]
 extern crate log;
@@ -236,4 +240,21 @@ where
         value,
         timestamp.unwrap_or_else(|| chrono::Utc::now().timestamp_millis())
     );
+}
+
+pub(crate) fn encrypt(
+    password: &[u8],
+    salt: &[u8; digest::SHA512_OUTPUT_LEN],
+) -> [u8; digest::SHA512_OUTPUT_LEN] {
+    let mut hash = [0u8; digest::SHA512_OUTPUT_LEN];
+
+    ring::pbkdf2::derive(
+        ring::pbkdf2::PBKDF2_HMAC_SHA512,
+        NonZeroU32::new(100_000).unwrap(),
+        salt,
+        password,
+        &mut hash,
+    );
+
+    hash
 }

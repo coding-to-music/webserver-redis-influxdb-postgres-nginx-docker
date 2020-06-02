@@ -1,17 +1,12 @@
-mod controller;
-
 pub use add_user::{AddUserParams, AddUserParamsInvalid, AddUserResult};
 pub use change_password::{
     ChangePasswordParams, ChangePasswordParamsInvalid, ChangePasswordResult,
 };
-pub use controller::UserController;
+pub use delete_user::{DeleteUserParams, DeleteUserParamsInvalid, DeleteUserResult};
 pub use set_role::{SetRoleParams, SetRoleParamsInvalid, SetRoleResult};
 pub use validate_user::{ValidateUserParams, ValidateUserParamsInvalid, ValidateUserResult};
 
-use chrono::prelude::*;
-use db::UserRole;
-
-#[derive(serde::Deserialize, serde::Serialize)]
+#[derive(serde::Deserialize, serde::Serialize, Clone, Debug)]
 pub struct User {
     username: String,
     password: String,
@@ -35,7 +30,7 @@ mod add_user {
     use super::User;
     use std::convert::TryFrom;
 
-    #[derive(serde::Serialize)]
+    #[derive(serde::Serialize, Clone, Debug)]
     pub struct AddUserParams {
         user: User,
     }
@@ -109,6 +104,7 @@ mod change_password {
     use super::User;
     use std::convert::TryFrom;
 
+    #[derive(serde::Serialize, Clone, Debug)]
     pub struct ChangePasswordParams {
         user: User,
         new_password: String,
@@ -177,6 +173,7 @@ mod validate_user {
     use super::User;
     use std::convert::TryFrom;
 
+    #[derive(serde::Serialize, Clone, Debug)]
     pub struct ValidateUserParams {
         user: User,
     }
@@ -237,13 +234,22 @@ mod set_role {
     use db::UserRole;
     use std::{convert::TryFrom, str::FromStr};
 
+    #[derive(serde::Serialize, Clone, Debug)]
     pub struct SetRoleParams {
         user: User,
         username: String,
-        role: UserRole,
+        role: String,
     }
 
     impl SetRoleParams {
+        pub fn new(user: User, username: String, role: String) -> Self {
+            Self {
+                user,
+                username,
+                role,
+            }
+        }
+
         pub fn user(&self) -> &User {
             &self.user
         }
@@ -252,8 +258,8 @@ mod set_role {
             &self.username
         }
 
-        pub fn role(&self) -> UserRole {
-            self.role
+        pub fn role(&self) -> &str {
+            &self.role
         }
     }
 
@@ -266,12 +272,12 @@ mod set_role {
 
     impl SetRoleParamsBuilder {
         fn build(self) -> Result<SetRoleParams, SetRoleParamsInvalid> {
-            let role =
+            let _role =
                 UserRole::from_str(&self.role).map_err(|_| SetRoleParamsInvalid::InvalidRole)?;
             Ok(SetRoleParams {
                 user: self.user,
                 username: self.username,
-                role,
+                role: self.role,
             })
         }
     }
@@ -318,12 +324,17 @@ mod delete_user {
     use super::User;
     use std::convert::TryFrom;
 
+    #[derive(serde::Serialize, Clone, Debug)]
     pub struct DeleteUserParams {
         user: User,
         username: String,
     }
 
     impl DeleteUserParams {
+        pub fn new(user: User, username: String) -> Self {
+            Self { user, username }
+        }
+
         pub fn user(&self) -> &User {
             &self.user
         }

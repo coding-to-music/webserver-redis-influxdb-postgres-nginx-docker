@@ -1,15 +1,12 @@
-use super::*;
-use db;
-use delete_user::{DeleteUserParams, DeleteUserResult};
+use chrono::Utc;
+use db::{self, UserRole};
 use rand::SystemRandom;
 use ring::{
     digest,
     rand::{self, SecureRandom},
 };
-use std::{
-    convert::{TryFrom, TryInto},
-    sync::Arc,
-};
+use std::{convert::TryFrom, sync::Arc};
+use webserver_contracts::user::*;
 
 pub struct UserController {
     db: Arc<db::Database<db::User>>,
@@ -21,7 +18,7 @@ impl UserController {
     }
 
     pub async fn add(&self, request: crate::JsonRpcRequest) -> Result<AddUserResult, crate::Error> {
-        let params: AddUserParams = request.try_into()?;
+        let params = AddUserParams::try_from(request)?;
 
         if self.db.username_exists(&params.user().username()) {
             return Err(crate::Error::internal_error()
@@ -53,7 +50,7 @@ impl UserController {
         &self,
         request: crate::JsonRpcRequest,
     ) -> Result<ChangePasswordResult, crate::Error> {
-        let params: ChangePasswordParams = request.try_into()?;
+        let params = ChangePasswordParams::try_from(request)?;
 
         let user_row = self.db.get_user(params.user().username())?;
 
@@ -92,8 +89,7 @@ impl UserController {
         &self,
         request: crate::JsonRpcRequest,
     ) -> Result<ValidateUserResult, crate::Error> {
-        let params: ValidateUserParams = request.try_into()?;
-
+        let params = ValidateUserParams::try_from(request)?;
         let result = self
             .db
             .get_user(params.user().username())?
@@ -111,7 +107,7 @@ impl UserController {
         &self,
         request: crate::JsonRpcRequest,
     ) -> Result<SetRoleResult, crate::Error> {
-        let params: SetRoleParams = request.try_into()?;
+        let params = SetRoleParams::try_from(request)?;
 
         let user_row = self.db.get_user(params.user().username())?;
 

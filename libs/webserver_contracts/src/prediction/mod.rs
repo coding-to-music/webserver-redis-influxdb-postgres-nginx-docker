@@ -2,15 +2,12 @@ use chrono::prelude::*;
 use db;
 
 pub use add_prediction::{AddPredictionParams, AddPredictionParamsInvalid, AddPredictionResult};
-pub use controller::PredictionController;
 pub use delete_prediction::{
     DeletePredictionParams, DeletePredictionParamsInvalid, DeletePredictionResult,
 };
 pub use search_predictions::{
     SearchPredictionsParams, SearchPredictionsParamsInvalid, SearchPredictionsResult,
 };
-
-mod controller;
 
 #[derive(serde::Serialize)]
 pub struct Prediction {
@@ -57,9 +54,10 @@ impl Prediction {
 }
 
 mod add_prediction {
-    use crate::User;
+    use crate::user::User;
     use std::convert::TryFrom;
 
+    #[derive(serde::Serialize, Clone, Debug)]
     pub struct AddPredictionParams {
         prediction: String,
         user: User,
@@ -138,8 +136,24 @@ mod add_prediction {
 }
 
 mod delete_prediction {
-    use crate::User;
+    use crate::user::User;
     use std::convert::TryFrom;
+
+    #[derive(serde::Serialize, Clone, Debug)]
+    pub struct DeletePredictionParams {
+        id: i64,
+        user: User,
+    }
+
+    impl DeletePredictionParams {
+        pub fn id(&self) -> i64 {
+            self.id
+        }
+
+        pub fn user(&self) -> &User {
+            &self.user
+        }
+    }
 
     #[derive(serde::Deserialize)]
     struct DeletePredictionParamsBuilder {
@@ -157,21 +171,6 @@ mod delete_prediction {
                     user: self.user,
                 })
             }
-        }
-    }
-
-    pub struct DeletePredictionParams {
-        id: i64,
-        user: User,
-    }
-
-    impl DeletePredictionParams {
-        pub fn id(&self) -> i64 {
-            self.id
-        }
-
-        pub fn user(&self) -> &User {
-            &self.user
         }
     }
 
@@ -215,8 +214,27 @@ mod delete_prediction {
 
 mod search_predictions {
     use super::Prediction;
-    use crate::User;
+    use crate::user::User;
     use std::convert::TryFrom;
+
+    #[derive(serde::Serialize, Clone, Debug)]
+    pub struct SearchPredictionsParams {
+        username: String,
+        user: Option<User>,
+    }
+
+    impl SearchPredictionsParams {
+        pub fn username(&self) -> &str {
+            &self.username
+        }
+
+        pub fn user(&self) -> Option<&User> {
+            match &self.user {
+                Some(user) => Some(user),
+                None => None,
+            }
+        }
+    }
 
     #[derive(serde::Deserialize)]
     struct SearchPredictionsParamsBuilder {
@@ -234,24 +252,6 @@ mod search_predictions {
                 username: self.username,
                 user: self.user,
             })
-        }
-    }
-
-    pub struct SearchPredictionsParams {
-        username: String,
-        user: Option<User>,
-    }
-
-    impl SearchPredictionsParams {
-        pub fn username(&self) -> &str {
-            &self.username
-        }
-
-        pub fn user(&self) -> Option<&User> {
-            match &self.user {
-                Some(user) => Some(user),
-                None => None,
-            }
         }
     }
 

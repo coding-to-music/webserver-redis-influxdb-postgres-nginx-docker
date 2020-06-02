@@ -1,23 +1,17 @@
+#![allow(dead_code)]
+
 use db::DatabaseError;
-pub use prediction::{AddPredictionParams, AddPredictionResult, PredictionController};
-use ring::digest;
 use serde::Serialize;
 use serde_json::Value;
-pub use server::ServerController;
 use std::{
     convert::Infallible,
     fmt::{Debug, Display},
-    num::NonZeroU32,
     str::FromStr,
 };
-pub use user::{AddUserParams, AddUserResult, User, UserController};
 
-#[macro_use]
-extern crate log;
-
-mod prediction;
-mod server;
-mod user;
+pub mod prediction;
+pub mod server;
+pub mod user;
 
 const SLEEP: &str = "sleep";
 const ADD_PREDICTION: &str = "add_prediction";
@@ -127,11 +121,14 @@ pub struct JsonRpcRequest {
 }
 
 impl JsonRpcRequest {
-    pub fn new(jsonrpc: JsonRpcVersion, method: String, params: Value, id: Option<String>) -> Self {
+    pub fn new<T>(jsonrpc: JsonRpcVersion, method: String, params: T, id: Option<String>) -> Self
+    where
+        T: Serialize,
+    {
         Self {
             jsonrpc,
             method,
-            params,
+            params: serde_json::to_value(params).unwrap(),
             id,
         }
     }
@@ -150,7 +147,7 @@ impl JsonRpcRequest {
 }
 
 /// A JSONRPC response object. Contains _either_ a `result` (in case of success) or `error` (in case of failure) property.
-#[derive(serde::Serialize)]
+#[derive(serde::Serialize, serde::Deserialize)]
 pub struct JsonRpcResponse {
     /// JSONRPC version of the response.
     jsonrpc: JsonRpcVersion,
@@ -222,7 +219,7 @@ pub enum ResponseKind<'a> {
 }
 
 /// Error object to be returned in a `JsonRpcResponse` if something failed.
-#[derive(Serialize)]
+#[derive(serde::Serialize, serde::Deserialize, Debug)]
 pub struct Error {
     /// JSONRPC error code.
     code: i32,
@@ -361,21 +358,4 @@ impl From<ErrorCode> for i32 {
             ErrorCode::InternalError => -32603,
         }
     }
-}
-
-pub(crate) fn encrypt(
-    password: &[u8],
-    salt: &[u8; digest::SHA512_OUTPUT_LEN],
-) -> [u8; digest::SHA512_OUTPUT_LEN] {
-    let mut hash = [0u8; digest::SHA512_OUTPUT_LEN];
-
-    ring::pbkdf2::derive(
-        ring::pbkdf2::PBKDF2_HMAC_SHA512,
-        NonZeroU32::new(100_000).unwrap(),
-        salt,
-        password,
-        &mut hash,
-    );
-
-    hash
 }

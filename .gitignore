@@ -1,5 +1,5 @@
 /target
 /libs/db/target
-/libs/methods/target
+/libs/webserver_contracts/target
 **/*.rs.bk
 *.env

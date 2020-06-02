@@ -1,8 +1,8 @@
-use super::*;
-use crate::user::User;
 use chrono::Utc;
 use db;
 use std::{convert::TryInto, sync::Arc};
+use webserver_contracts::prediction::*;
+use webserver_contracts::user::User;
 
 pub struct PredictionController {
     prediction_db: Arc<db::Database<db::Prediction>>,

@@ -1,13 +1,8 @@
-mod controller;
-
 pub use clear_logs::{ClearLogsParams, ClearLogsParamsInvalid, ClearLogsResult};
-pub use controller::ServerController;
 pub use sleep::{SleepParams, SleepParamsInvalid, SleepResult};
 
-use std::convert::TryInto;
-
 mod sleep {
-    use crate::User;
+    use crate::user::User;
     use std::convert::TryFrom;
 
     #[derive(serde::Deserialize)]
@@ -89,9 +84,10 @@ mod sleep {
 }
 
 mod clear_logs {
-    use crate::User;
+    use crate::user::User;
     use std::convert::TryFrom;
 
+    #[derive(serde::Serialize, Clone, Debug)]
     pub struct ClearLogsParams {
         user: User,
         dry_run: bool,
