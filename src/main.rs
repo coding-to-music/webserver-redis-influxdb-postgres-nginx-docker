@@ -1,3 +1,4 @@
+#![allow(dead_code)]
 mod db;
 mod methods;
 
@@ -20,10 +21,14 @@ use warp::{Filter, Reply};
 #[macro_use]
 extern crate log;
 
-#[derive(StructOpt)]
-struct Opts {
-    #[structopt(long, default_value = "3000")]
+#[derive(StructOpt, Debug)]
+pub struct Opts {
+    #[structopt(long, default_value = "3000", env = "WEBSERVER_LISTEN_PORT")]
     port: u16,
+    #[structopt(long, env = "WEBSERVER_SQLITE_PATH")]
+    database_path: String,
+    #[structopt(long, env = "WEBSERVER_LOG_PATH")]
+    log_path: String,
 }
 
 #[tokio::main]
@@ -32,7 +37,11 @@ async fn main() {
     pretty_env_logger::init();
     let opts = Opts::from_args();
 
-    let app = Arc::new(App::new());
+    info!("Starting webserver with opts: {:?}", opts);
+    
+    let port = opts.port;
+
+    let app = Arc::new(App::new(opts));
 
     let log = warp::log("api");
 
@@ -42,25 +51,26 @@ async fn main() {
         .and_then(move |body| handle_request(app.clone(), body))
         .with(log);
 
-    warp::serve(handler).run(([0, 0, 0, 0], opts.port)).await;
+    warp::serve(handler).run(([0, 0, 0, 0], port)).await;
 }
 
 pub struct App {
+    opts: Opts,
     prediction_controller: PredictionController,
     user_controller: UserController,
     server_controller: ServerController,
 }
 
 impl App {
-    pub fn new() -> Self {
-        let webserver_db_path: String = from_env_var("WEBSERVER_SQLITE_PATH").unwrap();
+    pub fn new(opts: Opts) -> Self {
         let user_db: Arc<db::Database<db::User>> =
-            Arc::new(db::Database::new(webserver_db_path.clone()));
+            Arc::new(db::Database::new(opts.database_path.clone()));
         let prediction_db: Arc<db::Database<db::Prediction>> =
-            Arc::new(db::Database::new(webserver_db_path));
-        let webserver_log_path: PathBuf = from_env_var("WEBSERVER_LOG_PATH").unwrap();
+            Arc::new(db::Database::new(opts.database_path.clone()));
+        let webserver_log_path: PathBuf = PathBuf::from(opts.log_path.clone());
 
         Self {
+            opts,
             prediction_controller: PredictionController::new(prediction_db, user_db.clone()),
             user_controller: UserController::new(user_db.clone()),
             server_controller: ServerController::new(user_db, webserver_log_path),
@@ -157,12 +167,6 @@ impl App {
                 .collect::<Vec<_>>(),
         )
         .await
-    }
-}
-
-impl Default for App {
-    fn default() -> Self {
-        Self::new()
     }
 }
 

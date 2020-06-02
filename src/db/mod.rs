@@ -63,7 +63,17 @@ impl<T> Database<T> {
     }
 
     pub fn get_connection(&self) -> Result<Connection, DatabaseError> {
-        Connection::open(&self.path).map_err(|e| DatabaseError::from(e))
+        trace!("connecting to database at '{}'", self.path);
+        let timer = time::Instant::now();
+        let conn = Connection::open(&self.path).map_err(|e| DatabaseError::from(e));
+        if conn.is_ok() {
+            trace!(
+                "successfully connected to database at '{}' in {:?}",
+                self.path,
+                timer.elapsed()
+            );
+        }
+        conn
     }
 }
 
