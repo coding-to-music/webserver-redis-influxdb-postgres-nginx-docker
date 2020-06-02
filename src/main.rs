@@ -113,6 +113,11 @@ impl App {
                     self.user_controller.validate_user(req).await,
                     id,
                 ),
+                Method::DeleteUser => JsonRpcResponse::from_result(
+                    jsonrpc,
+                    self.user_controller.delete_user(req).await,
+                    id,
+                ),
                 Method::SetRole => JsonRpcResponse::from_result(
                     jsonrpc,
                     self.user_controller.set_role(req).await,
@@ -377,6 +382,10 @@ impl Error {
     /// Constructor for an "Invalid format" webserver error.
     pub fn invalid_format(serde_error: serde_json::Error) -> Self {
         Self::invalid_params().with_data(format!("invalid format: '{}'", serde_error))
+    }
+
+    pub fn not_permitted() -> Self {
+        Self::internal_error().with_data("not permitted")
     }
 
     /// Constructor for a "Method not implemented" webserver error.

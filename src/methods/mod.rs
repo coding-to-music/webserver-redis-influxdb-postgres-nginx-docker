@@ -16,6 +16,7 @@ const CHANGE_PASSWORD: &str = "change_password";
 const VALIDATE_USER: &str = "validate_user";
 const SET_ROLE: &str = "set_role";
 const CLEAR_LOGS: &str = "clear_logs";
+const DELETE_USER: &str = "delete_user";
 
 pub enum Method {
     /// Sleep for a specified amount of time
@@ -32,6 +33,8 @@ pub enum Method {
     ChangePassword,
     /// Validate a username, password tuple
     ValidateUser,
+    /// Delete a user
+    DeleteUser,
     /// Set the role of a given user
     SetRole,
     /// Clear webserver logs
@@ -51,6 +54,7 @@ impl FromStr for Method {
             SET_ROLE => Ok(Self::SetRole),
             SLEEP => Ok(Self::Sleep),
             CLEAR_LOGS => Ok(Self::ClearLogs),
+            DELETE_USER => Ok(Self::DeleteUser),
             _ => Err(()),
         }
     }
@@ -71,6 +75,7 @@ impl Display for Method {
                 Method::ValidateUser => VALIDATE_USER,
                 Method::SetRole => SET_ROLE,
                 Method::ClearLogs => CLEAR_LOGS,
+                Method::DeleteUser => DELETE_USER,
             }
         )
     }

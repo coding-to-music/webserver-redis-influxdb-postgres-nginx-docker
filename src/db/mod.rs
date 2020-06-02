@@ -26,7 +26,7 @@ impl From<DatabaseError> for crate::Error {
             DatabaseError::RusqliteError(e) => Self::internal_error()
                 .with_data("database error")
                 .with_internal_data(e),
-            DatabaseError::NotAuthorized => Self::internal_error().with_data("not permitted"),
+            DatabaseError::NotAuthorized => Self::not_permitted(),
         }
     }
 }
@@ -128,6 +128,14 @@ impl Database<User> {
         } else {
             Ok(Some(user_rows.swap_remove(0)))
         }
+    }
+
+    pub fn delete_user(&self, username: &str) -> Result<bool, DatabaseError> {
+        let db = self.get_connection()?;
+
+        let changed_rows = db.execute("DELETE FROM user WHERE username = ?1", params![username])?;
+
+        Ok(changed_rows == 1)
     }
 }
 

@@ -1,6 +1,10 @@
 use super::*;
 use crate::db;
-use std::{convert::TryInto, sync::Arc};
+use delete_user::{DeleteUserParams, DeleteUserResult};
+use std::{
+    convert::{TryFrom, TryInto},
+    sync::Arc,
+};
 
 pub struct UserController {
     db: Arc<db::Database<db::User>>,
@@ -46,29 +50,33 @@ impl UserController {
     ) -> Result<ChangePasswordResult, crate::Error> {
         let params: ChangePasswordParams = request.try_into()?;
 
-        if self.get_and_validate(params.user()) {
-            let user_row = self
-                .db
-                .get_user(params.user().username())?
-                .ok_or_else(crate::Error::internal_error)?;
+        let user_row = self.db.get_user(params.user().username())?;
 
-            let current_salt = user_row.salt();
-
-            let new_password = db::encrypt(params.new_password().as_bytes(), &current_salt);
-
-            let new_user_row = db::User::new(
-                user_row.id(),
-                user_row.username().to_owned(),
-                new_password,
-                current_salt,
-                user_row.created_s(),
-            );
-
-            let result = self.db.update_user_password(new_user_row)?;
-            Ok(ChangePasswordResult::new(result))
-        } else {
-            Ok(ChangePasswordResult::new(false))
+        // check that the user exists and that the password is valid
+        if !user_row
+            .as_ref()
+            .map(|u| u.validate_password(params.user().password().as_bytes()))
+            .unwrap_or(false)
+        {
+            return Err(crate::Error::invalid_username_or_password());
         }
+
+        let user_row = user_row.unwrap(); // always Some because we did unwrap_or(false) above
+
+        let current_salt = user_row.salt();
+
+        let new_password = db::encrypt(params.new_password().as_bytes(), &current_salt);
+
+        let new_user_row = db::User::new(
+            user_row.id(),
+            user_row.username().to_owned(),
+            new_password,
+            current_salt,
+            user_row.created_s(),
+        );
+
+        let result = self.db.update_user_password(new_user_row)?;
+        Ok(ChangePasswordResult::new(result))
     }
 
     pub async fn validate_user(
@@ -77,7 +85,11 @@ impl UserController {
     ) -> Result<ValidateUserResult, crate::Error> {
         let params: ValidateUserParams = request.try_into()?;
 
-        let result = self.get_and_validate(params.user());
+        let result = self
+            .db
+            .get_user(params.user().username())?
+            .map(|u| u.validate_password(params.user().password().as_bytes()))
+            .unwrap_or(false);
 
         Ok(ValidateUserResult::new(result))
     }
@@ -88,18 +100,20 @@ impl UserController {
     ) -> Result<SetRoleResult, crate::Error> {
         let params: SetRoleParams = request.try_into()?;
 
-        if !self.get_and_validate(params.user()) {
-            return Err(crate::Error::internal_error().with_data("invalid username or password"));
+        let user_row = self.db.get_user(params.user().username())?;
+
+        if !user_row
+            .as_ref()
+            .map(|u| u.validate_password(params.user().password().as_bytes()))
+            .unwrap_or(false)
+        {
+            return Err(crate::Error::invalid_username_or_password());
         }
 
-        if self
-            .db
-            .get_user(params.user().username())?
-            .map(|user| *user.role())
-            .unwrap_or(UserRole::User)
-            < UserRole::Admin
-        {
-            return Err(crate::Error::internal_error().with_data("you do not have permission"));
+        let user_row = user_row.unwrap();
+
+        if user_row.role() < &UserRole::Admin {
+            return Err(crate::Error::not_permitted());
         }
 
         if let Some(_user) = self.db.get_user(params.username())? {
@@ -110,11 +124,30 @@ impl UserController {
         }
     }
 
-    fn get_and_validate(&self, user: &crate::methods::User) -> bool {
-        self.db
-            .get_user(user.username())
-            .unwrap_or(None)
-            .map(|u| u.validate_password(user.password().as_bytes()))
+    pub async fn delete_user(
+        &self,
+        request: crate::JsonRpcRequest,
+    ) -> Result<DeleteUserResult, crate::Error> {
+        let params = DeleteUserParams::try_from(request)?;
+
+        let user_row = self.db.get_user(params.user().username())?;
+
+        if !user_row
+            .as_ref()
+            .map(|u| u.validate_password(params.user().password().as_bytes()))
             .unwrap_or(false)
+        {
+            return Err(crate::Error::invalid_username_or_password());
+        }
+
+        let user_row = user_row.unwrap();
+
+        if user_row.role() < &UserRole::Admin {
+            return Err(crate::Error::not_permitted());
+        }
+
+        let result = self.db.delete_user(params.username())?;
+
+        Ok(DeleteUserResult::new(result))
     }
 }

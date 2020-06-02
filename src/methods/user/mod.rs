@@ -309,3 +309,71 @@ mod set_role {
         }
     }
 }
+
+mod delete_user {
+    use super::User;
+    use std::convert::TryFrom;
+
+    pub struct DeleteUserParams {
+        user: User,
+        username: String,
+    }
+
+    impl DeleteUserParams {
+        pub fn user(&self) -> &User {
+            &self.user
+        }
+
+        pub fn username(&self) -> &str {
+            &self.username
+        }
+    }
+
+    #[derive(serde::Deserialize)]
+    struct DeleteUserParamsBuilder {
+        user: User,
+        username: String,
+    }
+
+    impl DeleteUserParamsBuilder {
+        fn build(self) -> Result<DeleteUserParams, DeleteUserParamsInvalid> {
+            Ok(DeleteUserParams {
+                user: self.user,
+                username: self.username,
+            })
+        }
+    }
+
+    pub enum DeleteUserParamsInvalid {
+        InvalidFormat(serde_json::Error),
+    }
+
+    impl TryFrom<crate::JsonRpcRequest> for DeleteUserParams {
+        type Error = DeleteUserParamsInvalid;
+        fn try_from(value: crate::JsonRpcRequest) -> Result<Self, Self::Error> {
+            let builder: DeleteUserParamsBuilder = serde_json::from_value(value.params)
+                .map_err(DeleteUserParamsInvalid::InvalidFormat)?;
+
+            builder.build()
+        }
+    }
+
+    impl From<DeleteUserParamsInvalid> for crate::Error {
+        fn from(error: DeleteUserParamsInvalid) -> Self {
+            match error {
+                DeleteUserParamsInvalid::InvalidFormat(e) => Self::invalid_format(e),
+            }
+        }
+    }
+
+    #[derive(serde::Serialize)]
+    pub struct DeleteUserResult {
+        success: bool,
+    }
+
+    impl DeleteUserResult {
+        pub fn new(success: bool) -> Self {
+            Self { success }
+        }
+    }
+}
