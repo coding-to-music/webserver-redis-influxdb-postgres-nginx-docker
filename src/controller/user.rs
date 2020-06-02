@@ -163,7 +163,7 @@ impl UserController {
         let user_row = user_row.unwrap();
 
         // only allow deletes if the user is an admin or if a user is trying to delete themselves
-        if user_row.role() < &UserRole::Admin || params.user().username() != params.username() {
+        if user_row.role() < &UserRole::Admin && params.user().username() != params.username() {
             return Err(crate::Error::not_permitted());
         }
 
