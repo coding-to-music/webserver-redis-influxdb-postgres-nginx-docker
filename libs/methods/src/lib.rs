@@ -1,5 +1,5 @@
 use db::DatabaseError;
-pub use prediction::PredictionController;
+pub use prediction::{AddPredictionParams, AddPredictionResult, PredictionController};
 use ring::digest;
 use serde::Serialize;
 use serde_json::Value;
@@ -10,7 +10,7 @@ use std::{
     num::NonZeroU32,
     str::FromStr,
 };
-pub use user::{User, UserController};
+pub use user::{AddUserParams, AddUserResult, User, UserController};
 
 #[macro_use]
 extern crate log;
@@ -113,7 +113,7 @@ pub enum JsonRpcVersion {
 }
 
 /// A JSONRPC request.
-#[derive(serde::Deserialize)]
+#[derive(serde::Deserialize, serde::Serialize)]
 pub struct JsonRpcRequest {
     /// JSONRPC version.
     jsonrpc: JsonRpcVersion,
@@ -127,6 +127,15 @@ pub struct JsonRpcRequest {
 }
 
 impl JsonRpcRequest {
+    pub fn new(jsonrpc: JsonRpcVersion, method: String, params: Value, id: Option<String>) -> Self {
+        Self {
+            jsonrpc,
+            method,
+            params,
+            id,
+        }
+    }
+
     pub fn version(&self) -> &JsonRpcVersion {
         &self.jsonrpc
     }

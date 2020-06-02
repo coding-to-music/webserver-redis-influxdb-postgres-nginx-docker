@@ -11,13 +11,17 @@ pub use validate_user::{ValidateUserParams, ValidateUserParamsInvalid, ValidateU
 use chrono::prelude::*;
 use db::UserRole;
 
-#[derive(serde::Deserialize)]
+#[derive(serde::Deserialize, serde::Serialize)]
 pub struct User {
     username: String,
     password: String,
 }
 
 impl User {
+    pub fn new(username: String, password: String) -> Self {
+        Self { username, password }
+    }
+
     pub fn username(&self) -> &str {
         &self.username
     }
@@ -31,11 +35,16 @@ mod add_user {
     use super::User;
     use std::convert::TryFrom;
 
+    #[derive(serde::Serialize)]
     pub struct AddUserParams {
         user: User,
     }
 
     impl AddUserParams {
+        pub fn new(user: User) -> Self {
+            Self { user }
+        }
+
         pub fn user(&self) -> &User {
             &self.user
         }
