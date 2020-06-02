@@ -5,7 +5,7 @@ use ring::{
     digest,
     rand::{self, SecureRandom},
 };
-use std::{convert::TryFrom, sync::Arc};
+use std::{convert::TryFrom, str::FromStr, sync::Arc};
 use webserver_contracts::user::*;
 
 pub struct UserController {
@@ -130,7 +130,10 @@ impl UserController {
         }
 
         if let Some(_user) = self.db.get_user(params.username())? {
-            let result = self.db.update_user_role(params.username(), params.role())?;
+            let result = self.db.update_user_role(
+                params.username(),
+                db::UserRole::from_str(params.role()).unwrap(),
+            )?;
             Ok(SetRoleResult::new(result))
         } else {
             Err(crate::Error::internal_error().with_data("user does not exist"))
@@ -159,7 +162,8 @@ impl UserController {
 
         let user_row = user_row.unwrap();
 
-        if user_row.role() < &UserRole::Admin {
+        // only allow deletes if the user is an admin or if a user is trying to delete themselves
+        if user_row.role() < &UserRole::Admin || params.user().username() != user_row.username() {
             return Err(crate::Error::not_permitted());
         }
 
