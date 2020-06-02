@@ -1,5 +1,5 @@
 use super::*;
-use crate::db;
+use crate::{db, methods::User};
 use chrono::Utc;
 use std::{convert::TryInto, sync::Arc};
 
@@ -25,7 +25,7 @@ impl PredictionController {
     ) -> Result<AddPredictionResult, crate::Error> {
         let params: AddPredictionParams = request.try_into()?;
 
-        if self.user_db.validate_user(params.user()) {
+        if self.get_and_validate_user(params.user())? {
             let prediction_row = db::Prediction::new(
                 None,
                 params.user().username().to_owned(),
@@ -37,7 +37,7 @@ impl PredictionController {
 
             Ok(AddPredictionResult::new(result))
         } else {
-            Err(crate::Error::invalid_params().with_data("invalid username or password"))
+            Err(crate::Error::invalid_username_or_password())
         }
     }
 
@@ -47,7 +47,7 @@ impl PredictionController {
     ) -> Result<DeletePredictionResult, crate::Error> {
         let params: DeletePredictionParams = request.try_into()?;
 
-        if self.user_db.validate_user(&params.user()) {
+        if self.get_and_validate_user(params.user())? {
             let prediction = self.prediction_db.get_predictions_by_id(params.id())?;
             let same_user = prediction
                 .as_ref()
@@ -75,27 +75,18 @@ impl PredictionController {
     ) -> Result<SearchPredictionsResult, crate::Error> {
         let params: SearchPredictionsParams = request.try_into()?;
 
-        let valid_user = params
-            .user()
-            .map(|user| self.user_db.validate_user(user))
-            .unwrap_or(false);
-
-        trace!(
-            r#"searching for predictions made by "{}""#,
-            params.username()
-        );
+        let valid_user = if let Some(user) = params.user() {
+            self.get_and_validate_user(user)?
+        } else {
+            false
+        };
 
         let predictions = self
             .prediction_db
             .get_predictions_by_user(params.username())?;
 
-        trace!(
-            r#"found {} predictions made by "{}""#,
-            predictions.len(),
-            params.username()
-        );
-
         match (params.user(), valid_user) {
+            // A valid user was provided, show ids if predictions belong to the given user
             (Some(user), true) => Ok(SearchPredictionsResult::new(
                 predictions
                     .into_iter()
@@ -108,9 +99,9 @@ impl PredictionController {
                     })
                     .collect(),
             )),
-            (Some(_user), false) => {
-                Err(crate::Error::invalid_params().with_data("invalid username or password"))
-            }
+            // An invalid user was provided, return an error
+            (Some(_user), false) => Err(crate::Error::invalid_username_or_password()),
+            // No user was provided, don't show ids
             (None, _) => Ok(SearchPredictionsResult::new(
                 predictions
                     .into_iter()
@@ -118,5 +109,15 @@ impl PredictionController {
                     .collect(),
             )),
         }
+    }
+
+    fn get_and_validate_user(&self, user: &User) -> Result<bool, db::DatabaseError> {
+        let valid = self
+            .user_db
+            .get_user(user.username())?
+            .map(|u| u.validate_password(user.password().as_bytes()))
+            .unwrap_or(false);
+
+        Ok(valid)
     }
 }

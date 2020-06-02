@@ -389,6 +389,11 @@ impl Error {
         }
     }
 
+    /// Constructor for an "Invalid username or password" webserver error.
+    pub fn invalid_username_or_password() -> Self {
+        Self::invalid_params().with_data("invalid username or passwor")
+    }
+
     pub fn get_internal_data(&self) -> Option<&str> {
         match &self.internal_data {
             None => None,
@@ -400,14 +405,6 @@ impl Error {
 impl From<Infallible> for Error {
     fn from(_: Infallible) -> Self {
         unreachable!()
-    }
-}
-
-impl From<rusqlite::Error> for Error {
-    fn from(e: rusqlite::Error) -> Self {
-        Self::internal_error()
-            .with_data("database error")
-            .with_internal_data(e)
     }
 }
 

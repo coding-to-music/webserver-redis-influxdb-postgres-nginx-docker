@@ -1,8 +1,5 @@
 use super::*;
-use crate::{
-    db::{Database, User, UserRole},
-    methods,
-};
+use crate::db::{Database, User, UserRole};
 use std::{path::PathBuf, sync::Arc, time};
 use time::Duration;
 use tokio::sync::Mutex;
@@ -36,15 +33,18 @@ impl ServerController {
     pub async fn sleep(&self, request: crate::JsonRpcRequest) -> Result<SleepResult, crate::Error> {
         let params: SleepParams = request.try_into()?;
 
-        self.validate_user_is_admin(params.user())?;
-
-        trace!("Sleeping for {} seconds...", params.seconds());
+        if !self
+            .user_db
+            .get_user(params.user().username())?
+            .map(|u| u.is_authorized(UserRole::Admin))
+            .unwrap_or(false)
+        {
+            return Err(crate::Error::internal_error().with_data("not authorized"));
+        }
 
         let now = std::time::Instant::now();
         tokio::time::delay_for(Duration::from_secs_f32(params.seconds())).await;
         let elapsed = now.elapsed();
-
-        trace!("Slept for {:?}", elapsed);
 
         self.increment_served_requests().await;
 
@@ -57,7 +57,14 @@ impl ServerController {
     ) -> Result<ClearLogsResult, crate::Error> {
         let params: ClearLogsParams = request.try_into()?;
 
-        self.validate_user_is_admin(params.user())?;
+        if !self
+            .user_db
+            .get_user(params.user().username())?
+            .map(|u| u.is_authorized(UserRole::Admin))
+            .unwrap_or(false)
+        {
+            return Err(crate::Error::internal_error().with_data("not permitted"));
+        }
 
         let paths = std::fs::read_dir(&self.log_directory)
             .map_err(|e| crate::Error::internal_error().with_internal_data(e))?;
@@ -89,7 +96,7 @@ impl ServerController {
 
             total_size += size;
         }
-        
+
         self.increment_served_requests().await;
 
         Ok(ClearLogsResult::new(
@@ -97,24 +104,5 @@ impl ServerController {
             log_files.len(),
             total_size,
         ))
-    }
-
-    fn validate_user_is_admin(&self, user: &methods::User) -> Result<(), crate::Error> {
-        if self.user_db.validate_user(user) {
-            // username and password match
-            if self
-                .user_db
-                .get_user(user.username())?
-                .map(|user| *user.role())
-                .unwrap_or(UserRole::User)
-                < UserRole::Admin
-            {
-                Err(crate::Error::internal_error().with_data("you do not have permission"))
-            } else {
-                Ok(())
-            }
-        } else {
-            Err(crate::Error::internal_error().with_data("invalid username or password"))
-        }
     }
 }

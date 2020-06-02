@@ -1,6 +1,5 @@
 use super::*;
 use crate::db;
-use std::num::NonZeroU32;
 use std::{convert::TryInto, sync::Arc};
 
 pub struct UserController {
@@ -26,13 +25,13 @@ impl UserController {
         rng.fill(&mut salt)
             .map_err(|e| crate::Error::internal_error().with_data(format!("rng error: {}", e)))?;
 
-        let hashed_password = Self::encrypt(&params.user().password(), &salt);
+        let hashed_password = db::encrypt(&params.user().password().as_bytes(), &salt);
 
         let user_row = db::User::new(
             None,
             params.user().username().to_owned(),
-            hashed_password.to_vec(),
-            salt.to_vec(),
+            hashed_password,
+            salt,
             Utc::now().timestamp() as u32,
         );
 
@@ -47,7 +46,7 @@ impl UserController {
     ) -> Result<ChangePasswordResult, crate::Error> {
         let params: ChangePasswordParams = request.try_into()?;
 
-        if self.db.validate_user(params.user()) {
+        if self.get_and_validate(params.user()) {
             let user_row = self
                 .db
                 .get_user(params.user().username())?
@@ -55,13 +54,13 @@ impl UserController {
 
             let current_salt = user_row.salt();
 
-            let new_password = Self::encrypt(params.new_password(), &current_salt);
+            let new_password = db::encrypt(params.new_password().as_bytes(), &current_salt);
 
             let new_user_row = db::User::new(
                 user_row.id(),
                 user_row.username().to_owned(),
-                new_password.to_vec(),
-                current_salt.to_vec(),
+                new_password,
+                current_salt,
                 user_row.created_s(),
             );
 
@@ -78,7 +77,7 @@ impl UserController {
     ) -> Result<ValidateUserResult, crate::Error> {
         let params: ValidateUserParams = request.try_into()?;
 
-        let result = self.db.validate_user(params.user());
+        let result = self.get_and_validate(params.user());
 
         Ok(ValidateUserResult::new(result))
     }
@@ -89,7 +88,7 @@ impl UserController {
     ) -> Result<SetRoleResult, crate::Error> {
         let params: SetRoleParams = request.try_into()?;
 
-        if !self.db.validate_user(params.user()) {
+        if !self.get_and_validate(params.user()) {
             return Err(crate::Error::internal_error().with_data("invalid username or password"));
         }
 
@@ -111,20 +110,11 @@ impl UserController {
         }
     }
 
-    fn encrypt(
-        password: &str,
-        salt: &[u8; digest::SHA512_OUTPUT_LEN],
-    ) -> [u8; digest::SHA512_OUTPUT_LEN] {
-        let mut hash = [0u8; digest::SHA512_OUTPUT_LEN];
-
-        ring::pbkdf2::derive(
-            ring::pbkdf2::PBKDF2_HMAC_SHA512,
-            NonZeroU32::new(100_000).unwrap(),
-            salt,
-            password.as_bytes(),
-            &mut hash,
-        );
-
-        hash
+    fn get_and_validate(&self, user: &crate::methods::User) -> bool {
+        self.db
+            .get_user(user.username())
+            .unwrap_or(None)
+            .map(|u| u.validate_password(user.password().as_bytes()))
+            .unwrap_or(false)
     }
 }

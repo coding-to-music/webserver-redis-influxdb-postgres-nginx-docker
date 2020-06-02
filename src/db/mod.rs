@@ -1,6 +1,6 @@
 use ring::digest;
-use rusqlite::{params, Connection};
-use std::convert::From;
+use rusqlite::{params, Connection, Row};
+use std::convert::{From, TryFrom};
 use std::marker::PhantomData;
 use std::{fmt::Display, num::NonZeroU32, str::FromStr, time};
 
@@ -9,8 +9,50 @@ pub struct Database<T> {
     _phantom: PhantomData<T>,
 }
 
+pub enum DatabaseError {
+    RusqliteError(rusqlite::Error),
+    NotAuthorized,
+}
+
+impl From<rusqlite::Error> for DatabaseError {
+    fn from(rusqlite_error: rusqlite::Error) -> Self {
+        DatabaseError::RusqliteError(rusqlite_error)
+    }
+}
+
+impl From<DatabaseError> for crate::Error {
+    fn from(e: DatabaseError) -> Self {
+        match e {
+            DatabaseError::RusqliteError(e) => Self::internal_error()
+                .with_data("database error")
+                .with_internal_data(e),
+            DatabaseError::NotAuthorized => Self::internal_error().with_data("not permitted"),
+        }
+    }
+}
+
 const USER: &str = "user";
 const ADMIN: &str = "admin";
+
+pub fn encrypt(
+    password: &[u8],
+    salt: &[u8; digest::SHA512_OUTPUT_LEN],
+) -> [u8; digest::SHA512_OUTPUT_LEN] {
+    let timer = time::Instant::now();
+    let mut hash = [0u8; digest::SHA512_OUTPUT_LEN];
+
+    ring::pbkdf2::derive(
+        ring::pbkdf2::PBKDF2_HMAC_SHA512,
+        NonZeroU32::new(100_000).unwrap(),
+        salt,
+        password,
+        &mut hash,
+    );
+
+    crate::log_metric("password_encryption_ms", timer.elapsed().as_millis(), None);
+
+    hash
+}
 
 impl<T> Database<T> {
     pub fn new(path: String) -> Self {
@@ -20,8 +62,8 @@ impl<T> Database<T> {
         }
     }
 
-    pub fn get_connection(&self) -> Result<Connection, rusqlite::Error> {
-        Connection::open(&self.path)
+    pub fn get_connection(&self) -> Result<Connection, DatabaseError> {
+        Connection::open(&self.path).map_err(|e| DatabaseError::from(e))
     }
 }
 
@@ -34,33 +76,29 @@ impl Database<User> {
         }
     }
 
-    pub fn add_user(&self, user: User) -> Result<usize, rusqlite::Error> {
+    pub fn add_user(&self, user: User) -> Result<usize, DatabaseError> {
         let db = self.get_connection()?;
 
         let changed_rows = db.execute(
             "INSERT INTO user (username, password, salt, created_s, role) VALUES (?1, ?2, ?3, ?4, ?5)",
-            params![user.username, user.password, user.salt, user.created_s, user.role.to_string()],
+            params![user.username, user.password.to_vec(), user.salt.to_vec(), user.created_s, user.role.to_string()],
         )?;
 
         Ok(changed_rows)
     }
 
-    pub fn update_user_password(&self, user: User) -> Result<bool, rusqlite::Error> {
+    pub fn update_user_password(&self, user: User) -> Result<bool, DatabaseError> {
         let db = self.get_connection()?;
 
         let changed_rows = db.execute(
             "UPDATE user SET password = ?1 WHERE username = ?2",
-            params![user.password, user.username],
+            params![user.password.to_vec(), user.username],
         )?;
 
         Ok(changed_rows == 1)
     }
 
-    pub fn update_user_role(
-        &self,
-        username: &str,
-        role: UserRole,
-    ) -> Result<bool, rusqlite::Error> {
+    pub fn update_user_role(&self, username: &str, role: UserRole) -> Result<bool, DatabaseError> {
         let db = self.get_connection()?;
         let changed_rows = db.execute(
             "UPDATE user SET role = ?1 WHERE username = ?2",
@@ -70,7 +108,7 @@ impl Database<User> {
         Ok(changed_rows == 1)
     }
 
-    pub fn get_user(&self, username: &str) -> Result<Option<User>, rusqlite::Error> {
+    pub fn get_user(&self, username: &str) -> Result<Option<User>, DatabaseError> {
         let db = self.get_connection()?;
 
         let mut stmt = db.prepare(
@@ -78,17 +116,7 @@ impl Database<User> {
         )?;
 
         let mut user_rows: Vec<_> = stmt
-            .query_map(params![username], |row| {
-                Ok(User {
-                    id: row.get(0)?,
-                    username: row.get(1)?,
-                    password: row.get(2)?,
-                    salt: row.get(3)?,
-                    created_s: row.get(4)?,
-                    role: UserRole::from_str(&row.get::<_, String>(5)?)
-                        .unwrap_or_else(|_| UserRole::User),
-                })
-            })?
+            .query_map(params![username], |row| Ok(User::try_from(row)?))?
             .filter_map(|b| b.ok())
             .collect();
 
@@ -101,58 +129,10 @@ impl Database<User> {
             Ok(Some(user_rows.swap_remove(0)))
         }
     }
-
-    pub fn validate_user(&self, user: &crate::methods::User) -> bool {
-        trace!("validating user: {}", user.username());
-        let user_row = if let Ok(Some(user)) = self.get_user(user.username()) {
-            trace!(r#"user "{}" exists"#, user.username());
-            user
-        } else {
-            trace!(r#"user "{}" does not exist"#, user.username());
-            return false;
-        };
-
-        let salt_array = user_row.salt();
-
-        let encrypted_password = Database::<User>::encrypt(user.password(), &salt_array);
-
-        let valid = encrypted_password
-            .iter()
-            .zip(user_row.password().iter())
-            .all(|(left, right)| left == right);
-
-        trace!(
-            r#"user "{}" is {}a valid user"#,
-            user.username(),
-            if valid { "" } else { "not " }
-        );
-
-        valid
-    }
-
-    pub fn encrypt(
-        password: &str,
-        salt: &[u8; digest::SHA512_OUTPUT_LEN],
-    ) -> [u8; digest::SHA512_OUTPUT_LEN] {
-        let timer = time::Instant::now();
-        let mut hash = [0u8; digest::SHA512_OUTPUT_LEN];
-
-        ring::pbkdf2::derive(
-            ring::pbkdf2::PBKDF2_HMAC_SHA512,
-            NonZeroU32::new(100_000).unwrap(),
-            salt,
-            password.as_bytes(),
-            &mut hash,
-        );
-
-        crate::log_metric("password_encryption_ms", timer.elapsed().as_millis(), None);
-
-        hash
-    }
 }
 
 impl Database<Prediction> {
-    pub fn get_predictions_by_id(&self, id: i64) -> Result<Option<Prediction>, rusqlite::Error> {
+    pub fn get_predictions_by_id(&self, id: i64) -> Result<Option<Prediction>, DatabaseError> {
         let db = self.get_connection()?;
 
         let mut stmt = db.prepare(
@@ -160,13 +140,7 @@ impl Database<Prediction> {
         )?;
 
         let mut prediction_rows: Vec<_> = stmt
-            .query_map(params![id], |row| {
-                let rowid = row.get(0)?;
-                let username = row.get(1)?;
-                let text = row.get(2)?;
-                let timestamp_s = row.get(3)?;
-                Ok(Prediction::new(rowid, username, text, timestamp_s))
-            })?
+            .query_map(params![id], |row| Ok(Prediction::try_from(row)?))?
             .filter_map(|r| r.ok())
             .collect();
 
@@ -180,7 +154,7 @@ impl Database<Prediction> {
         }
     }
 
-    pub fn insert_prediction(&self, prediction: Prediction) -> Result<bool, rusqlite::Error> {
+    pub fn insert_prediction(&self, prediction: Prediction) -> Result<bool, DatabaseError> {
         let db = self.get_connection()?;
 
         let changed_rows = db.execute(
@@ -191,7 +165,7 @@ impl Database<Prediction> {
         Ok(changed_rows == 1)
     }
 
-    pub fn delete_prediction(&self, id: i64) -> Result<bool, rusqlite::Error> {
+    pub fn delete_prediction(&self, id: i64) -> Result<bool, DatabaseError> {
         let db = self.get_connection()?;
 
         let changed_rows = db.execute("DELETE FROM prediction WHERE rowid = ?1", params![id])?;
@@ -202,7 +176,7 @@ impl Database<Prediction> {
     pub fn get_predictions_by_user(
         &self,
         username: &str,
-    ) -> Result<Vec<Prediction>, rusqlite::Error> {
+    ) -> Result<Vec<Prediction>, DatabaseError> {
         let db = self.get_connection()?;
 
         let mut stmt = db.prepare(
@@ -258,13 +232,54 @@ impl Prediction {
     }
 }
 
+impl<'a> TryFrom<&Row<'a>> for Prediction {
+    type Error = rusqlite::Error;
+    fn try_from(row: &Row<'a>) -> Result<Self, Self::Error> {
+        let rowid = row.get(0)?;
+        let username = row.get(1)?;
+        let text = row.get(2)?;
+        let timestamp_s = row.get(3)?;
+        Ok(Prediction::new(rowid, username, text, timestamp_s))
+    }
+}
+
 pub struct User {
     id: Option<i64>,
     username: String,
-    password: Vec<u8>,
-    salt: Vec<u8>,
+    password: [u8; digest::SHA512_OUTPUT_LEN],
+    salt: [u8; digest::SHA512_OUTPUT_LEN],
     created_s: u32,
     role: UserRole,
+}
+
+impl<'a> TryFrom<&Row<'a>> for User {
+    type Error = rusqlite::Error;
+    fn try_from(row: &Row<'a>) -> Result<Self, Self::Error> {
+        let password_vec: Vec<u8> = row.get(2)?;
+        let salt_vec: Vec<u8> = row.get(3)?;
+
+        assert_eq!(password_vec.len(), digest::SHA512_OUTPUT_LEN);
+        assert_eq!(salt_vec.len(), digest::SHA512_OUTPUT_LEN);
+
+        let mut password_arr = [0_u8; digest::SHA512_OUTPUT_LEN];
+        for (idx, byte) in password_vec.into_iter().enumerate() {
+            password_arr[idx] = byte;
+        }
+
+        let mut salt_arr = [0_u8; digest::SHA512_OUTPUT_LEN];
+        for (idx, byte) in salt_vec.into_iter().enumerate() {
+            salt_arr[idx] = byte;
+        }
+
+        Ok(User {
+            id: row.get(0)?,
+            username: row.get(1)?,
+            password: password_arr,
+            salt: salt_arr,
+            created_s: row.get(4)?,
+            role: UserRole::from_str(&row.get::<_, String>(5)?).unwrap_or_else(|_| UserRole::User),
+        })
+    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -322,8 +337,8 @@ impl User {
     pub fn new(
         id: Option<i64>,
         username: String,
-        password: Vec<u8>,
-        salt: Vec<u8>,
+        password: [u8; digest::SHA512_OUTPUT_LEN],
+        salt: [u8; digest::SHA512_OUTPUT_LEN],
         created_s: u32,
     ) -> Self {
         Self {
@@ -372,5 +387,17 @@ impl User {
 
     pub fn role(&self) -> &UserRole {
         &self.role
+    }
+
+    pub fn is_authorized(&self, level: UserRole) -> bool {
+        self.role >= level
+    }
+
+    pub fn validate_password(&self, password: &[u8]) -> bool {
+        let encrypted_password = encrypt(password, &self.salt);
+        encrypted_password
+            .iter()
+            .zip(self.password().iter())
+            .all(|(left, right)| left == right)
     }
 }
