@@ -65,8 +65,8 @@ impl ServerController {
             return Err(crate::Error::internal_error().with_data("not permitted"));
         }
 
-        let paths = std::fs::read_dir(&self.log_directory)
-            .map_err(|e| crate::Error::internal_error().with_internal_data(e))?;
+        let paths =
+            std::fs::read_dir(&self.log_directory).map_err(|_e| crate::Error::internal_error())?;
 
         let log_files: Vec<_> = paths
             .filter_map(|p| p.ok())
@@ -86,11 +86,10 @@ impl ServerController {
         for f in &log_files {
             let size = f
                 .metadata()
-                .map_err(|e| crate::Error::internal_error().with_internal_data(e))?
+                .map_err(|_e| crate::Error::internal_error())?
                 .len();
             if !params.dry_run() {
-                std::fs::remove_file(f.path())
-                    .map_err(|e| crate::Error::internal_error().with_internal_data(e))?;
+                std::fs::remove_file(f.path()).map_err(|_e| crate::Error::internal_error())?;
             }
 
             total_size += size;

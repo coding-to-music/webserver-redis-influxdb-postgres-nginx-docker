@@ -17,9 +17,7 @@ use std::{
 };
 use structopt::StructOpt;
 use warp::{Filter, Reply};
-use webserver_contracts::{
-    Error, JsonRpcRequest, JsonRpcResponse, JsonRpcVersion, Method, ResponseKind,
-};
+use webserver_contracts::{Error, JsonRpcRequest, JsonRpcResponse, JsonRpcVersion, Method};
 
 mod controller;
 
@@ -167,12 +165,6 @@ impl App {
                 }
             }
         };
-
-        if let ResponseKind::Error(err) = response.kind() {
-            if let Some(data) = err.get_internal_data() {
-                error!("returning an error with internal data: '{}'", data);
-            }
-        }
 
         let elapsed = timer.elapsed();
         crate::log_metric("handle_message_ms", elapsed.as_millis(), None);

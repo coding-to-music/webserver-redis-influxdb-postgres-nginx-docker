@@ -1,5 +1,4 @@
 use chrono::prelude::*;
-use db;
 
 pub use add_prediction::{AddPredictionParams, AddPredictionParamsInvalid, AddPredictionResult};
 pub use delete_prediction::{
@@ -9,7 +8,7 @@ pub use search_predictions::{
     SearchPredictionsParams, SearchPredictionsParamsInvalid, SearchPredictionsResult,
 };
 
-#[derive(serde::Serialize)]
+#[derive(serde::Serialize, serde::Deserialize)]
 pub struct Prediction {
     #[serde(skip_serializing_if = "Option::is_none")]
     id: Option<i64>,
@@ -27,22 +26,6 @@ impl Prediction {
             timestamp_s_nice: Self::timestamp_s_nice(timestamp_s as i64)
                 .to_rfc3339_opts(SecondsFormat::Millis, true),
         }
-    }
-
-    pub fn from_db_with_id(db_prediction: db::Prediction) -> Self {
-        Self::new(
-            db_prediction.id(),
-            db_prediction.text().to_owned(),
-            db_prediction.timestamp_s(),
-        )
-    }
-
-    pub fn from_db_without_id(db_prediction: db::Prediction) -> Self {
-        Self::new(
-            None,
-            db_prediction.text().to_owned(),
-            db_prediction.timestamp_s(),
-        )
     }
 
     fn timestamp_s_nice(timestamp_s: i64) -> chrono::DateTime<chrono::Utc> {

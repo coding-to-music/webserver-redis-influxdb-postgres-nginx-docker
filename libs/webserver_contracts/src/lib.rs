@@ -24,6 +24,7 @@ const SET_ROLE: &str = "set_role";
 const CLEAR_LOGS: &str = "clear_logs";
 const DELETE_USER: &str = "delete_user";
 
+/// A JSONRPC method
 pub enum Method {
     /// Sleep for a specified amount of time
     Sleep,
@@ -90,9 +91,7 @@ impl Display for Method {
 impl From<DatabaseError> for crate::Error {
     fn from(e: DatabaseError) -> Self {
         match e {
-            DatabaseError::RusqliteError(e) => Self::internal_error()
-                .with_data("database error")
-                .with_internal_data(e),
+            DatabaseError::RusqliteError(e) => Self::database_error(),
             DatabaseError::NotAuthorized => Self::not_permitted(),
         }
     }
@@ -144,18 +143,14 @@ impl JsonRpcRequest {
     pub fn id(&self) -> &Option<String> {
         &self.id
     }
-
-    pub fn as_formatted_json(&self) -> String {
-        serde_json::to_string(&self).unwrap()
-    }
 }
 
-/// A JSONRPC response object. Contains _either_ a `result` (in case of success) or `error` (in case of failure) property.
+/// A JSONRPC response object. Contains _either_ a `result` (in case of success) or `error` (in case of failure).
 #[derive(serde::Serialize, serde::Deserialize, Debug, Clone)]
 pub struct JsonRpcResponse {
     /// JSONRPC version of the response.
     jsonrpc: JsonRpcVersion,
-    /// Optional structured data to be returned in case of success
+    /// Optional data to be returned in case of success
     #[serde(skip_serializing_if = "Option::is_none")]
     result: Option<Value>,
     /// Optional data to be returned in case of failure
@@ -166,6 +161,7 @@ pub struct JsonRpcResponse {
 }
 
 impl JsonRpcResponse {
+    /// Says whether the response indicates a success or an error.
     pub fn kind(&self) -> ResponseKind {
         if let Some(err) = &self.error {
             ResponseKind::Error(err)
@@ -215,10 +211,6 @@ impl JsonRpcResponse {
             Some(err) => Some(&err),
         }
     }
-
-    pub fn as_formatted_json(&self) -> String {
-        serde_json::to_string(&self).unwrap()
-    }
 }
 
 pub enum ResponseKind<'a> {
@@ -236,10 +228,6 @@ pub struct Error {
     /// Optional field containing structured error information.
     #[serde(skip_serializing_if = "Option::is_none")]
     data: Option<Value>,
-    /// Contains debug information about what caused an error.
-    /// This property is not exposed to callers of the api.
-    #[serde(skip_serializing)]
-    internal_data: Option<String>,
 }
 
 impl Error {
@@ -258,19 +246,12 @@ impl Error {
         self
     }
 
-    /// Set the `internal_data` property on `self`.
-    pub fn with_internal_data<T: Debug>(mut self, data: T) -> Self {
-        self.internal_data = Some(format!("{:?}", data));
-        self
-    }
-
     /// Constructor for a "Method not found" JSONRPC error.
     pub fn method_not_found() -> Self {
         Self {
             code: ErrorCode::MethodNotFound.into(),
             message: "Method not found".into(),
             data: None,
-            internal_data: None,
         }
     }
 
@@ -280,7 +261,6 @@ impl Error {
             code: ErrorCode::InvalidRequest.into(),
             message: "Invalid request".into(),
             data: None,
-            internal_data: None,
         }
     }
 
@@ -290,7 +270,6 @@ impl Error {
             code: ErrorCode::InvalidParams.into(),
             message: "Invalid params".into(),
             data: None,
-            internal_data: None,
         }
     }
 
@@ -300,7 +279,6 @@ impl Error {
             code: ErrorCode::InternalError.into(),
             message: "Internal error".into(),
             data: None,
-            internal_data: None,
         }
     }
 
@@ -309,34 +287,23 @@ impl Error {
         Self::invalid_params().with_data(format!("invalid format: '{}'", serde_error))
     }
 
+    /// Constructor for a "Not permitted" webserver error.
     pub fn not_permitted() -> Self {
         Self::internal_error().with_data("not permitted")
     }
 
+    pub fn database_error() -> Self {
+        Self::internal_error().with_data("database error")
+    }
+
     /// Constructor for a "Method not implemented" webserver error.
     pub fn not_implemented() -> Self {
-        Self {
-            code: ErrorCode::InternalError.into(),
-            message: "Method not implemented".into(),
-            data: None,
-            internal_data: None,
-        }
+        Self::internal_error().with_data("method not implemented")
     }
 
     /// Constructor for an "Invalid username or password" webserver error.
     pub fn invalid_username_or_password() -> Self {
         Self::invalid_params().with_data("invalid username or passwor")
-    }
-
-    pub fn get_internal_data(&self) -> Option<&str> {
-        match &self.internal_data {
-            None => None,
-            Some(data) => Some(data),
-        }
-    }
-
-    pub fn as_formatted_json(&self) -> String {
-        serde_json::to_string(&self).unwrap()
     }
 }
 

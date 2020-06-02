@@ -92,11 +92,15 @@ impl PredictionController {
                 predictions
                     .into_iter()
                     .map(|db_pred| {
-                        if user.username() == params.username() {
-                            Prediction::from_db_with_id(db_pred)
-                        } else {
-                            Prediction::from_db_without_id(db_pred)
-                        }
+                        Prediction::new(
+                            if user.username() == params.username() {
+                                db_pred.id()
+                            } else {
+                                None
+                            },
+                            db_pred.text().to_owned(),
+                            db_pred.timestamp_s(),
+                        )
                     })
                     .collect(),
             )),
@@ -106,7 +110,7 @@ impl PredictionController {
             (None, _) => Ok(SearchPredictionsResult::new(
                 predictions
                     .into_iter()
-                    .map(Prediction::from_db_without_id)
+                    .map(|row| Prediction::new(None, row.text().to_owned(), row.timestamp_s()))
                     .collect(),
             )),
         }
