@@ -25,7 +25,23 @@ impl WebserverClient {
         let response: JsonRpcResponse = self
             .client
             .post(&self.url)
-            .body(request.as_formatted_json())
+            .body(serde_json::to_string(&request).unwrap())
+            .send()
+            .await?
+            .json()
+            .await?;
+
+        Ok(response)
+    }
+
+    pub async fn send_batch(
+        &self,
+        requests: Vec<JsonRpcRequest>,
+    ) -> Result<Vec<JsonRpcResponse>, WebserverClientError> {
+        let response: Vec<JsonRpcResponse> = self
+            .client
+            .post(&self.url)
+            .body(serde_json::to_string(&requests).unwrap())
             .send()
             .await?
             .json()
