@@ -98,7 +98,7 @@ impl From<DatabaseError> for crate::Error {
     }
 }
 
-#[derive(serde::Serialize, serde::Deserialize, Clone)]
+#[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
 pub enum JsonRpcVersion {
     #[serde(alias = "1.0", rename = "1.0")]
     One,
@@ -107,7 +107,7 @@ pub enum JsonRpcVersion {
 }
 
 /// A JSONRPC request.
-#[derive(serde::Deserialize, serde::Serialize)]
+#[derive(serde::Deserialize, serde::Serialize, Debug, Clone)]
 pub struct JsonRpcRequest {
     /// JSONRPC version.
     jsonrpc: JsonRpcVersion,
@@ -151,7 +151,7 @@ impl JsonRpcRequest {
 }
 
 /// A JSONRPC response object. Contains _either_ a `result` (in case of success) or `error` (in case of failure) property.
-#[derive(serde::Serialize, serde::Deserialize)]
+#[derive(serde::Serialize, serde::Deserialize, Debug, Clone)]
 pub struct JsonRpcResponse {
     /// JSONRPC version of the response.
     jsonrpc: JsonRpcVersion,
@@ -227,7 +227,7 @@ pub enum ResponseKind<'a> {
 }
 
 /// Error object to be returned in a `JsonRpcResponse` if something failed.
-#[derive(serde::Serialize, serde::Deserialize, Debug)]
+#[derive(serde::Serialize, serde::Deserialize, Debug, Clone)]
 pub struct Error {
     /// JSONRPC error code.
     code: i32,

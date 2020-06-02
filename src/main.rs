@@ -103,6 +103,7 @@ impl App {
             id,
             req.method()
         );
+
         let handled_message = format!(
             "handled request with id {:?} and method: '{}'",
             req.id(),
@@ -110,56 +111,61 @@ impl App {
         );
         let response = match Method::from_str(req.method()) {
             Err(_) => JsonRpcResponse::error(jsonrpc, Error::method_not_found(), id),
-            Ok(method) => match method {
-                Method::AddPrediction => JsonRpcResponse::from_result(
-                    jsonrpc,
-                    self.prediction_controller.add(req).await,
-                    id,
-                ),
-                Method::DeletePrediction => JsonRpcResponse::from_result(
-                    jsonrpc,
-                    self.prediction_controller.delete(req).await,
-                    id,
-                ),
-                Method::SearchPredictions => JsonRpcResponse::from_result(
-                    jsonrpc,
-                    self.prediction_controller.search(req).await,
-                    id,
-                ),
-                Method::AddUser => {
-                    JsonRpcResponse::from_result(jsonrpc, self.user_controller.add(req).await, id)
+            Ok(method) => {
+                trace!("request: {:?}", req);
+                match method {
+                    Method::AddPrediction => JsonRpcResponse::from_result(
+                        jsonrpc,
+                        self.prediction_controller.add(req).await,
+                        id,
+                    ),
+                    Method::DeletePrediction => JsonRpcResponse::from_result(
+                        jsonrpc,
+                        self.prediction_controller.delete(req).await,
+                        id,
+                    ),
+                    Method::SearchPredictions => JsonRpcResponse::from_result(
+                        jsonrpc,
+                        self.prediction_controller.search(req).await,
+                        id,
+                    ),
+                    Method::AddUser => JsonRpcResponse::from_result(
+                        jsonrpc,
+                        self.user_controller.add(req).await,
+                        id,
+                    ),
+                    Method::ChangePassword => JsonRpcResponse::from_result(
+                        jsonrpc,
+                        self.user_controller.change_password(req).await,
+                        id,
+                    ),
+                    Method::ValidateUser => JsonRpcResponse::from_result(
+                        jsonrpc,
+                        self.user_controller.validate_user(req).await,
+                        id,
+                    ),
+                    Method::DeleteUser => JsonRpcResponse::from_result(
+                        jsonrpc,
+                        self.user_controller.delete_user(req).await,
+                        id,
+                    ),
+                    Method::SetRole => JsonRpcResponse::from_result(
+                        jsonrpc,
+                        self.user_controller.set_role(req).await,
+                        id,
+                    ),
+                    Method::Sleep => JsonRpcResponse::from_result(
+                        jsonrpc,
+                        self.server_controller.sleep(req).await,
+                        id,
+                    ),
+                    Method::ClearLogs => JsonRpcResponse::from_result(
+                        jsonrpc,
+                        self.server_controller.clear_logs(req).await,
+                        id,
+                    ),
                 }
-                Method::ChangePassword => JsonRpcResponse::from_result(
-                    jsonrpc,
-                    self.user_controller.change_password(req).await,
-                    id,
-                ),
-                Method::ValidateUser => JsonRpcResponse::from_result(
-                    jsonrpc,
-                    self.user_controller.validate_user(req).await,
-                    id,
-                ),
-                Method::DeleteUser => JsonRpcResponse::from_result(
-                    jsonrpc,
-                    self.user_controller.delete_user(req).await,
-                    id,
-                ),
-                Method::SetRole => JsonRpcResponse::from_result(
-                    jsonrpc,
-                    self.user_controller.set_role(req).await,
-                    id,
-                ),
-                Method::Sleep => JsonRpcResponse::from_result(
-                    jsonrpc,
-                    self.server_controller.sleep(req).await,
-                    id,
-                ),
-                Method::ClearLogs => JsonRpcResponse::from_result(
-                    jsonrpc,
-                    self.server_controller.clear_logs(req).await,
-                    id,
-                ),
-            },
+            }
         };
 
         if let ResponseKind::Error(err) = response.kind() {
