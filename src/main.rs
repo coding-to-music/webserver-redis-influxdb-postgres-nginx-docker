@@ -94,81 +94,83 @@ impl App {
     }
 
     /// Handle a single JSON RPC request
-    async fn handle_single(&self, req: JsonRpcRequest) -> JsonRpcResponse {
-        let jsonrpc = req.version().clone();
-        let id = req.id().clone();
+    async fn handle_single(&self, request: JsonRpcRequest) -> JsonRpcResponse {
+        let jsonrpc = request.version().clone();
+        let id = request.id().clone();
+        let method = request.method().to_owned();
         let timer = std::time::Instant::now();
         info!(
             "handling request with id {:?} with method: '{}'",
             id,
-            req.method()
+            request.method()
         );
 
-        let handled_message = format!(
-            "handled request with id {:?} and method: '{}'",
-            req.id(),
-            req.method()
-        );
-        let result = match Method::from_str(req.method()) {
+        let result = match Method::from_str(&method) {
             Err(_) => Err(AppError::from(JsonRpcError::method_not_found())),
             Ok(method) => {
-                trace!("request: {:?}", req);
+                trace!("request: {:?}", request);
                 let jsonrpc = jsonrpc.clone();
                 let id = id.clone();
                 match method {
                     Method::AddPrediction => self
                         .prediction_controller
-                        .add(req)
+                        .add(request)
                         .await
                         .map(|ok| JsonRpcResponse::success(jsonrpc, ok, id)),
                     Method::DeletePrediction => self
                         .prediction_controller
-                        .delete(req)
+                        .delete(request)
                         .await
                         .map(|ok| JsonRpcResponse::success(jsonrpc, ok, id)),
                     Method::SearchPredictions => self
                         .prediction_controller
-                        .search(req)
+                        .search(request)
                         .await
                         .map(|ok| JsonRpcResponse::success(jsonrpc, ok, id)),
                     Method::AddUser => self
                         .user_controller
-                        .add(req)
+                        .add(request)
                         .await
                         .map(|ok| JsonRpcResponse::success(jsonrpc, ok, id)),
                     Method::ChangePassword => self
                         .user_controller
-                        .change_password(req)
+                        .change_password(request)
                         .await
                         .map(|ok| JsonRpcResponse::success(jsonrpc, ok, id)),
                     Method::ValidateUser => self
                         .user_controller
-                        .validate_user(req)
+                        .validate_user(request)
                         .await
                         .map(|ok| JsonRpcResponse::success(jsonrpc, ok, id)),
                     Method::DeleteUser => self
                         .user_controller
-                        .delete_user(req)
+                        .delete_user(request)
                         .await
                         .map(|ok| JsonRpcResponse::success(jsonrpc, ok, id)),
                     Method::SetRole => self
                         .user_controller
-                        .set_role(req)
+                        .set_role(request)
                         .await
                         .map(|ok| JsonRpcResponse::success(jsonrpc, ok, id)),
                     Method::Sleep => self
                         .server_controller
-                        .sleep(req)
+                        .sleep(request)
                         .await
                         .map(|ok| JsonRpcResponse::success(jsonrpc, ok, id)),
                     Method::ClearLogs => self
                         .server_controller
-                        .clear_logs(req)
+                        .clear_logs(request)
                         .await
                         .map(|ok| JsonRpcResponse::success(jsonrpc, ok, id)),
                 }
             }
         };
+
+        let elapsed = timer.elapsed();
+        info!(
+            "handled request with id {:?} and method: '{}' in {:?}",
+            id, method, elapsed
+        );
 
         let response = match result {
             Ok(ok) => ok,
@@ -180,9 +182,7 @@ impl App {
             }
         };
 
-        let elapsed = timer.elapsed();
         crate::log_metric("handle_message_ms", elapsed.as_millis(), None);
-        info!("{} in {:?}", handled_message, elapsed);
 
         response
     }

@@ -135,7 +135,13 @@ impl UserController {
         if let Some(_user) = self.db.get_user(params.username())? {
             let result = self.db.update_user_role(
                 params.username(),
-                db::UserRole::from_str(params.role()).unwrap(),
+                db::UserRole::from_str(params.role()).map_err(|_| {
+                    AppError::from(JsonRpcError::invalid_params().with_data("invalid user role"))
+                        .with_context(&format!(
+                            "user provided '{}', which is not a valid role",
+                            params.role()
+                        ))
+                })?,
             )?;
             Ok(SetRoleResult::new(result))
         } else {
