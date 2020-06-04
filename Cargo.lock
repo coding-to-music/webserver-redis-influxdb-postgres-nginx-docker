@@ -1665,7 +1665,6 @@ name = "webserver_contracts"
 version = "0.1.0"
 dependencies = [
  "chrono",
- "db",
  "serde",
  "serde_json",
  "tokio",

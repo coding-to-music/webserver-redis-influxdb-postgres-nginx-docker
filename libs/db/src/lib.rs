@@ -11,6 +11,7 @@ pub struct Database<T> {
     _phantom: PhantomData<T>,
 }
 
+#[derive(Debug)]
 pub enum DatabaseError {
     RusqliteError(rusqlite::Error),
     NotAuthorized,

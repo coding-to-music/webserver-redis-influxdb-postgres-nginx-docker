@@ -1,6 +1,5 @@
 #![allow(dead_code)]
 
-use db::DatabaseError;
 use serde::Serialize;
 use serde_json::Value;
 use std::{
@@ -85,15 +84,6 @@ impl Display for Method {
                 Method::DeleteUser => DELETE_USER,
             }
         )
-    }
-}
-
-impl From<DatabaseError> for crate::Error {
-    fn from(e: DatabaseError) -> Self {
-        match e {
-            DatabaseError::RusqliteError(e) => Self::database_error(),
-            DatabaseError::NotAuthorized => Self::not_permitted(),
-        }
     }
 }
 
@@ -338,3 +328,5 @@ impl From<ErrorCode> for i32 {
         }
     }
 }
+
+pub trait Params {}

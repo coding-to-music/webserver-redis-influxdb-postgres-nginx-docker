@@ -1,8 +1,8 @@
+use crate::AppError;
 use chrono::Utc;
 use db;
-use std::{convert::TryInto, sync::Arc};
-use webserver_contracts::prediction::*;
-use webserver_contracts::user::User;
+use std::{convert::TryFrom, sync::Arc};
+use webserver_contracts::{prediction::*, user::User, Error as JsonRpcError};
 
 pub struct PredictionController {
     prediction_db: Arc<db::Database<db::Prediction>>,
@@ -23,8 +23,8 @@ impl PredictionController {
     pub async fn add(
         &self,
         request: crate::JsonRpcRequest,
-    ) -> Result<AddPredictionResult, crate::Error> {
-        let params: AddPredictionParams = request.try_into()?;
+    ) -> Result<AddPredictionResult, AppError> {
+        let params = AddPredictionParams::try_from(request)?;
 
         if self.get_and_validate_user(params.user())? {
             let prediction_row = db::Prediction::new(
@@ -38,15 +38,17 @@ impl PredictionController {
 
             Ok(AddPredictionResult::new(result))
         } else {
-            Err(crate::Error::invalid_username_or_password())
+            Err(AppError::from(
+                webserver_contracts::Error::invalid_username_or_password(),
+            ))
         }
     }
 
     pub async fn delete(
         &self,
         request: crate::JsonRpcRequest,
-    ) -> Result<DeletePredictionResult, crate::Error> {
-        let params: DeletePredictionParams = request.try_into()?;
+    ) -> Result<DeletePredictionResult, AppError> {
+        let params = DeletePredictionParams::try_from(request)?;
 
         if self.get_and_validate_user(params.user())? {
             let prediction = self.prediction_db.get_predictions_by_id(params.id())?;
@@ -61,20 +63,20 @@ impl PredictionController {
 
                     Ok(DeletePredictionResult::new(success))
                 }
-                _ => Err(crate::Error::invalid_params().with_data(
+                _ => Err(AppError::from(JsonRpcError::internal_error().with_data(
                     "can't delete predictions that don't exist, or belong to another user",
-                )),
+                ))),
             }
         } else {
-            Err(crate::Error::invalid_params().with_data("invalid username or password"))
+            Err(AppError::from(JsonRpcError::invalid_username_or_password()))
         }
     }
 
     pub async fn search(
         &self,
         request: crate::JsonRpcRequest,
-    ) -> Result<SearchPredictionsResult, crate::Error> {
-        let params: SearchPredictionsParams = request.try_into()?;
+    ) -> Result<SearchPredictionsResult, AppError> {
+        let params = SearchPredictionsParams::try_from(request)?;
 
         let valid_user = if let Some(user) = params.user() {
             self.get_and_validate_user(user)?
@@ -105,7 +107,9 @@ impl PredictionController {
                     .collect(),
             )),
             // An invalid user was provided, return an error
-            (Some(_user), false) => Err(crate::Error::invalid_username_or_password()),
+            (Some(_user), false) => {
+                Err(AppError::from(JsonRpcError::invalid_username_or_password()))
+            }
             // No user was provided, don't show ids
             (None, _) => Ok(SearchPredictionsResult::new(
                 predictions
@@ -127,5 +131,47 @@ impl PredictionController {
             .unwrap_or(false);
 
         Ok(valid)
+    }
+}
+
+impl From<AddPredictionParamsInvalid> for AppError {
+    fn from(error: AddPredictionParamsInvalid) -> Self {
+        match error {
+            AddPredictionParamsInvalid::InvalidFormat(e) => {
+                AppError::from(JsonRpcError::invalid_format(e))
+            }
+            AddPredictionParamsInvalid::EmptyText => {
+                AppError::from(JsonRpcError::invalid_params().with_data("text cannot be empty"))
+            }
+            AddPredictionParamsInvalid::TextTooLong => {
+                AppError::from(JsonRpcError::invalid_params().with_data("text is too long"))
+            }
+        }
+    }
+}
+
+impl From<DeletePredictionParamsInvalid> for AppError {
+    fn from(error: DeletePredictionParamsInvalid) -> Self {
+        match error {
+            DeletePredictionParamsInvalid::InvalidFormat(e) => {
+                AppError::from(JsonRpcError::invalid_format(e))
+            }
+            DeletePredictionParamsInvalid::InvalidId => {
+                AppError::from(JsonRpcError::invalid_params().with_data("invalid id"))
+            }
+        }
+    }
+}
+
+impl From<SearchPredictionsParamsInvalid> for AppError {
+    fn from(error: SearchPredictionsParamsInvalid) -> Self {
+        match error {
+            SearchPredictionsParamsInvalid::InvalidFormat(e) => {
+                AppError::from(JsonRpcError::invalid_format(e))
+            }
+            SearchPredictionsParamsInvalid::EmptyUsername => {
+                AppError::from(JsonRpcError::invalid_params().with_data("username can't be empty"))
+            }
+        }
     }
 }

@@ -2,8 +2,25 @@ pub use clear_logs::{ClearLogsParams, ClearLogsParamsInvalid, ClearLogsResult};
 pub use sleep::{SleepParams, SleepParamsInvalid, SleepResult};
 
 mod sleep {
-    use crate::user::User;
+    use crate::{user::User, Params};
     use std::convert::TryFrom;
+
+    pub struct SleepParams {
+        user: User,
+        seconds: f32,
+    }
+
+    impl Params for SleepParams {}
+
+    impl SleepParams {
+        pub fn user(&self) -> &User {
+            &self.user
+        }
+
+        pub fn seconds(&self) -> f32 {
+            self.seconds
+        }
+    }
 
     #[derive(serde::Deserialize)]
     struct SleepParamsBuilder {
@@ -26,21 +43,6 @@ mod sleep {
         }
     }
 
-    pub struct SleepParams {
-        user: User,
-        seconds: f32,
-    }
-
-    impl SleepParams {
-        pub fn user(&self) -> &User {
-            &self.user
-        }
-
-        pub fn seconds(&self) -> f32 {
-            self.seconds
-        }
-    }
-
     impl TryFrom<crate::JsonRpcRequest> for SleepParams {
         type Error = SleepParamsInvalid;
         fn try_from(request: crate::JsonRpcRequest) -> Result<Self, Self::Error> {
@@ -48,20 +50,6 @@ mod sleep {
                 .map_err(SleepParamsInvalid::InvalidFormat)?;
 
             builder.build()
-        }
-    }
-
-    impl From<SleepParamsInvalid> for crate::Error {
-        fn from(error: SleepParamsInvalid) -> Self {
-            match error {
-                SleepParamsInvalid::InvalidFormat(e) => Self::invalid_format(e),
-                SleepParamsInvalid::SecondsTooLow => {
-                    Self::invalid_params().with_data("can't sleep for less than 0.01 seconds")
-                }
-                SleepParamsInvalid::SecondsTooHigh => {
-                    Self::invalid_params().with_data("can't sleep for more than 10.0 seconds")
-                }
-            }
         }
     }
 
@@ -84,7 +72,7 @@ mod sleep {
 }
 
 mod clear_logs {
-    use crate::user::User;
+    use crate::{user::User, Params};
     use std::convert::TryFrom;
 
     #[derive(serde::Serialize, Clone, Debug)]
@@ -92,6 +80,8 @@ mod clear_logs {
         user: User,
         dry_run: bool,
     }
+
+    impl Params for ClearLogsParams {}
 
     impl ClearLogsParams {
         pub fn user(&self) -> &User {
@@ -125,14 +115,6 @@ mod clear_logs {
                 .map_err(ClearLogsParamsInvalid::InvalidFormat)?;
 
             builder.build()
-        }
-    }
-
-    impl From<ClearLogsParamsInvalid> for crate::Error {
-        fn from(error: ClearLogsParamsInvalid) -> Self {
-            match error {
-                ClearLogsParamsInvalid::InvalidFormat(e) => Self::invalid_format(e),
-            }
         }
     }
 

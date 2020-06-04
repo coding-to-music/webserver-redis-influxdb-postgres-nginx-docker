@@ -28,12 +28,15 @@ impl User {
 
 mod add_user {
     use super::User;
+    use crate::Params;
     use std::convert::TryFrom;
 
     #[derive(serde::Serialize, Clone, Debug)]
     pub struct AddUserParams {
         user: User,
     }
+
+    impl Params for AddUserParams {}
 
     impl AddUserParams {
         pub fn new(user: User) -> Self {
@@ -75,19 +78,6 @@ mod add_user {
         }
     }
 
-    impl From<AddUserParamsInvalid> for crate::Error {
-        fn from(error: AddUserParamsInvalid) -> Self {
-            match error {
-                AddUserParamsInvalid::InvalidFormat(e) => {
-                    Self::invalid_params().with_data(format!(r#"invalid format: "{}""#, e))
-                }
-                AddUserParamsInvalid::PasswordTooShort => {
-                    Self::invalid_params().with_data("password is too short")
-                }
-            }
-        }
-    }
-
     #[derive(serde::Serialize)]
     pub struct AddUserResult {
         success: bool,
@@ -102,6 +92,7 @@ mod add_user {
 
 mod change_password {
     use super::User;
+    use crate::Params;
     use std::convert::TryFrom;
 
     #[derive(serde::Serialize, Clone, Debug)]
@@ -109,6 +100,8 @@ mod change_password {
         user: User,
         new_password: String,
     }
+
+    impl Params for ChangePasswordParams {}
 
     impl ChangePasswordParams {
         pub fn user(&self) -> &User {
@@ -145,14 +138,6 @@ mod change_password {
         }
     }
 
-    impl From<ChangePasswordParamsInvalid> for crate::Error {
-        fn from(error: ChangePasswordParamsInvalid) -> Self {
-            match error {
-                ChangePasswordParamsInvalid::InvalidFormat(e) => Self::invalid_format(e),
-            }
-        }
-    }
-
     pub enum ChangePasswordParamsInvalid {
         InvalidFormat(serde_json::Error),
     }
@@ -171,12 +156,15 @@ mod change_password {
 
 mod validate_user {
     use super::User;
+    use crate::Params;
     use std::convert::TryFrom;
 
     #[derive(serde::Serialize, Clone, Debug)]
     pub struct ValidateUserParams {
         user: User,
     }
+
+    impl Params for ValidateUserParams {}
 
     impl ValidateUserParams {
         pub fn user(&self) -> &User {
@@ -209,14 +197,6 @@ mod validate_user {
         InvalidFormat(serde_json::Error),
     }
 
-    impl From<ValidateUserParamsInvalid> for crate::Error {
-        fn from(error: ValidateUserParamsInvalid) -> Self {
-            match error {
-                ValidateUserParamsInvalid::InvalidFormat(e) => Self::invalid_format(e),
-            }
-        }
-    }
-
     #[derive(serde::Serialize)]
     pub struct ValidateUserResult {
         valid: bool,
@@ -231,8 +211,8 @@ mod validate_user {
 
 mod set_role {
     use super::User;
-    use db::UserRole;
-    use std::{convert::TryFrom, str::FromStr};
+    use crate::Params;
+    use std::convert::TryFrom;
 
     #[derive(serde::Serialize, Clone, Debug)]
     pub struct SetRoleParams {
@@ -240,6 +220,8 @@ mod set_role {
         username: String,
         role: String,
     }
+
+    impl Params for SetRoleParams {}
 
     impl SetRoleParams {
         pub fn new(user: User, username: String, role: String) -> Self {
@@ -272,8 +254,6 @@ mod set_role {
 
     impl SetRoleParamsBuilder {
         fn build(self) -> Result<SetRoleParams, SetRoleParamsInvalid> {
-            let _role =
-                UserRole::from_str(&self.role).map_err(|_| SetRoleParamsInvalid::InvalidRole)?;
             Ok(SetRoleParams {
                 user: self.user,
                 username: self.username,
@@ -295,17 +275,6 @@ mod set_role {
     pub enum SetRoleParamsInvalid {
         InvalidFormat(serde_json::Error),
         InvalidRole,
-    }
-
-    impl From<SetRoleParamsInvalid> for crate::Error {
-        fn from(error: SetRoleParamsInvalid) -> Self {
-            match error {
-                SetRoleParamsInvalid::InvalidFormat(e) => Self::invalid_format(e),
-                SetRoleParamsInvalid::InvalidRole => {
-                    Self::invalid_params().with_data("invalid role")
-                }
-            }
-        }
     }
 
     #[derive(serde::Serialize)]
@@ -370,14 +339,6 @@ mod delete_user {
                 .map_err(DeleteUserParamsInvalid::InvalidFormat)?;
 
             builder.build()
-        }
-    }
-
-    impl From<DeleteUserParamsInvalid> for crate::Error {
-        fn from(error: DeleteUserParamsInvalid) -> Self {
-            match error {
-                DeleteUserParamsInvalid::InvalidFormat(e) => Self::invalid_format(e),
-            }
         }
     }
 

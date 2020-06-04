@@ -17,7 +17,9 @@ use std::{
 };
 use structopt::StructOpt;
 use warp::{Filter, Reply};
-use webserver_contracts::{Error, JsonRpcRequest, JsonRpcResponse, JsonRpcVersion, Method};
+use webserver_contracts::{
+    Error as JsonRpcError, JsonRpcRequest, JsonRpcResponse, JsonRpcVersion, Method,
+};
 
 mod controller;
 
@@ -107,62 +109,74 @@ impl App {
             req.id(),
             req.method()
         );
-        let response = match Method::from_str(req.method()) {
-            Err(_) => JsonRpcResponse::error(jsonrpc, Error::method_not_found(), id),
+        let result = match Method::from_str(req.method()) {
+            Err(_) => Err(AppError::from(JsonRpcError::method_not_found())),
             Ok(method) => {
                 trace!("request: {:?}", req);
+                let jsonrpc = jsonrpc.clone();
+                let id = id.clone();
                 match method {
-                    Method::AddPrediction => JsonRpcResponse::from_result(
-                        jsonrpc,
-                        self.prediction_controller.add(req).await,
-                        id,
-                    ),
-                    Method::DeletePrediction => JsonRpcResponse::from_result(
-                        jsonrpc,
-                        self.prediction_controller.delete(req).await,
-                        id,
-                    ),
-                    Method::SearchPredictions => JsonRpcResponse::from_result(
-                        jsonrpc,
-                        self.prediction_controller.search(req).await,
-                        id,
-                    ),
-                    Method::AddUser => JsonRpcResponse::from_result(
-                        jsonrpc,
-                        self.user_controller.add(req).await,
-                        id,
-                    ),
-                    Method::ChangePassword => JsonRpcResponse::from_result(
-                        jsonrpc,
-                        self.user_controller.change_password(req).await,
-                        id,
-                    ),
-                    Method::ValidateUser => JsonRpcResponse::from_result(
-                        jsonrpc,
-                        self.user_controller.validate_user(req).await,
-                        id,
-                    ),
-                    Method::DeleteUser => JsonRpcResponse::from_result(
-                        jsonrpc,
-                        self.user_controller.delete_user(req).await,
-                        id,
-                    ),
-                    Method::SetRole => JsonRpcResponse::from_result(
-                        jsonrpc,
-                        self.user_controller.set_role(req).await,
-                        id,
-                    ),
-                    Method::Sleep => JsonRpcResponse::from_result(
-                        jsonrpc,
-                        self.server_controller.sleep(req).await,
-                        id,
-                    ),
-                    Method::ClearLogs => JsonRpcResponse::from_result(
-                        jsonrpc,
-                        self.server_controller.clear_logs(req).await,
-                        id,
-                    ),
+                    Method::AddPrediction => self
+                        .prediction_controller
+                        .add(req)
+                        .await
+                        .map(|ok| JsonRpcResponse::success(jsonrpc, ok, id)),
+                    Method::DeletePrediction => self
+                        .prediction_controller
+                        .delete(req)
+                        .await
+                        .map(|ok| JsonRpcResponse::success(jsonrpc, ok, id)),
+                    Method::SearchPredictions => self
+                        .prediction_controller
+                        .search(req)
+                        .await
+                        .map(|ok| JsonRpcResponse::success(jsonrpc, ok, id)),
+                    Method::AddUser => self
+                        .user_controller
+                        .add(req)
+                        .await
+                        .map(|ok| JsonRpcResponse::success(jsonrpc, ok, id)),
+                    Method::ChangePassword => self
+                        .user_controller
+                        .change_password(req)
+                        .await
+                        .map(|ok| JsonRpcResponse::success(jsonrpc, ok, id)),
+                    Method::ValidateUser => self
+                        .user_controller
+                        .validate_user(req)
+                        .await
+                        .map(|ok| JsonRpcResponse::success(jsonrpc, ok, id)),
+                    Method::DeleteUser => self
+                        .user_controller
+                        .delete_user(req)
+                        .await
+                        .map(|ok| JsonRpcResponse::success(jsonrpc, ok, id)),
+                    Method::SetRole => self
+                        .user_controller
+                        .set_role(req)
+                        .await
+                        .map(|ok| JsonRpcResponse::success(jsonrpc, ok, id)),
+                    Method::Sleep => self
+                        .server_controller
+                        .sleep(req)
+                        .await
+                        .map(|ok| JsonRpcResponse::success(jsonrpc, ok, id)),
+                    Method::ClearLogs => self
+                        .server_controller
+                        .clear_logs(req)
+                        .await
+                        .map(|ok| JsonRpcResponse::success(jsonrpc, ok, id)),
                 }
+            }
+        };
+
+        let response = match result {
+            Ok(ok) => ok,
+            Err(err) => {
+                if err.context.is_some() {
+                    error!("error with context: {:?}", err);
+                }
+                JsonRpcResponse::error(jsonrpc, err.rpc_error, id)
             }
         };
 
@@ -181,6 +195,37 @@ impl App {
                 .collect::<Vec<_>>(),
         )
         .await
+    }
+}
+
+#[derive(Debug)]
+pub struct AppError {
+    rpc_error: webserver_contracts::Error,
+    context: Option<String>,
+}
+
+impl AppError {
+    pub fn with_context<T>(mut self, value: &T) -> Self
+    where
+        T: Debug,
+    {
+        self.context = Some(format!("{:?}", value));
+        self
+    }
+}
+
+impl From<webserver_contracts::Error> for AppError {
+    fn from(rpc_error: webserver_contracts::Error) -> Self {
+        Self {
+            rpc_error,
+            context: None,
+        }
+    }
+}
+
+impl From<db::DatabaseError> for AppError {
+    fn from(db_error: db::DatabaseError) -> Self {
+        AppError::from(webserver_contracts::Error::database_error()).with_context(&db_error)
     }
 }
 
@@ -205,7 +250,7 @@ pub async fn handle_request(app: Arc<App>, body: Value) -> Result<impl Reply, In
     } else {
         Ok(warp::reply::json(&JsonRpcResponse::error(
             JsonRpcVersion::Two,
-            Error::invalid_request(),
+            JsonRpcError::invalid_request(),
             None,
         )))
     }

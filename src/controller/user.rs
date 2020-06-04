@@ -1,3 +1,4 @@
+use crate::AppError;
 use chrono::Utc;
 use db::{self, UserRole};
 use rand::SystemRandom;
@@ -6,7 +7,7 @@ use ring::{
     rand::{self, SecureRandom},
 };
 use std::{convert::TryFrom, str::FromStr, sync::Arc};
-use webserver_contracts::user::*;
+use webserver_contracts::{user::*, Error as JsonRpcError};
 
 pub struct UserController {
     db: Arc<db::Database<db::User>>,
@@ -17,19 +18,21 @@ impl UserController {
         Self { db }
     }
 
-    pub async fn add(&self, request: crate::JsonRpcRequest) -> Result<AddUserResult, crate::Error> {
+    pub async fn add(&self, request: crate::JsonRpcRequest) -> Result<AddUserResult, AppError> {
         let params = AddUserParams::try_from(request)?;
 
         if self.db.username_exists(&params.user().username()) {
-            return Err(crate::Error::internal_error()
-                .with_data("a user with that username already exists"));
+            return Err(AppError::from(
+                JsonRpcError::internal_error()
+                    .with_data("a user with that username already exists"),
+            ));
         }
 
         let rng = SystemRandom::new();
         let mut salt = [0u8; digest::SHA512_OUTPUT_LEN];
 
         rng.fill(&mut salt)
-            .map_err(|e| crate::Error::internal_error().with_data(format!("rng error: {}", e)))?;
+            .map_err(|e| JsonRpcError::internal_error().with_data(format!("rng error: {}", e)))?;
 
         let hashed_password = crate::encrypt(&params.user().password().as_bytes(), &salt);
 
@@ -49,7 +52,7 @@ impl UserController {
     pub async fn change_password(
         &self,
         request: crate::JsonRpcRequest,
-    ) -> Result<ChangePasswordResult, crate::Error> {
+    ) -> Result<ChangePasswordResult, AppError> {
         let params = ChangePasswordParams::try_from(request)?;
 
         let user_row = self.db.get_user(params.user().username())?;
@@ -64,7 +67,7 @@ impl UserController {
             })
             .unwrap_or(false)
         {
-            return Err(crate::Error::invalid_username_or_password());
+            return Err(AppError::from(JsonRpcError::invalid_username_or_password()));
         }
 
         let user_row = user_row.unwrap(); // always Some because we did unwrap_or(false) above
@@ -88,7 +91,7 @@ impl UserController {
     pub async fn validate_user(
         &self,
         request: crate::JsonRpcRequest,
-    ) -> Result<ValidateUserResult, crate::Error> {
+    ) -> Result<ValidateUserResult, AppError> {
         let params = ValidateUserParams::try_from(request)?;
         let result = self
             .db
@@ -106,7 +109,7 @@ impl UserController {
     pub async fn set_role(
         &self,
         request: crate::JsonRpcRequest,
-    ) -> Result<SetRoleResult, crate::Error> {
+    ) -> Result<SetRoleResult, AppError> {
         let params = SetRoleParams::try_from(request)?;
 
         let user_row = self.db.get_user(params.user().username())?;
@@ -120,13 +123,13 @@ impl UserController {
             })
             .unwrap_or(false)
         {
-            return Err(crate::Error::invalid_username_or_password());
+            return Err(AppError::from(JsonRpcError::invalid_username_or_password()));
         }
 
         let user_row = user_row.unwrap();
 
         if user_row.role() < &UserRole::Admin {
-            return Err(crate::Error::not_permitted());
+            return Err(AppError::from(JsonRpcError::not_permitted()));
         }
 
         if let Some(_user) = self.db.get_user(params.username())? {
@@ -136,14 +139,14 @@ impl UserController {
             )?;
             Ok(SetRoleResult::new(result))
         } else {
-            Err(crate::Error::internal_error().with_data("user does not exist"))
+            return Err(AppError::from(JsonRpcError::invalid_username_or_password()));
         }
     }
 
     pub async fn delete_user(
         &self,
         request: crate::JsonRpcRequest,
-    ) -> Result<DeleteUserResult, crate::Error> {
+    ) -> Result<DeleteUserResult, AppError> {
         let params = DeleteUserParams::try_from(request)?;
 
         let user_row = self.db.get_user(params.user().username())?;
@@ -157,18 +160,74 @@ impl UserController {
             })
             .unwrap_or(false)
         {
-            return Err(crate::Error::invalid_username_or_password());
+            return Err(AppError::from(JsonRpcError::invalid_username_or_password()));
         }
 
         let user_row = user_row.unwrap();
 
         // only allow deletes if the user is an admin or if a user is trying to delete themselves
         if user_row.role() < &UserRole::Admin && params.user().username() != params.username() {
-            return Err(crate::Error::not_permitted());
+            return Err(AppError::from(JsonRpcError::not_permitted()));
         }
 
         let result = self.db.delete_user(params.username())?;
 
         Ok(DeleteUserResult::new(result))
+    }
+}
+
+impl From<AddUserParamsInvalid> for AppError {
+    fn from(error: AddUserParamsInvalid) -> Self {
+        match error {
+            AddUserParamsInvalid::InvalidFormat(e) => {
+                AppError::from(JsonRpcError::invalid_format(e))
+            }
+            AddUserParamsInvalid::PasswordTooShort => {
+                AppError::from(JsonRpcError::invalid_params().with_data("'password' too short"))
+            }
+        }
+    }
+}
+
+impl From<ChangePasswordParamsInvalid> for AppError {
+    fn from(error: ChangePasswordParamsInvalid) -> Self {
+        match error {
+            ChangePasswordParamsInvalid::InvalidFormat(e) => {
+                AppError::from(JsonRpcError::invalid_format(e))
+            }
+        }
+    }
+}
+
+impl From<ValidateUserParamsInvalid> for AppError {
+    fn from(error: ValidateUserParamsInvalid) -> Self {
+        match error {
+            ValidateUserParamsInvalid::InvalidFormat(e) => {
+                AppError::from(JsonRpcError::invalid_format(e))
+            }
+        }
+    }
+}
+
+impl From<SetRoleParamsInvalid> for AppError {
+    fn from(error: SetRoleParamsInvalid) -> Self {
+        match error {
+            SetRoleParamsInvalid::InvalidFormat(e) => {
+                AppError::from(JsonRpcError::invalid_format(e))
+            }
+            SetRoleParamsInvalid::InvalidRole => {
+                AppError::from(JsonRpcError::invalid_params().with_data("invalid role"))
+            }
+        }
+    }
+}
+
+impl From<DeleteUserParamsInvalid> for AppError {
+    fn from(error: DeleteUserParamsInvalid) -> Self {
+        match error {
+            DeleteUserParamsInvalid::InvalidFormat(e) => {
+                AppError::from(JsonRpcError::invalid_format(e))
+            }
+        }
     }
 }

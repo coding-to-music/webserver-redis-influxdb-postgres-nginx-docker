@@ -37,7 +37,7 @@ impl Prediction {
 }
 
 mod add_prediction {
-    use crate::user::User;
+    use crate::{user::User, Params};
     use std::convert::TryFrom;
 
     #[derive(serde::Serialize, Clone, Debug)]
@@ -45,6 +45,8 @@ mod add_prediction {
         prediction: String,
         user: User,
     }
+
+    impl Params for AddPredictionParams {}
 
     impl AddPredictionParams {
         pub fn prediction(&self) -> &str {
@@ -93,19 +95,6 @@ mod add_prediction {
         TextTooLong,
     }
 
-    impl From<AddPredictionParamsInvalid> for crate::Error {
-        fn from(error: AddPredictionParamsInvalid) -> Self {
-            match error {
-                AddPredictionParamsInvalid::InvalidFormat(e) => Self::invalid_format(e),
-                AddPredictionParamsInvalid::EmptyText => {
-                    Self::invalid_params().with_data("prediction can't be empty")
-                }
-                AddPredictionParamsInvalid::TextTooLong => Self::invalid_params()
-                    .with_data("prediction must not be longer than 50 characters"),
-            }
-        }
-    }
-
     #[derive(serde::Serialize)]
     pub struct AddPredictionResult {
         inserted: bool,
@@ -119,7 +108,7 @@ mod add_prediction {
 }
 
 mod delete_prediction {
-    use crate::user::User;
+    use crate::{user::User, Params};
     use std::convert::TryFrom;
 
     #[derive(serde::Serialize, Clone, Debug)]
@@ -127,6 +116,8 @@ mod delete_prediction {
         id: i64,
         user: User,
     }
+
+    impl Params for DeletePredictionParams {}
 
     impl DeletePredictionParams {
         pub fn id(&self) -> i64 {
@@ -182,22 +173,11 @@ mod delete_prediction {
             Self { success }
         }
     }
-
-    impl From<DeletePredictionParamsInvalid> for crate::Error {
-        fn from(error: DeletePredictionParamsInvalid) -> Self {
-            match error {
-                DeletePredictionParamsInvalid::InvalidFormat(e) => Self::invalid_format(e),
-                DeletePredictionParamsInvalid::InvalidId => {
-                    Self::invalid_params().with_data("id must be greater than 0")
-                }
-            }
-        }
-    }
 }
 
 mod search_predictions {
     use super::Prediction;
-    use crate::user::User;
+    use crate::{user::User, Params};
     use std::convert::TryFrom;
 
     #[derive(serde::Serialize, Clone, Debug)]
@@ -205,6 +185,8 @@ mod search_predictions {
         username: String,
         user: Option<User>,
     }
+
+    impl Params for SearchPredictionsParams {}
 
     impl SearchPredictionsParams {
         pub fn username(&self) -> &str {
@@ -250,17 +232,6 @@ mod search_predictions {
                 .map_err(SearchPredictionsParamsInvalid::InvalidFormat)?;
 
             builder.build()
-        }
-    }
-
-    impl From<SearchPredictionsParamsInvalid> for crate::Error {
-        fn from(error: SearchPredictionsParamsInvalid) -> Self {
-            match error {
-                SearchPredictionsParamsInvalid::InvalidFormat(e) => Self::invalid_format(e),
-                SearchPredictionsParamsInvalid::EmptyUsername => {
-                    Self::invalid_params().with_data("username must not be empty")
-                }
-            }
         }
     }
 
