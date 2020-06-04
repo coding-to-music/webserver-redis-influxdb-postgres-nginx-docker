@@ -49,6 +49,10 @@ mod add_prediction {
     impl Params for AddPredictionParams {}
 
     impl AddPredictionParams {
+        pub fn new(prediction: String, user: User) -> Self {
+            Self { prediction, user }
+        }
+
         pub fn prediction(&self) -> &str {
             &self.prediction
         }
@@ -120,6 +124,10 @@ mod delete_prediction {
     impl Params for DeletePredictionParams {}
 
     impl DeletePredictionParams {
+        pub fn new(id: i64, user: User) -> Self {
+            Self { id, user }
+        }
+
         pub fn id(&self) -> i64 {
             self.id
         }
@@ -189,6 +197,10 @@ mod search_predictions {
     impl Params for SearchPredictionsParams {}
 
     impl SearchPredictionsParams {
+        pub fn new(username: String, user: Option<User>) -> Self {
+            Self { username, user }
+        }
+
         pub fn username(&self) -> &str {
             &self.username
         }
