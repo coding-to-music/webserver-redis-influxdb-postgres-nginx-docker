@@ -2,7 +2,7 @@ pub use clear_logs::{ClearLogsParams, ClearLogsParamsInvalid, ClearLogsResult};
 pub use sleep::{SleepParams, SleepParamsInvalid, SleepResult};
 
 mod sleep {
-    use crate::{user::User, Params};
+    use crate::user::User;
     use std::convert::TryFrom;
 
     #[derive(serde::Serialize, Clone, Debug)]
@@ -10,8 +10,6 @@ mod sleep {
         user: User,
         seconds: f32,
     }
-
-    impl Params for SleepParams {}
 
     impl SleepParams {
         pub fn new(user: User, seconds: f32) -> Self {
@@ -81,7 +79,7 @@ mod sleep {
 }
 
 mod clear_logs {
-    use crate::{user::User, Params};
+    use crate::user::User;
     use std::convert::TryFrom;
 
     #[derive(serde::Serialize)]
@@ -89,8 +87,6 @@ mod clear_logs {
         user: User,
         dry_run: bool,
     }
-
-    impl Params for ClearLogsParams {}
 
     impl ClearLogsParams {
         pub fn new(user: User, dry_run: bool) -> Self {

@@ -28,15 +28,12 @@ impl User {
 
 mod add_user {
     use super::User;
-    use crate::Params;
     use std::convert::TryFrom;
 
     #[derive(serde::Serialize, Debug)]
     pub struct AddUserParams {
         user: User,
     }
-
-    impl Params for AddUserParams {}
 
     impl AddUserParams {
         pub fn new(user: User) -> Self {
@@ -97,7 +94,6 @@ mod add_user {
 
 mod change_password {
     use super::User;
-    use crate::Params;
     use std::convert::TryFrom;
 
     #[derive(serde::Serialize, Debug)]
@@ -105,8 +101,6 @@ mod change_password {
         user: User,
         new_password: String,
     }
-
-    impl Params for ChangePasswordParams {}
 
     impl ChangePasswordParams {
         pub fn new(user: User, new_password: String) -> Self {
@@ -170,15 +164,12 @@ mod change_password {
 
 mod validate_user {
     use super::User;
-    use crate::Params;
     use std::convert::TryFrom;
 
     #[derive(serde::Serialize, Debug)]
     pub struct ValidateUserParams {
         user: User,
     }
-
-    impl Params for ValidateUserParams {}
 
     impl ValidateUserParams {
         pub fn new(user: User) -> Self {
@@ -234,7 +225,6 @@ mod validate_user {
 
 mod set_role {
     use super::User;
-    use crate::Params;
     use std::convert::TryFrom;
 
     #[derive(serde::Serialize, Debug)]
@@ -243,8 +233,6 @@ mod set_role {
         username: String,
         role: String,
     }
-
-    impl Params for SetRoleParams {}
 
     impl SetRoleParams {
         pub fn new(user: User, username: String, role: String) -> Self {

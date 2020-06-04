@@ -349,5 +349,3 @@ impl From<ErrorCode> for i32 {
         }
     }
 }
-
-pub trait Params {}

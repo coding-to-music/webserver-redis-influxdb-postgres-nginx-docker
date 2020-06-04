@@ -37,7 +37,7 @@ impl Prediction {
 }
 
 mod add_prediction {
-    use crate::{user::User, Params};
+    use crate::user::User;
     use std::convert::TryFrom;
 
     #[derive(serde::Serialize, Clone, Debug)]
@@ -45,8 +45,6 @@ mod add_prediction {
         prediction: String,
         user: User,
     }
-
-    impl Params for AddPredictionParams {}
 
     impl AddPredictionParams {
         pub fn new(prediction: String, user: User) -> Self {
@@ -116,7 +114,7 @@ mod add_prediction {
 }
 
 mod delete_prediction {
-    use crate::{user::User, Params};
+    use crate::user::User;
     use std::convert::TryFrom;
 
     #[derive(serde::Serialize, Clone, Debug)]
@@ -124,8 +122,6 @@ mod delete_prediction {
         id: i64,
         user: User,
     }
-
-    impl Params for DeletePredictionParams {}
 
     impl DeletePredictionParams {
         pub fn new(id: i64, user: User) -> Self {
@@ -193,7 +189,7 @@ mod delete_prediction {
 
 mod search_predictions {
     use super::Prediction;
-    use crate::{user::User, Params};
+    use crate::user::User;
     use std::convert::TryFrom;
 
     #[derive(serde::Serialize, Clone, Debug)]
@@ -201,8 +197,6 @@ mod search_predictions {
         username: String,
         user: Option<User>,
     }
-
-    impl Params for SearchPredictionsParams {}
 
     impl SearchPredictionsParams {
         pub fn new(username: String, user: Option<User>) -> Self {
