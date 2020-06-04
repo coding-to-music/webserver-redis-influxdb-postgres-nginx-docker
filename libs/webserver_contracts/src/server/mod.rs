@@ -5,6 +5,7 @@ mod sleep {
     use crate::{user::User, Params};
     use std::convert::TryFrom;
 
+    #[derive(serde::Serialize, Clone, Debug)]
     pub struct SleepParams {
         user: User,
         seconds: f32,
@@ -13,6 +14,10 @@ mod sleep {
     impl Params for SleepParams {}
 
     impl SleepParams {
+        pub fn new(user: User, seconds: f32) -> Self {
+            Self { user, seconds }
+        }
+
         pub fn user(&self) -> &User {
             &self.user
         }
@@ -59,7 +64,7 @@ mod sleep {
         SecondsTooHigh,
     }
 
-    #[derive(serde::Serialize)]
+    #[derive(serde::Serialize, serde::Deserialize)]
     pub struct SleepResult {
         seconds: f32,
     }
@@ -68,6 +73,10 @@ mod sleep {
         pub fn new(seconds: f32) -> Self {
             Self { seconds }
         }
+
+        pub fn seconds(&self) -> f32 {
+            self.seconds
+        }
     }
 }
 
@@ -75,7 +84,7 @@ mod clear_logs {
     use crate::{user::User, Params};
     use std::convert::TryFrom;
 
-    #[derive(serde::Serialize, Clone, Debug)]
+    #[derive(serde::Serialize)]
     pub struct ClearLogsParams {
         user: User,
         dry_run: bool,
@@ -84,6 +93,10 @@ mod clear_logs {
     impl Params for ClearLogsParams {}
 
     impl ClearLogsParams {
+        pub fn new(user: User, dry_run: bool) -> Self {
+            Self { user, dry_run }
+        }
+
         pub fn user(&self) -> &User {
             &self.user
         }
@@ -122,7 +135,7 @@ mod clear_logs {
         InvalidFormat(serde_json::Error),
     }
 
-    #[derive(serde::Serialize)]
+    #[derive(serde::Serialize, serde::Deserialize)]
     pub struct ClearLogsResult {
         dry_run: bool,
         files: usize,
@@ -136,6 +149,18 @@ mod clear_logs {
                 files,
                 bytes,
             }
+        }
+
+        pub fn dry_run(&self) -> bool {
+            self.dry_run
+        }
+
+        pub fn files(&self) -> usize {
+            self.files
+        }
+
+        pub fn bytes(&self) -> u64 {
+            self.bytes
         }
     }
 }

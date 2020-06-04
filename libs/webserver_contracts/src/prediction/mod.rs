@@ -99,7 +99,7 @@ mod add_prediction {
         TextTooLong,
     }
 
-    #[derive(serde::Serialize)]
+    #[derive(serde::Serialize, serde::Deserialize)]
     pub struct AddPredictionResult {
         inserted: bool,
     }
@@ -107,6 +107,10 @@ mod add_prediction {
     impl AddPredictionResult {
         pub fn new(inserted: bool) -> Self {
             Self { inserted }
+        }
+
+        pub fn inserted(&self) -> bool {
+            self.inserted
         }
     }
 }
@@ -171,7 +175,7 @@ mod delete_prediction {
         }
     }
 
-    #[derive(serde::Serialize)]
+    #[derive(serde::Serialize, serde::Deserialize)]
     pub struct DeletePredictionResult {
         success: bool,
     }
@@ -179,6 +183,10 @@ mod delete_prediction {
     impl DeletePredictionResult {
         pub fn new(success: bool) -> Self {
             Self { success }
+        }
+
+        pub fn success(&self) -> bool {
+            self.success
         }
     }
 }
@@ -247,7 +255,7 @@ mod search_predictions {
         }
     }
 
-    #[derive(serde::Serialize)]
+    #[derive(serde::Serialize, serde::Deserialize)]
     pub struct SearchPredictionsResult {
         predictions: Vec<Prediction>,
     }
@@ -255,6 +263,10 @@ mod search_predictions {
     impl SearchPredictionsResult {
         pub fn new(predictions: Vec<Prediction>) -> Self {
             Self { predictions }
+        }
+
+        pub fn predictions(&self) -> &Vec<Prediction> {
+            &self.predictions
         }
     }
 }

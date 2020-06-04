@@ -31,7 +31,7 @@ mod add_user {
     use crate::Params;
     use std::convert::TryFrom;
 
-    #[derive(serde::Serialize, Clone, Debug)]
+    #[derive(serde::Serialize, Debug)]
     pub struct AddUserParams {
         user: User,
     }
@@ -63,6 +63,7 @@ mod add_user {
         }
     }
 
+    #[derive(Debug)]
     pub enum AddUserParamsInvalid {
         InvalidFormat(serde_json::Error),
         PasswordTooShort,
@@ -78,7 +79,7 @@ mod add_user {
         }
     }
 
-    #[derive(serde::Serialize)]
+    #[derive(serde::Serialize, serde::Deserialize)]
     pub struct AddUserResult {
         success: bool,
     }
@@ -86,6 +87,10 @@ mod add_user {
     impl AddUserResult {
         pub fn new(success: bool) -> Self {
             Self { success }
+        }
+
+        pub fn success(&self) -> bool {
+            self.success
         }
     }
 }
@@ -95,7 +100,7 @@ mod change_password {
     use crate::Params;
     use std::convert::TryFrom;
 
-    #[derive(serde::Serialize, Clone, Debug)]
+    #[derive(serde::Serialize, Debug)]
     pub struct ChangePasswordParams {
         user: User,
         new_password: String,
@@ -104,6 +109,10 @@ mod change_password {
     impl Params for ChangePasswordParams {}
 
     impl ChangePasswordParams {
+        pub fn new(user: User, new_password: String) -> Self {
+            Self { user, new_password }
+        }
+
         pub fn user(&self) -> &User {
             &self.user
         }
@@ -138,11 +147,12 @@ mod change_password {
         }
     }
 
+    #[derive(Debug)]
     pub enum ChangePasswordParamsInvalid {
         InvalidFormat(serde_json::Error),
     }
 
-    #[derive(serde::Serialize)]
+    #[derive(serde::Serialize, serde::Deserialize)]
     pub struct ChangePasswordResult {
         success: bool,
     }
@@ -150,6 +160,10 @@ mod change_password {
     impl ChangePasswordResult {
         pub fn new(success: bool) -> Self {
             Self { success }
+        }
+
+        pub fn success(&self) -> bool {
+            self.success
         }
     }
 }
@@ -159,7 +173,7 @@ mod validate_user {
     use crate::Params;
     use std::convert::TryFrom;
 
-    #[derive(serde::Serialize, Clone, Debug)]
+    #[derive(serde::Serialize, Debug)]
     pub struct ValidateUserParams {
         user: User,
     }
@@ -167,6 +181,10 @@ mod validate_user {
     impl Params for ValidateUserParams {}
 
     impl ValidateUserParams {
+        pub fn new(user: User) -> Self {
+            Self { user }
+        }
+
         pub fn user(&self) -> &User {
             &self.user
         }
@@ -193,11 +211,12 @@ mod validate_user {
         }
     }
 
+    #[derive(Debug)]
     pub enum ValidateUserParamsInvalid {
         InvalidFormat(serde_json::Error),
     }
 
-    #[derive(serde::Serialize)]
+    #[derive(serde::Serialize, serde::Deserialize)]
     pub struct ValidateUserResult {
         valid: bool,
     }
@@ -205,6 +224,10 @@ mod validate_user {
     impl ValidateUserResult {
         pub fn new(valid: bool) -> Self {
             Self { valid }
+        }
+
+        pub fn valid(&self) -> bool {
+            self.valid
         }
     }
 }
@@ -214,7 +237,7 @@ mod set_role {
     use crate::Params;
     use std::convert::TryFrom;
 
-    #[derive(serde::Serialize, Clone, Debug)]
+    #[derive(serde::Serialize, Debug)]
     pub struct SetRoleParams {
         user: User,
         username: String,
@@ -272,12 +295,13 @@ mod set_role {
         }
     }
 
+    #[derive(Debug)]
     pub enum SetRoleParamsInvalid {
         InvalidFormat(serde_json::Error),
         InvalidRole,
     }
 
-    #[derive(serde::Serialize)]
+    #[derive(serde::Serialize, serde::Deserialize)]
     pub struct SetRoleResult {
         success: bool,
     }
@@ -286,6 +310,10 @@ mod set_role {
         pub fn new(success: bool) -> Self {
             Self { success }
         }
+
+        pub fn success(&self) -> bool {
+            self.success
+        }
     }
 }
 
@@ -293,7 +321,7 @@ mod delete_user {
     use super::User;
     use std::convert::TryFrom;
 
-    #[derive(serde::Serialize, Clone, Debug)]
+    #[derive(serde::Serialize, Debug)]
     pub struct DeleteUserParams {
         user: User,
         username: String,
@@ -328,6 +356,7 @@ mod delete_user {
         }
     }
 
+    #[derive(Debug)]
     pub enum DeleteUserParamsInvalid {
         InvalidFormat(serde_json::Error),
     }
@@ -342,7 +371,7 @@ mod delete_user {
         }
     }
 
-    #[derive(serde::Serialize)]
+    #[derive(serde::Serialize, serde::Deserialize)]
     pub struct DeleteUserResult {
         success: bool,
     }
@@ -350,6 +379,10 @@ mod delete_user {
     impl DeleteUserResult {
         pub fn new(success: bool) -> Self {
             Self { success }
+        }
+
+        pub fn success(&self) -> bool {
+            self.success
         }
     }
 }

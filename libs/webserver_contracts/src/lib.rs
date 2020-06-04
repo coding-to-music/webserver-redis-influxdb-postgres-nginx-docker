@@ -1,6 +1,6 @@
 #![allow(dead_code)]
 
-use serde::Serialize;
+use serde::{de::DeserializeOwned, Serialize};
 use serde_json::Value;
 use std::{
     convert::Infallible,
@@ -151,12 +151,33 @@ pub struct JsonRpcResponse {
 }
 
 impl JsonRpcResponse {
+    pub fn result(&self) -> Option<&Value> {
+        match &self.result {
+            Some(r) => Some(r),
+            None => None,
+        }
+    }
+
+    /// Deserialize the contained json result (if any)
+    pub fn result_as<T>(self) -> Option<T>
+    where
+        T: DeserializeOwned,
+    {
+        match self.result {
+            Some(r) => Some(serde_json::from_value(r).unwrap()),
+            None => None,
+        }
+    }
+
     /// Says whether the response indicates a success or an error.
+    /// ### Panics
+    /// If both `result` and `error` is `Some` or `None`
     pub fn kind(&self) -> ResponseKind {
-        if let Some(err) = &self.error {
-            ResponseKind::Error(err)
-        } else {
-            ResponseKind::Success
+        match (&self.result, &self.error) {
+            (Some(_), Some(_)) => panic!("Result and Error can't both be Some"),
+            (Some(result), None) => ResponseKind::Success(result),
+            (None, Some(error)) => ResponseKind::Error(error),
+            (None, None) => panic!("Result and Error can't both be None"),
         }
     }
 
@@ -204,7 +225,7 @@ impl JsonRpcResponse {
 }
 
 pub enum ResponseKind<'a> {
-    Success,
+    Success(&'a Value),
     Error(&'a Error),
 }
 
