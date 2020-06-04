@@ -87,8 +87,11 @@ impl App {
 
         Self {
             opts,
-            prediction_controller: PredictionController::new(prediction_db, user_db.clone()),
-            user_controller: UserController::new(user_db.clone()),
+            prediction_controller: PredictionController::new(
+                prediction_db.clone(),
+                user_db.clone(),
+            ),
+            user_controller: UserController::new(user_db.clone(), prediction_db.clone()),
             server_controller: ServerController::new(user_db, webserver_log_path),
         }
     }

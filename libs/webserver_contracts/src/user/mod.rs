@@ -362,15 +362,23 @@ mod delete_user {
     #[derive(serde::Serialize, serde::Deserialize)]
     pub struct DeleteUserResult {
         success: bool,
+        deleted_predictions: usize,
     }
 
     impl DeleteUserResult {
-        pub fn new(success: bool) -> Self {
-            Self { success }
+        pub fn new(success: bool, deleted_predictions: usize) -> Self {
+            Self {
+                success,
+                deleted_predictions,
+            }
         }
 
         pub fn success(&self) -> bool {
             self.success
+        }
+
+        pub fn deleted_predictions(&self) -> usize {
+            self.deleted_predictions
         }
     }
 }

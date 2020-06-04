@@ -10,18 +10,25 @@ use std::{convert::TryFrom, str::FromStr, sync::Arc};
 use webserver_contracts::{user::*, Error as JsonRpcError};
 
 pub struct UserController {
-    db: Arc<db::Database<db::User>>,
+    user_db: Arc<db::Database<db::User>>,
+    prediction_db: Arc<db::Database<db::Prediction>>,
 }
 
 impl UserController {
-    pub fn new(db: Arc<db::Database<db::User>>) -> Self {
-        Self { db }
+    pub fn new(
+        user_db: Arc<db::Database<db::User>>,
+        prediction_db: Arc<db::Database<db::Prediction>>,
+    ) -> Self {
+        Self {
+            user_db,
+            prediction_db,
+        }
     }
 
     pub async fn add(&self, request: crate::JsonRpcRequest) -> Result<AddUserResult, AppError> {
         let params = AddUserParams::try_from(request)?;
 
-        if self.db.username_exists(&params.user().username()) {
+        if self.user_db.username_exists(&params.user().username()) {
             return Err(AppError::from(
                 JsonRpcError::internal_error()
                     .with_data("a user with that username already exists"),
@@ -44,7 +51,7 @@ impl UserController {
             Utc::now().timestamp() as u32,
         );
 
-        let rows = self.db.add_user(user_row)?;
+        let rows = self.user_db.add_user(user_row)?;
 
         Ok(AddUserResult::new(rows == 1))
     }
@@ -55,7 +62,7 @@ impl UserController {
     ) -> Result<ChangePasswordResult, AppError> {
         let params = ChangePasswordParams::try_from(request)?;
 
-        let user_row = self.db.get_user(params.user().username())?;
+        let user_row = self.user_db.get_user(params.user().username())?;
 
         // check that the user exists and that the password is valid
         if !user_row
@@ -84,7 +91,7 @@ impl UserController {
             user_row.created_s(),
         );
 
-        let result = self.db.update_user_password(new_user_row)?;
+        let result = self.user_db.update_user_password(new_user_row)?;
         Ok(ChangePasswordResult::new(result))
     }
 
@@ -94,7 +101,7 @@ impl UserController {
     ) -> Result<ValidateUserResult, AppError> {
         let params = ValidateUserParams::try_from(request)?;
         let result = self
-            .db
+            .user_db
             .get_user(params.user().username())?
             .map(|u| {
                 let encrypted_password =
@@ -112,7 +119,7 @@ impl UserController {
     ) -> Result<SetRoleResult, AppError> {
         let params = SetRoleParams::try_from(request)?;
 
-        let user_row = self.db.get_user(params.user().username())?;
+        let user_row = self.user_db.get_user(params.user().username())?;
 
         if !user_row
             .as_ref()
@@ -132,8 +139,8 @@ impl UserController {
             return Err(AppError::from(JsonRpcError::not_permitted()));
         }
 
-        if let Some(_user) = self.db.get_user(params.username())? {
-            let result = self.db.update_user_role(
+        if let Some(_user) = self.user_db.get_user(params.username())? {
+            let result = self.user_db.update_user_role(
                 params.username(),
                 db::UserRole::from_str(params.role()).map_err(|_| {
                     AppError::from(JsonRpcError::invalid_params().with_data("invalid user role"))
@@ -155,7 +162,7 @@ impl UserController {
     ) -> Result<DeleteUserResult, AppError> {
         let params = DeleteUserParams::try_from(request)?;
 
-        let user_row = self.db.get_user(params.user().username())?;
+        let user_row = self.user_db.get_user(params.user().username())?;
 
         if !user_row
             .as_ref()
@@ -176,9 +183,17 @@ impl UserController {
             return Err(AppError::from(JsonRpcError::not_permitted()));
         }
 
-        let result = self.db.delete_user(params.username())?;
+        let result = self.user_db.delete_user(params.username())?;
 
-        Ok(DeleteUserResult::new(result))
+        if result {
+            // delete any predictions associated with this user
+            let deleted_predictions = self
+                .prediction_db
+                .delete_predictions_by_username(params.username())?;
+            Ok(DeleteUserResult::new(result, deleted_predictions))
+        } else {
+            Err(AppError::from(JsonRpcError::database_error()))
+        }
     }
 }
 

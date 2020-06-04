@@ -124,6 +124,17 @@ impl Database<User> {
 }
 
 impl Database<Prediction> {
+    pub fn delete_predictions_by_username(&self, username: &str) -> Result<usize, DatabaseError> {
+        let db = self.get_connection()?;
+
+        let changed_rows = db.execute(
+            "DELETE FROM prediction WHERE username = ?1",
+            params![username],
+        )?;
+
+        Ok(changed_rows)
+    }
+
     pub fn get_predictions_by_id(&self, id: i64) -> Result<Option<Prediction>, DatabaseError> {
         let db = self.get_connection()?;
 
