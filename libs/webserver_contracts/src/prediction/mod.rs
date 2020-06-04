@@ -8,7 +8,7 @@ pub use search_predictions::{
     SearchPredictionsParams, SearchPredictionsParamsInvalid, SearchPredictionsResult,
 };
 
-#[derive(serde::Serialize, serde::Deserialize)]
+#[derive(serde::Serialize, serde::Deserialize, Debug)]
 pub struct Prediction {
     #[serde(skip_serializing_if = "Option::is_none")]
     id: Option<i64>,
