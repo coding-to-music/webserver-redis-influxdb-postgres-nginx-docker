@@ -165,6 +165,11 @@ impl App {
                         .clear_logs(request)
                         .await
                         .map(|ok| JsonRpcResponse::success(jsonrpc, ok, id)),
+                    Method::PrepareTests => self
+                        .server_controller
+                        .prepare_tests(request)
+                        .await
+                        .map(|ok| JsonRpcResponse::success(jsonrpc, ok, id)),
                 }
             }
         };

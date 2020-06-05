@@ -22,6 +22,7 @@ const VALIDATE_USER: &str = "validate_user";
 const SET_ROLE: &str = "set_role";
 const CLEAR_LOGS: &str = "clear_logs";
 const DELETE_USER: &str = "delete_user";
+const PREPARE_TESTS: &str = "prepare_tests";
 
 /// A JSONRPC method
 pub enum Method {
@@ -45,6 +46,8 @@ pub enum Method {
     SetRole,
     /// Clear webserver logs
     ClearLogs,
+    /// Prepare the webserver for integration tests
+    PrepareTests,
 }
 
 impl FromStr for Method {
@@ -61,6 +64,7 @@ impl FromStr for Method {
             SLEEP => Ok(Self::Sleep),
             CLEAR_LOGS => Ok(Self::ClearLogs),
             DELETE_USER => Ok(Self::DeleteUser),
+            PREPARE_TESTS => Ok(Self::PrepareTests),
             _ => Err(()),
         }
     }
@@ -82,6 +86,7 @@ impl Display for Method {
                 Method::SetRole => SET_ROLE,
                 Method::ClearLogs => CLEAR_LOGS,
                 Method::DeleteUser => DELETE_USER,
+                Method::PrepareTests => PREPARE_TESTS,
             }
         )
     }

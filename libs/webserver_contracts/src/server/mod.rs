@@ -1,4 +1,5 @@
 pub use clear_logs::{ClearLogsParams, ClearLogsParamsInvalid, ClearLogsResult};
+pub use prepare_tests::{PrepareTestsParams, PrepareTestsParamsInvalid, PrepareTestsResult};
 pub use sleep::{SleepParams, SleepParamsInvalid, SleepResult};
 
 mod sleep {
@@ -56,6 +57,7 @@ mod sleep {
         }
     }
 
+    #[derive(Debug)]
     pub enum SleepParamsInvalid {
         InvalidFormat(serde_json::Error),
         SecondsTooLow,
@@ -127,6 +129,7 @@ mod clear_logs {
         }
     }
 
+    #[derive(Debug)]
     pub enum ClearLogsParamsInvalid {
         InvalidFormat(serde_json::Error),
     }
@@ -157,6 +160,66 @@ mod clear_logs {
 
         pub fn bytes(&self) -> u64 {
             self.bytes
+        }
+    }
+}
+
+mod prepare_tests {
+    use crate::user::User;
+    use std::convert::TryFrom;
+
+    #[derive(serde::Serialize, Clone, Debug)]
+    pub struct PrepareTestsParams {
+        user: User,
+    }
+
+    impl PrepareTestsParams {
+        pub fn new(user: User) -> Self {
+            Self { user }
+        }
+
+        pub fn user(&self) -> &User {
+            &self.user
+        }
+    }
+
+    #[derive(serde::Deserialize)]
+    struct PrepareTestsParamsBuilder {
+        user: User,
+    }
+
+    impl PrepareTestsParamsBuilder {
+        fn build(self) -> Result<PrepareTestsParams, PrepareTestsParamsInvalid> {
+            Ok(PrepareTestsParams { user: self.user })
+        }
+    }
+
+    impl TryFrom<crate::JsonRpcRequest> for PrepareTestsParams {
+        type Error = PrepareTestsParamsInvalid;
+        fn try_from(value: crate::JsonRpcRequest) -> Result<Self, Self::Error> {
+            let builder: PrepareTestsParamsBuilder =
+                serde_json::from_value(value.params).map_err(Self::Error::InvalidFormat)?;
+            builder.build()
+        }
+    }
+
+    #[derive(Debug)]
+    pub enum PrepareTestsParamsInvalid {
+        InvalidFormat(serde_json::Error),
+    }
+
+    #[derive(Debug, serde::Serialize, serde::Deserialize)]
+    pub struct PrepareTestsResult {
+        success: bool,
+    }
+
+    impl PrepareTestsResult {
+        pub fn new(success: bool) -> Self {
+            Self { success }
+        }
+
+        pub fn success(&self) -> bool {
+            self.success
         }
     }
 }

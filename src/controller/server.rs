@@ -1,18 +1,18 @@
 use crate::AppError;
-use db::{Database, User, UserRole};
+use db;
 use std::{convert::TryFrom, path::PathBuf, sync::Arc, time};
 use time::Duration;
 use tokio::sync::Mutex;
-use webserver_contracts::{server::*, Error as JsonRpcError};
+use webserver_contracts::{server::*, user, Error as JsonRpcError};
 
 pub struct ServerController {
-    user_db: Arc<Database<User>>,
+    user_db: Arc<db::Database<db::User>>,
     log_directory: PathBuf,
     served_requests: Mutex<u32>,
 }
 
 impl ServerController {
-    pub fn new(user_db: Arc<Database<User>>, log_directory: PathBuf) -> Self {
+    pub fn new(user_db: Arc<db::Database<db::User>>, log_directory: PathBuf) -> Self {
         Self {
             user_db,
             log_directory,
@@ -22,14 +22,7 @@ impl ServerController {
 
     pub async fn sleep(&self, request: crate::JsonRpcRequest) -> Result<SleepResult, AppError> {
         let params = SleepParams::try_from(request)?;
-        if !self
-            .user_db
-            .get_user(params.user().username())?
-            .map(|u| u.is_authorized(UserRole::Admin))
-            .unwrap_or(false)
-        {
-            return Err(AppError::from(JsonRpcError::not_permitted()));
-        }
+        self.authorize_admin(params.user())?;
 
         let now = std::time::Instant::now();
         tokio::time::delay_for(Duration::from_secs_f32(params.seconds())).await;
@@ -46,14 +39,7 @@ impl ServerController {
     ) -> Result<ClearLogsResult, AppError> {
         let params = ClearLogsParams::try_from(request)?;
 
-        if !self
-            .user_db
-            .get_user(params.user().username())?
-            .map(|u| u.is_authorized(UserRole::Admin))
-            .unwrap_or(false)
-        {
-            return Err(AppError::from(JsonRpcError::not_permitted()));
-        }
+        self.authorize_admin(params.user())?;
 
         let paths =
             std::fs::read_dir(&self.log_directory).map_err(|_e| JsonRpcError::internal_error())?;
@@ -94,6 +80,34 @@ impl ServerController {
         ))
     }
 
+    pub async fn prepare_tests(
+        &self,
+        request: crate::JsonRpcRequest,
+    ) -> Result<PrepareTestsResult, AppError> {
+        let params = PrepareTestsParams::try_from(request)?;
+
+        self.authorize_admin(params.user())?;
+
+        Ok(PrepareTestsResult::new(false))
+    }
+
+    fn authorize_admin(&self, user: &user::User) -> Result<(), AppError> {
+        match self.user_db.get_user(user.username())?.map(|u| {
+            (
+                u.validate_password(u.password()),
+                u.is_authorized(db::UserRole::Admin),
+            )
+        }) {
+            // tuple is (password is correct, user is admin)
+            Some((true, true)) => Ok(()),
+            Some((true, false)) => Err(AppError::from(JsonRpcError::not_permitted())),
+            Some((false, _)) => Err(AppError::from(JsonRpcError::invalid_username_or_password())),
+            None => Err(AppError::from(
+                JsonRpcError::internal_error().with_data("user does not exist"),
+            )),
+        }
+    }
+
     async fn increment_served_requests(&self) {
         let mut served = self.served_requests.lock().await;
         trace!(
@@ -124,6 +138,16 @@ impl From<ClearLogsParamsInvalid> for AppError {
     fn from(error: ClearLogsParamsInvalid) -> Self {
         match error {
             ClearLogsParamsInvalid::InvalidFormat(e) => {
+                AppError::from(JsonRpcError::invalid_format(e))
+            }
+        }
+    }
+}
+
+impl From<PrepareTestsParamsInvalid> for AppError {
+    fn from(error: PrepareTestsParamsInvalid) -> Self {
+        match error {
+            PrepareTestsParamsInvalid::InvalidFormat(e) => {
                 AppError::from(JsonRpcError::invalid_format(e))
             }
         }

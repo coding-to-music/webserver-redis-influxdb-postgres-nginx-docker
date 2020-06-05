@@ -28,6 +28,18 @@ impl Prediction {
         }
     }
 
+    pub fn id(&self) -> Option<i64> {
+        self.id
+    }
+
+    pub fn content(&self) -> &str {
+        &self.prediction
+    }
+
+    pub fn timestamp_s(&self) -> u32 {
+        self.timestamp_s
+    }
+
     fn timestamp_s_nice(timestamp_s: i64) -> chrono::DateTime<chrono::Utc> {
         chrono::DateTime::<chrono::Utc>::from_utc(
             chrono::NaiveDateTime::from_timestamp(timestamp_s, 0),
@@ -91,6 +103,7 @@ mod add_prediction {
         }
     }
 
+    #[derive(Debug)]
     pub enum AddPredictionParamsInvalid {
         InvalidFormat(serde_json::Error),
         EmptyText,
@@ -156,6 +169,7 @@ mod delete_prediction {
         }
     }
 
+    #[derive(Debug)]
     pub enum DeletePredictionParamsInvalid {
         InvalidFormat(serde_json::Error),
         InvalidId,
@@ -234,6 +248,7 @@ mod search_predictions {
         }
     }
 
+    #[derive(Debug)]
     pub enum SearchPredictionsParamsInvalid {
         InvalidFormat(serde_json::Error),
         EmptyUsername,
@@ -249,7 +264,7 @@ mod search_predictions {
         }
     }
 
-    #[derive(serde::Serialize, serde::Deserialize)]
+    #[derive(Debug, serde::Serialize, serde::Deserialize)]
     pub struct SearchPredictionsResult {
         predictions: Vec<Prediction>,
     }
