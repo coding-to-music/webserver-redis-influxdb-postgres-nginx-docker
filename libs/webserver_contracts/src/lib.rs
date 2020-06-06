@@ -140,6 +140,86 @@ impl JsonRpcRequest {
     }
 }
 
+pub struct JsonRpcRequestBuilder {
+    jsonrpc: Option<JsonRpcVersion>,
+    method: Option<String>,
+    params: Option<Value>,
+    id: Option<String>,
+}
+
+pub enum JsonRpcRequestBuilderError {
+    MissingMethod,
+    MissingParams,
+}
+
+impl Display for JsonRpcRequestBuilderError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let output = match self {
+            JsonRpcRequestBuilderError::MissingMethod => "missing 'method' property",
+            JsonRpcRequestBuilderError::MissingParams => "missing 'params' property",
+        };
+        write!(f, "{}", output)
+    }
+}
+
+impl From<JsonRpcRequestBuilderError> for String {
+    fn from(error: JsonRpcRequestBuilderError) -> Self {
+        format!("{}", error)
+    }
+}
+
+impl JsonRpcRequestBuilder {
+    pub fn new() -> Self {
+        Self {
+            jsonrpc: None,
+            method: None,
+            params: None,
+            id: None,
+        }
+    }
+
+    pub fn build(self) -> Result<JsonRpcRequest, JsonRpcRequestBuilderError> {
+        let jsonrpc = self.jsonrpc.unwrap_or(JsonRpcVersion::Two);
+        let method = self
+            .method
+            .ok_or(JsonRpcRequestBuilderError::MissingMethod)?;
+        let params = self
+            .params
+            .ok_or(JsonRpcRequestBuilderError::MissingParams)?;
+        let id = self.id;
+
+        Ok(JsonRpcRequest {
+            jsonrpc,
+            method,
+            params,
+            id,
+        })
+    }
+
+    pub fn with_version(mut self, version: JsonRpcVersion) -> Self {
+        self.jsonrpc = Some(version);
+        self
+    }
+
+    pub fn with_method(mut self, method: String) -> Self {
+        self.method = Some(method);
+        self
+    }
+
+    pub fn with_params<T>(mut self, params: T) -> Self
+    where
+        T: Serialize,
+    {
+        self.params = Some(serde_json::to_value(params).unwrap());
+        self
+    }
+
+    pub fn with_id(mut self, id: String) -> Self {
+        self.id = Some(id);
+        self
+    }
+}
+
 /// A JSONRPC response object. Contains _either_ a `result` (in case of success) or `error` (in case of failure).
 #[derive(serde::Serialize, serde::Deserialize, Debug, Clone)]
 pub struct JsonRpcResponse {
