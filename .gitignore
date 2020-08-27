@@ -2,5 +2,6 @@
 /libs/db/target
 /libs/webserver_contracts/target
 /libs/client/target
+/libs/mqtt/target
 **/*.rs.bk
 *.env
