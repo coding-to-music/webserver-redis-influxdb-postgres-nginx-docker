@@ -23,6 +23,7 @@ const SET_ROLE: &str = "set_role";
 const CLEAR_LOGS: &str = "clear_logs";
 const DELETE_USER: &str = "delete_user";
 const PREPARE_TESTS: &str = "prepare_tests";
+const GET_ALL_USERS: &str = "get_all_users";
 
 /// A JSONRPC method
 pub enum Method {
@@ -48,23 +49,26 @@ pub enum Method {
     ClearLogs,
     /// Prepare the webserver for integration tests
     PrepareTests,
+    /// Get all users (admin method)
+    GetAllUsers,
 }
 
 impl FromStr for Method {
     type Err = (); // any failure means the method simply doesn't exist
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
+    fn from_str(s: &str) -> Result<Method, Self::Err> {
         match s {
-            ADD_PREDICTION => Ok(Self::AddPrediction),
-            DELETE_PREDICTION => Ok(Self::DeletePrediction),
-            SEARCH_PREDICTION => Ok(Self::SearchPredictions),
-            ADD_USER => Ok(Self::AddUser),
-            CHANGE_PASSWORD => Ok(Self::ChangePassword),
-            VALIDATE_USER => Ok(Self::ValidateUser),
-            SET_ROLE => Ok(Self::SetRole),
-            SLEEP => Ok(Self::Sleep),
-            CLEAR_LOGS => Ok(Self::ClearLogs),
-            DELETE_USER => Ok(Self::DeleteUser),
-            PREPARE_TESTS => Ok(Self::PrepareTests),
+            ADD_PREDICTION => Ok(Method::AddPrediction),
+            DELETE_PREDICTION => Ok(Method::DeletePrediction),
+            SEARCH_PREDICTION => Ok(Method::SearchPredictions),
+            ADD_USER => Ok(Method::AddUser),
+            CHANGE_PASSWORD => Ok(Method::ChangePassword),
+            VALIDATE_USER => Ok(Method::ValidateUser),
+            SET_ROLE => Ok(Method::SetRole),
+            SLEEP => Ok(Method::Sleep),
+            CLEAR_LOGS => Ok(Method::ClearLogs),
+            DELETE_USER => Ok(Method::DeleteUser),
+            PREPARE_TESTS => Ok(Method::PrepareTests),
+            GET_ALL_USERS => Ok(Method::GetAllUsers),
             _ => Err(()),
         }
     }
@@ -72,23 +76,21 @@ impl FromStr for Method {
 
 impl Display for Method {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "{}",
-            match self {
-                Method::Sleep => SLEEP,
-                Method::AddPrediction => ADD_PREDICTION,
-                Method::DeletePrediction => DELETE_PREDICTION,
-                Method::SearchPredictions => SEARCH_PREDICTION,
-                Method::AddUser => ADD_USER,
-                Method::ChangePassword => CHANGE_PASSWORD,
-                Method::ValidateUser => VALIDATE_USER,
-                Method::SetRole => SET_ROLE,
-                Method::ClearLogs => CLEAR_LOGS,
-                Method::DeleteUser => DELETE_USER,
-                Method::PrepareTests => PREPARE_TESTS,
-            }
-        )
+        let ouput = match self {
+            Method::Sleep => SLEEP,
+            Method::AddPrediction => ADD_PREDICTION,
+            Method::DeletePrediction => DELETE_PREDICTION,
+            Method::SearchPredictions => SEARCH_PREDICTION,
+            Method::AddUser => ADD_USER,
+            Method::ChangePassword => CHANGE_PASSWORD,
+            Method::ValidateUser => VALIDATE_USER,
+            Method::SetRole => SET_ROLE,
+            Method::ClearLogs => CLEAR_LOGS,
+            Method::DeleteUser => DELETE_USER,
+            Method::PrepareTests => PREPARE_TESTS,
+            Method::GetAllUsers => GET_ALL_USERS,
+        };
+        write!(f, "{}", ouput)
     }
 }
 

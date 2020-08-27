@@ -1,4 +1,7 @@
 pub use clear_logs::{ClearLogsParams, ClearLogsParamsInvalid, ClearLogsResult};
+pub use get_all_usernames::{
+    GetAllUsernamesParams, GetAllUsernamesParamsInvalid, GetAllUsernamesResult,
+};
 pub use prepare_tests::{PrepareTestsParams, PrepareTestsParamsInvalid, PrepareTestsResult};
 pub use sleep::{SleepParams, SleepParamsInvalid, SleepResult};
 
@@ -220,6 +223,62 @@ mod prepare_tests {
 
         pub fn success(&self) -> bool {
             self.success
+        }
+    }
+}
+
+mod get_all_usernames {
+    use crate::user::User;
+    use std::convert::TryFrom;
+
+    #[derive(serde::Serialize, Clone, Debug)]
+    pub struct GetAllUsernamesParams {
+        user: User,
+    }
+
+    impl GetAllUsernamesParams {
+        pub fn new(user: User) -> Self {
+            Self { user }
+        }
+
+        pub fn user(&self) -> &User {
+            &self.user
+        }
+    }
+
+    #[derive(serde::Deserialize)]
+    struct GetAllUsernamesParamsBuilder {
+        user: User,
+    }
+
+    impl GetAllUsernamesParamsBuilder {
+        fn build(self) -> Result<GetAllUsernamesParams, GetAllUsernamesParamsInvalid> {
+            Ok(GetAllUsernamesParams { user: self.user })
+        }
+    }
+
+    impl TryFrom<crate::JsonRpcRequest> for GetAllUsernamesParams {
+        type Error = GetAllUsernamesParamsInvalid;
+        fn try_from(value: crate::JsonRpcRequest) -> Result<Self, Self::Error> {
+            let builder: GetAllUsernamesParamsBuilder =
+                serde_json::from_value(value.params).map_err(Self::Error::InvalidFormat)?;
+            builder.build()
+        }
+    }
+
+    #[derive(Debug)]
+    pub enum GetAllUsernamesParamsInvalid {
+        InvalidFormat(serde_json::Error),
+    }
+
+    #[derive(Debug, serde::Serialize, serde::Deserialize)]
+    pub struct GetAllUsernamesResult {
+        usernames: Vec<String>,
+    }
+
+    impl GetAllUsernamesResult {
+        pub fn new(usernames: Vec<String>) -> Self {
+            Self { usernames }
         }
     }
 }

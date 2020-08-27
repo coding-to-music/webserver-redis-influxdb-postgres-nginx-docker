@@ -36,7 +36,7 @@ impl<T> Database<T> {
         }
     }
 
-    pub fn get_connection(&self) -> Result<Connection, DatabaseError> {
+    fn get_connection(&self) -> Result<Connection, DatabaseError> {
         trace!("connecting to database at '{}'", self.path);
         let timer = time::Instant::now();
         let conn = Connection::open(&self.path).map_err(|e| DatabaseError::from(e));
@@ -112,6 +112,19 @@ impl Database<User> {
         } else {
             Ok(Some(user_rows.swap_remove(0)))
         }
+    }
+
+    pub fn get_all_usernames(&self) -> Result<Vec<String>, DatabaseError> {
+        let db = self.get_connection()?;
+
+        let mut stmt = db.prepare("SELECT username FROM user")?;
+
+        let user_rows: Vec<String> = stmt
+            .query_map(params![], |row| Ok(row.get(0)?))?
+            .filter_map(|b| b.ok())
+            .collect();
+            
+        Ok(user_rows)
     }
 
     pub fn delete_user(&self, username: &str) -> Result<bool, DatabaseError> {

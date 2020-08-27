@@ -170,6 +170,7 @@ impl App {
                         .prepare_tests(request)
                         .await
                         .map(|ok| JsonRpcResponse::success(jsonrpc, ok, id)),
+                    Method::GetAllUsers => todo!(),
                 }
             }
         };

@@ -91,6 +91,18 @@ impl ServerController {
         Ok(PrepareTestsResult::new(false))
     }
 
+    pub async fn get_all_users(
+        &self,
+        request: crate::JsonRpcRequest,
+    ) -> Result<GetAllUsernamesResult, AppError> {
+        let params = GetAllUsernamesParams::try_from(request)?;
+        self.authorize_admin(params.user())?;
+
+        let result = self.user_db.get_all_usernames()?;
+
+        Ok(GetAllUsernamesResult::new(result))
+    }
+
     fn authorize_admin(&self, user: &user::User) -> Result<(), AppError> {
         match self.user_db.get_user(user.username())?.map(|u| {
             (
@@ -148,6 +160,16 @@ impl From<PrepareTestsParamsInvalid> for AppError {
     fn from(error: PrepareTestsParamsInvalid) -> Self {
         match error {
             PrepareTestsParamsInvalid::InvalidFormat(e) => {
+                AppError::from(JsonRpcError::invalid_format(e))
+            }
+        }
+    }
+}
+
+impl From<GetAllUsernamesParamsInvalid> for AppError {
+    fn from(error: GetAllUsernamesParamsInvalid) -> Self {
+        match error {
+            GetAllUsernamesParamsInvalid::InvalidFormat(e) => {
                 AppError::from(JsonRpcError::invalid_format(e))
             }
         }
