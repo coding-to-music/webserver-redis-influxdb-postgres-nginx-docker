@@ -298,6 +298,7 @@ where
     );
 }
 
+/// Encrypt `password` with `salt`
 pub(crate) fn encrypt(
     password: &[u8],
     salt: &[u8; digest::SHA512_OUTPUT_LEN],

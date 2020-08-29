@@ -106,8 +106,9 @@ impl ServerController {
     fn authorize_admin(&self, user: &user::User) -> Result<(), AppError> {
         debug!("validating user {:?}", user);
         match self.user_db.get_user(user.username())?.map(|u| {
+            let encrypted_password = crate::encrypt(user.password().as_bytes(), u.salt());
             (
-                u.validate_password(u.password()),
+                u.validate_password(&encrypted_password),
                 u.is_authorized(db::UserRole::Admin),
             )
         }) {

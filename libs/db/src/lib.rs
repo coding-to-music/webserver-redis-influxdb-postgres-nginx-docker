@@ -375,7 +375,7 @@ impl User {
         &self.username
     }
 
-    pub fn password(&self) -> &[u8; PASSWORD_BYTE_LEN] {
+    fn password(&self) -> &[u8; PASSWORD_BYTE_LEN] {
         &self.password
     }
 
