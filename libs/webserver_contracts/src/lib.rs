@@ -23,7 +23,7 @@ const SET_ROLE: &str = "set_role";
 const CLEAR_LOGS: &str = "clear_logs";
 const DELETE_USER: &str = "delete_user";
 const PREPARE_TESTS: &str = "prepare_tests";
-const GET_ALL_USERS: &str = "get_all_users";
+const GET_ALL_USERNAMES: &str = "get_all_usernames";
 
 /// A JSONRPC method
 pub enum Method {
@@ -68,7 +68,7 @@ impl FromStr for Method {
             CLEAR_LOGS => Ok(Method::ClearLogs),
             DELETE_USER => Ok(Method::DeleteUser),
             PREPARE_TESTS => Ok(Method::PrepareTests),
-            GET_ALL_USERS => Ok(Method::GetAllUsers),
+            GET_ALL_USERNAMES => Ok(Method::GetAllUsers),
             _ => Err(()),
         }
     }
@@ -88,7 +88,7 @@ impl Display for Method {
             Method::ClearLogs => CLEAR_LOGS,
             Method::DeleteUser => DELETE_USER,
             Method::PrepareTests => PREPARE_TESTS,
-            Method::GetAllUsers => GET_ALL_USERS,
+            Method::GetAllUsers => GET_ALL_USERNAMES,
         };
         write!(f, "{}", ouput)
     }

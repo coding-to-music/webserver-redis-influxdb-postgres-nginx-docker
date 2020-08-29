@@ -91,7 +91,7 @@ impl ServerController {
         Ok(PrepareTestsResult::new(false))
     }
 
-    pub async fn get_all_users(
+    pub async fn get_all_usernames(
         &self,
         request: crate::JsonRpcRequest,
     ) -> Result<GetAllUsernamesResult, AppError> {
