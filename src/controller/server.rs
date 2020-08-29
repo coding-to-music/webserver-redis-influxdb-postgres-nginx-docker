@@ -104,6 +104,7 @@ impl ServerController {
     }
 
     fn authorize_admin(&self, user: &user::User) -> Result<(), AppError> {
+        debug!("validating user {:?}", user);
         match self.user_db.get_user(user.username())?.map(|u| {
             (
                 u.validate_password(u.password()),
@@ -111,12 +112,24 @@ impl ServerController {
             )
         }) {
             // tuple is (password is correct, user is admin)
-            Some((true, true)) => Ok(()),
-            Some((true, false)) => Err(AppError::from(JsonRpcError::not_permitted())),
-            Some((false, _)) => Err(AppError::from(JsonRpcError::invalid_username_or_password())),
-            None => Err(AppError::from(
-                JsonRpcError::internal_error().with_data("user does not exist"),
-            )),
+            Some((true, true)) => {
+                debug!("password is valid and user is admin");
+                Ok(())
+            }
+            Some((true, false)) => {
+                debug!("password is valid but user is not admin");
+                Err(AppError::from(JsonRpcError::not_permitted()))
+            }
+            Some((false, _)) => {
+                debug!("password is invalid");
+                Err(AppError::from(JsonRpcError::invalid_username_or_password()))
+            }
+            None => {
+                debug!("user does not exist");
+                Err(AppError::from(
+                    JsonRpcError::internal_error().with_data("user does not exist"),
+                ))
+            }
         }
     }
 
