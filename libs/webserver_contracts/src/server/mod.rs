@@ -9,15 +9,20 @@ mod sleep {
     use crate::user::User;
     use std::convert::TryFrom;
 
-    #[derive(serde::Serialize, Clone, Debug)]
+    #[derive(Clone, Debug)]
     pub struct SleepParams {
         user: User,
         seconds: f32,
+        sync: bool,
     }
 
     impl SleepParams {
-        pub fn new(user: User, seconds: f32) -> Self {
-            Self { user, seconds }
+        pub fn new(user: User, seconds: f32, sync: bool) -> Self {
+            Self {
+                user,
+                seconds,
+                sync,
+            }
         }
 
         pub fn user(&self) -> &User {
@@ -27,12 +32,17 @@ mod sleep {
         pub fn seconds(&self) -> f32 {
             self.seconds
         }
+
+        pub fn sync(&self) -> bool {
+            self.sync
+        }
     }
 
     #[derive(serde::Deserialize)]
     struct SleepParamsBuilder {
         seconds: f32,
         user: User,
+        sync: Option<bool>,
     }
 
     impl SleepParamsBuilder {
@@ -45,6 +55,7 @@ mod sleep {
                 Ok(SleepParams {
                     seconds: self.seconds,
                     user: self.user,
+                    sync: self.sync.unwrap_or(false),
                 })
             }
         }

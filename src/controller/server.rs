@@ -24,9 +24,15 @@ impl ServerController {
         let params = SleepParams::try_from(request)?;
         self.authorize_admin(params.user())?;
 
-        let now = std::time::Instant::now();
-        tokio::time::delay_for(Duration::from_secs_f32(params.seconds())).await;
-        let elapsed = now.elapsed();
+        let elapsed = if params.sync() {
+            let now = std::time::Instant::now();
+            std::thread::sleep(Duration::from_secs_f32(params.seconds()));
+            now.elapsed()
+        } else {
+            let now = std::time::Instant::now();
+            tokio::time::delay_for(Duration::from_secs_f32(params.seconds())).await;
+            now.elapsed()
+        };
 
         self.increment_served_requests().await;
 
