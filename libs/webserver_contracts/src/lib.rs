@@ -401,7 +401,7 @@ impl Error {
 
     /// Constructor for an "Invalid username or password" webserver error.
     pub fn invalid_username_or_password() -> Self {
-        Self::invalid_params().with_data("invalid username or passwor")
+        Self::invalid_params().with_data("invalid username or password")
     }
 }
 
