@@ -120,6 +120,7 @@ impl PredictionController {
         }
     }
 
+    /// Finds a user in the database and validates that the given password is correct
     fn get_and_validate_user(&self, user: &User) -> Result<bool, db::DatabaseError> {
         let valid = self
             .user_db

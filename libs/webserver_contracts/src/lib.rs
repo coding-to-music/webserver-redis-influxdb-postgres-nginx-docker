@@ -3,7 +3,7 @@
 use serde::{de::DeserializeOwned, Serialize};
 use serde_json::Value;
 use std::{
-    convert::Infallible,
+    convert::{Infallible, TryFrom},
     fmt::{Debug, Display},
     str::FromStr,
 };
@@ -12,18 +12,28 @@ pub mod prediction;
 pub mod server;
 pub mod user;
 
-const SLEEP: &str = "sleep";
-const ADD_PREDICTION: &str = "add_prediction";
-const DELETE_PREDICTION: &str = "delete_prediction";
-const SEARCH_PREDICTION: &str = "search_predictions";
-const ADD_USER: &str = "add_user";
-const CHANGE_PASSWORD: &str = "change_password";
-const VALIDATE_USER: &str = "validate_user";
-const SET_ROLE: &str = "set_role";
-const CLEAR_LOGS: &str = "clear_logs";
-const DELETE_USER: &str = "delete_user";
-const PREPARE_TESTS: &str = "prepare_tests";
-const GET_ALL_USERNAMES: &str = "get_all_usernames";
+mod method_names {
+    pub const SLEEP: &str = "sleep";
+    pub const ADD_PREDICTION: &str = "add_prediction";
+    pub const DELETE_PREDICTION: &str = "delete_prediction";
+    pub const SEARCH_PREDICTION: &str = "search_predictions";
+    pub const ADD_USER: &str = "add_user";
+    pub const CHANGE_PASSWORD: &str = "change_password";
+    pub const VALIDATE_USER: &str = "validate_user";
+    pub const SET_ROLE: &str = "set_role";
+    pub const CLEAR_LOGS: &str = "clear_logs";
+    pub const DELETE_USER: &str = "delete_user";
+    pub const PREPARE_TESTS: &str = "prepare_tests";
+    pub const GET_ALL_USERNAMES: &str = "get_all_usernames";
+}
+
+mod error_codes {
+    pub const PARSE_ERROR: i32 = -32700;
+    pub const INVALID_REQUEST: i32 = -32600;
+    pub const METHOD_NOT_FOUND: i32 = -32601;
+    pub const INVALID_PARAMS: i32 = -32602;
+    pub const INTERNAL_ERROR: i32 = -32603;
+}
 
 /// A JSONRPC method
 pub enum Method {
@@ -57,18 +67,18 @@ impl FromStr for Method {
     type Err = (); // any failure means the method simply doesn't exist
     fn from_str(s: &str) -> Result<Method, Self::Err> {
         match s {
-            ADD_PREDICTION => Ok(Method::AddPrediction),
-            DELETE_PREDICTION => Ok(Method::DeletePrediction),
-            SEARCH_PREDICTION => Ok(Method::SearchPredictions),
-            ADD_USER => Ok(Method::AddUser),
-            CHANGE_PASSWORD => Ok(Method::ChangePassword),
-            VALIDATE_USER => Ok(Method::ValidateUser),
-            SET_ROLE => Ok(Method::SetRole),
-            SLEEP => Ok(Method::Sleep),
-            CLEAR_LOGS => Ok(Method::ClearLogs),
-            DELETE_USER => Ok(Method::DeleteUser),
-            PREPARE_TESTS => Ok(Method::PrepareTests),
-            GET_ALL_USERNAMES => Ok(Method::GetAllUsers),
+            method_names::ADD_PREDICTION => Ok(Method::AddPrediction),
+            method_names::DELETE_PREDICTION => Ok(Method::DeletePrediction),
+            method_names::SEARCH_PREDICTION => Ok(Method::SearchPredictions),
+            method_names::ADD_USER => Ok(Method::AddUser),
+            method_names::CHANGE_PASSWORD => Ok(Method::ChangePassword),
+            method_names::VALIDATE_USER => Ok(Method::ValidateUser),
+            method_names::SET_ROLE => Ok(Method::SetRole),
+            method_names::SLEEP => Ok(Method::Sleep),
+            method_names::CLEAR_LOGS => Ok(Method::ClearLogs),
+            method_names::DELETE_USER => Ok(Method::DeleteUser),
+            method_names::PREPARE_TESTS => Ok(Method::PrepareTests),
+            method_names::GET_ALL_USERNAMES => Ok(Method::GetAllUsers),
             _ => Err(()),
         }
     }
@@ -77,18 +87,18 @@ impl FromStr for Method {
 impl Display for Method {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let ouput = match self {
-            Method::Sleep => SLEEP,
-            Method::AddPrediction => ADD_PREDICTION,
-            Method::DeletePrediction => DELETE_PREDICTION,
-            Method::SearchPredictions => SEARCH_PREDICTION,
-            Method::AddUser => ADD_USER,
-            Method::ChangePassword => CHANGE_PASSWORD,
-            Method::ValidateUser => VALIDATE_USER,
-            Method::SetRole => SET_ROLE,
-            Method::ClearLogs => CLEAR_LOGS,
-            Method::DeleteUser => DELETE_USER,
-            Method::PrepareTests => PREPARE_TESTS,
-            Method::GetAllUsers => GET_ALL_USERNAMES,
+            Method::Sleep => method_names::SLEEP,
+            Method::AddPrediction => method_names::ADD_PREDICTION,
+            Method::DeletePrediction => method_names::DELETE_PREDICTION,
+            Method::SearchPredictions => method_names::SEARCH_PREDICTION,
+            Method::AddUser => method_names::ADD_USER,
+            Method::ChangePassword => method_names::CHANGE_PASSWORD,
+            Method::ValidateUser => method_names::VALIDATE_USER,
+            Method::SetRole => method_names::SET_ROLE,
+            Method::ClearLogs => method_names::CLEAR_LOGS,
+            Method::DeleteUser => method_names::DELETE_USER,
+            Method::PrepareTests => method_names::PREPARE_TESTS,
+            Method::GetAllUsers => method_names::GET_ALL_USERNAMES,
         };
         write!(f, "{}", ouput)
     }
@@ -403,6 +413,11 @@ impl Error {
     pub fn invalid_username_or_password() -> Self {
         Self::invalid_params().with_data("invalid username or password")
     }
+
+    /// Constructor for an "Password too short" webserver error.
+    pub fn password_too_short() -> Self {
+        Self::invalid_params().with_data("password too short")
+    }
 }
 
 impl From<Infallible> for Error {
@@ -428,11 +443,26 @@ pub enum ErrorCode {
 impl From<ErrorCode> for i32 {
     fn from(error_code: ErrorCode) -> Self {
         match error_code {
-            ErrorCode::ParseError => -32700,
-            ErrorCode::InvalidRequest => -32600,
-            ErrorCode::MethodNotFound => -32601,
-            ErrorCode::InvalidParams => -32602,
-            ErrorCode::InternalError => -32603,
+            ErrorCode::ParseError => error_codes::PARSE_ERROR,
+            ErrorCode::InvalidRequest => error_codes::INVALID_REQUEST,
+            ErrorCode::MethodNotFound => error_codes::METHOD_NOT_FOUND,
+            ErrorCode::InvalidParams => error_codes::INVALID_PARAMS,
+            ErrorCode::InternalError => error_codes::INTERNAL_ERROR,
         }
+    }
+}
+
+impl TryFrom<i32> for ErrorCode {
+    type Error = ();
+
+    fn try_from(value: i32) -> Result<Self, Self::Error> {
+        Ok(match value {
+            error_codes::PARSE_ERROR => ErrorCode::ParseError,
+            error_codes::INVALID_REQUEST => ErrorCode::InvalidRequest,
+            error_codes::INTERNAL_ERROR => ErrorCode::InternalError,
+            error_codes::INVALID_PARAMS => ErrorCode::InvalidParams,
+            error_codes::METHOD_NOT_FOUND => ErrorCode::MethodNotFound,
+            _ => return Err(()),
+        })
     }
 }

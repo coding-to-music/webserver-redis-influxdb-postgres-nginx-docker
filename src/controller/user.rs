@@ -35,12 +35,7 @@ impl UserController {
             ));
         }
 
-        let rng = SystemRandom::new();
-        let mut salt = [0u8; digest::SHA512_OUTPUT_LEN];
-
-        rng.fill(&mut salt)
-            .map_err(|e| JsonRpcError::internal_error().with_data(format!("rng error: {}", e)))?;
-
+        let salt = UserController::generate_salt();
         let hashed_password = crate::encrypt(&params.user().password().as_bytes(), &salt);
 
         let user_row = db::User::new(
@@ -54,6 +49,15 @@ impl UserController {
         let rows = self.user_db.add_user(user_row)?;
 
         Ok(AddUserResult::new(rows == 1))
+    }
+
+    fn generate_salt() -> [u8; digest::SHA512_OUTPUT_LEN] {
+        let rng = SystemRandom::new();
+        let mut salt = [0u8; digest::SHA512_OUTPUT_LEN];
+
+        rng.fill(&mut salt).unwrap();
+
+        todo!()
     }
 
     pub async fn change_password(
@@ -204,7 +208,7 @@ impl From<AddUserParamsInvalid> for AppError {
                 AppError::from(JsonRpcError::invalid_format(e))
             }
             AddUserParamsInvalid::PasswordTooShort => {
-                AppError::from(JsonRpcError::invalid_params().with_data("'password' too short"))
+                AppError::from(JsonRpcError::password_too_short())
             }
         }
     }
@@ -215,6 +219,9 @@ impl From<ChangePasswordParamsInvalid> for AppError {
         match error {
             ChangePasswordParamsInvalid::InvalidFormat(e) => {
                 AppError::from(JsonRpcError::invalid_format(e))
+            }
+            ChangePasswordParamsInvalid::PasswordTooShort => {
+                AppError::from(JsonRpcError::password_too_short())
             }
         }
     }

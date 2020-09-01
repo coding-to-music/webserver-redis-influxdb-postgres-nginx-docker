@@ -9,6 +9,7 @@ pub use validate_user::{ValidateUserParams, ValidateUserParamsInvalid, ValidateU
 #[derive(serde::Deserialize, serde::Serialize, Clone, Debug)]
 pub struct User {
     username: String,
+    #[serde(skip_serializing)]
     password: String,
 }
 
@@ -124,10 +125,14 @@ mod change_password {
 
     impl ChangePasswordParamsBuilder {
         fn build(self) -> Result<ChangePasswordParams, ChangePasswordParamsInvalid> {
-            Ok(ChangePasswordParams {
-                user: self.user,
-                new_password: self.new_password,
-            })
+            if self.new_password.len() < 10 {
+                Err(ChangePasswordParamsInvalid::PasswordTooShort)
+            } else {
+                Ok(ChangePasswordParams {
+                    user: self.user,
+                    new_password: self.new_password,
+                })
+            }
         }
     }
 
@@ -144,6 +149,7 @@ mod change_password {
     #[derive(Debug)]
     pub enum ChangePasswordParamsInvalid {
         InvalidFormat(serde_json::Error),
+        PasswordTooShort,
     }
 
     #[derive(serde::Serialize, serde::Deserialize)]
