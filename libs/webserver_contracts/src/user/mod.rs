@@ -9,7 +9,6 @@ pub use validate_user::{ValidateUserParams, ValidateUserParamsInvalid, ValidateU
 #[derive(serde::Deserialize, serde::Serialize, Clone, Debug)]
 pub struct User {
     username: String,
-    #[serde(skip_serializing)]
     password: String,
 }
 
