@@ -57,7 +57,7 @@ impl UserController {
 
         rng.fill(&mut salt).unwrap();
 
-        todo!()
+        salt
     }
 
     pub async fn change_password(
