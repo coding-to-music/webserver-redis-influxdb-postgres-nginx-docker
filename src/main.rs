@@ -203,14 +203,15 @@ impl App {
                 if err.context.is_some() {
                     error!("error with context: {:?}", err);
                 }
-                JsonRpcResponse::error(jsonrpc, err.rpc_error, id)
+                JsonRpcResponse::error(jsonrpc, err.rpc_error, id.clone())
             }
         };
 
         self.log_measurement(
             Measurement::builder(String::from("handle_request"))
                 .with_tag(String::from("method"), method.clone())
-                .with_field_u128(String::from("duration_ms"), elapsed.as_millis())
+                .with_field_u128(String::from("duration_micros"), elapsed.as_micros())
+                .with_field_string(String::from("request_id"), id.unwrap_or(String::from("")))
                 .build()
                 .unwrap(),
         )
@@ -230,12 +231,16 @@ impl App {
     }
 
     async fn log_measurement(&self, measurement: Measurement) {
-        debug!("logging measurement to influx");
         let response = self
             .influx_client
             .send_batch("server", &vec![measurement])
             .await;
-        debug!("response from influx: '{}'", response.status());
+        if !response.status().is_success() {
+            error!(
+                "failed to send measurement to InfluxDB with status '{}'",
+                response.status()
+            );
+        }
     }
 }
 
