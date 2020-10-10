@@ -24,4 +24,4 @@ chrono = "0.4.11"
 ring = "0.16.13"
 structopt = "0.3.14"
 num-traits = "0.2.11"
-influx = { git = "https://github.com/ijagberg/influx" }
+influx = { git = "https://github.com/ijagberg/influx", branch = "main" }

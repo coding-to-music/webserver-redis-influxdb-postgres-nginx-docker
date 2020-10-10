@@ -4,15 +4,11 @@ use controller::*;
 use db;
 use dotenv;
 use futures::future;
+use influx::{InfluxClient, Measurement};
 use ring::digest;
 use serde_json::Value;
 use std::{
-    any::Any,
-    convert::Infallible,
-    fmt::{Debug, Display},
-    num::NonZeroU32,
-    path::PathBuf,
-    str::FromStr,
+    any::Any, convert::Infallible, fmt::Debug, num::NonZeroU32, path::PathBuf, str::FromStr,
     sync::Arc,
 };
 use structopt::StructOpt;
@@ -34,6 +30,12 @@ pub struct Opts {
     database_path: String,
     #[structopt(long, env = "WEBSERVER_LOG_PATH")]
     log_path: String,
+    #[structopt(long, env = "WEBSERVER_INFLUX_URL")]
+    influx_url: String,
+    #[structopt(long, env = "WEBSERVER_INFLUX_KEY")]
+    influx_key: String,
+    #[structopt(long, env = "WEBSERVER_INFLUX_ORG")]
+    influx_org: String,
 }
 
 #[tokio::main]
@@ -75,6 +77,7 @@ pub struct App {
     prediction_controller: PredictionController,
     user_controller: UserController,
     server_controller: ServerController,
+    influx_client: InfluxClient,
 }
 
 impl App {
@@ -85,6 +88,14 @@ impl App {
             Arc::new(db::Database::new(opts.database_path.clone()));
         let webserver_log_path: PathBuf = PathBuf::from(opts.log_path.clone());
 
+        let influx_client = InfluxClient::builder(
+            opts.influx_url.to_string(),
+            opts.influx_key.to_string(),
+            opts.influx_org.to_string(),
+        )
+        .build()
+        .unwrap();
+
         Self {
             opts,
             prediction_controller: PredictionController::new(
@@ -93,6 +104,7 @@ impl App {
             ),
             user_controller: UserController::new(user_db.clone(), prediction_db.clone()),
             server_controller: ServerController::new(user_db, webserver_log_path),
+            influx_client,
         }
     }
 
@@ -195,7 +207,14 @@ impl App {
             }
         };
 
-        crate::log_metric("handle_message_ms", elapsed.as_millis(), None);
+        self.log_measurement(
+            Measurement::builder(String::from("handle_request"))
+                .with_tag(String::from("method"), method.clone())
+                .with_field_u128(String::from("duration_ms"), elapsed.as_millis())
+                .build()
+                .unwrap(),
+        )
+        .await;
 
         response
     }
@@ -208,6 +227,15 @@ impl App {
                 .collect::<Vec<_>>(),
         )
         .await
+    }
+
+    async fn log_measurement(&self, measurement: Measurement) {
+        debug!("logging measurement to influx");
+        let response = self
+            .influx_client
+            .send_batch("server", &vec![measurement])
+            .await;
+        debug!("response from influx: '{}'", response.status());
     }
 }
 
@@ -284,18 +312,6 @@ where
                 std::any::type_name::<T>()
             )
         })
-}
-
-pub fn log_metric<T>(name: &str, value: T, timestamp: Option<i64>)
-where
-    T: num_traits::Num + Display,
-{
-    info!(
-        "metric:{};{};{}",
-        name,
-        value,
-        timestamp.unwrap_or_else(|| chrono::Utc::now().timestamp_millis())
-    );
 }
 
 /// Encrypt `password` with `salt`
