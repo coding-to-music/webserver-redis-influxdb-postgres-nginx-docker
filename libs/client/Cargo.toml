@@ -8,5 +8,5 @@ edition = "2018"
 path = "../webserver_contracts"
 
 [dependencies]
-reqwest = { version = "0.10.6", features = ["json"] }
+reqwest = { version = "0.10.8", features = ["json"] }
 serde_json = "1.0.53"
