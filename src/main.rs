@@ -77,7 +77,8 @@ pub struct App {
     prediction_controller: PredictionController,
     user_controller: UserController,
     server_controller: ServerController,
-    influx_client: InfluxClient,
+    mqtt_controller: MqttController,
+    influx_client: Arc<InfluxClient>,
 }
 
 impl App {
@@ -88,13 +89,15 @@ impl App {
             Arc::new(db::Database::new(opts.database_path.clone()));
         let webserver_log_path: PathBuf = PathBuf::from(opts.log_path.clone());
 
-        let influx_client = InfluxClient::builder(
-            opts.influx_url.to_string(),
-            opts.influx_key.to_string(),
-            opts.influx_org.to_string(),
-        )
-        .build()
-        .unwrap();
+        let influx_client = Arc::new(
+            InfluxClient::builder(
+                opts.influx_url.to_string(),
+                opts.influx_key.to_string(),
+                opts.influx_org.to_string(),
+            )
+            .build()
+            .unwrap(),
+        );
 
         Self {
             opts,
@@ -104,6 +107,7 @@ impl App {
             ),
             user_controller: UserController::new(user_db.clone(), prediction_db.clone()),
             server_controller: ServerController::new(user_db, webserver_log_path),
+            mqtt_controller: MqttController::new(influx_client.clone()),
             influx_client,
         }
     }
@@ -185,6 +189,11 @@ impl App {
                     Method::GetAllUsers => self
                         .server_controller
                         .get_all_usernames(request)
+                        .await
+                        .map(|ok| JsonRpcResponse::success(jsonrpc, ok, id)),
+                    Method::HandleMqttMessage => self
+                        .mqtt_controller
+                        .handle_mqtt_message(request)
                         .await
                         .map(|ok| JsonRpcResponse::success(jsonrpc, ok, id)),
                 }

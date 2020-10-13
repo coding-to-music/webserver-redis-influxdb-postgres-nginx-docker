@@ -11,6 +11,7 @@ use std::{
 pub mod prediction;
 pub mod server;
 pub mod user;
+pub mod mqtt;
 
 mod method_names {
     pub const SLEEP: &str = "sleep";
@@ -25,6 +26,7 @@ mod method_names {
     pub const DELETE_USER: &str = "delete_user";
     pub const PREPARE_TESTS: &str = "prepare_tests";
     pub const GET_ALL_USERNAMES: &str = "get_all_usernames";
+    pub const HANDLE_MQTT_MESSAGE: &str = "handle_mqtt_message";
 }
 
 mod error_codes {
@@ -61,6 +63,8 @@ pub enum Method {
     PrepareTests,
     /// Get all users (admin method)
     GetAllUsers,
+    /// Handle an MQTT message
+    HandleMqttMessage,
 }
 
 impl FromStr for Method {
@@ -99,6 +103,7 @@ impl Display for Method {
             Method::DeleteUser => method_names::DELETE_USER,
             Method::PrepareTests => method_names::PREPARE_TESTS,
             Method::GetAllUsers => method_names::GET_ALL_USERNAMES,
+            Method::HandleMqttMessage => method_names::HANDLE_MQTT_MESSAGE,
         };
         write!(f, "{}", ouput)
     }
