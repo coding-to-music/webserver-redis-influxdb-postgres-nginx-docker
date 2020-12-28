@@ -8,10 +8,10 @@ use std::{
     str::FromStr,
 };
 
+pub mod chess;
 pub mod prediction;
 pub mod server;
 pub mod user;
-pub mod mqtt;
 
 mod method_names {
     pub const SLEEP: &str = "sleep";
@@ -26,7 +26,8 @@ mod method_names {
     pub const DELETE_USER: &str = "delete_user";
     pub const PREPARE_TESTS: &str = "prepare_tests";
     pub const GET_ALL_USERNAMES: &str = "get_all_usernames";
-    pub const HANDLE_MQTT_MESSAGE: &str = "handle_mqtt_message";
+    pub const CONNECT_TO_GAME: &str = "connect_to_game";
+    pub const MAKE_MOVE: &str = "make_move";
 }
 
 mod error_codes {
@@ -63,8 +64,10 @@ pub enum Method {
     PrepareTests,
     /// Get all users (admin method)
     GetAllUsers,
-    /// Handle an MQTT message
-    HandleMqttMessage,
+    /// Connect to a chess game
+    ConnectToGame,
+    /// Make a move in a chess game
+    MakeMove,
 }
 
 impl FromStr for Method {
@@ -83,6 +86,8 @@ impl FromStr for Method {
             method_names::DELETE_USER => Ok(Method::DeleteUser),
             method_names::PREPARE_TESTS => Ok(Method::PrepareTests),
             method_names::GET_ALL_USERNAMES => Ok(Method::GetAllUsers),
+            method_names::CONNECT_TO_GAME => Ok(Method::ConnectToGame),
+            method_names::MAKE_MOVE => Ok(Method::MakeMove),
             _ => Err(()),
         }
     }
@@ -103,7 +108,8 @@ impl Display for Method {
             Method::DeleteUser => method_names::DELETE_USER,
             Method::PrepareTests => method_names::PREPARE_TESTS,
             Method::GetAllUsers => method_names::GET_ALL_USERNAMES,
-            Method::HandleMqttMessage => method_names::HANDLE_MQTT_MESSAGE,
+            Method::ConnectToGame => method_names::CONNECT_TO_GAME,
+            Method::MakeMove => method_names::MAKE_MOVE,
         };
         write!(f, "{}", ouput)
     }
