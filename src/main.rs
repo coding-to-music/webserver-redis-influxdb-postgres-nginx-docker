@@ -77,7 +77,6 @@ pub struct App {
     prediction_controller: PredictionController,
     user_controller: UserController,
     server_controller: ServerController,
-    mqtt_controller: MqttController,
     influx_client: Arc<InfluxClient>,
 }
 
@@ -107,7 +106,6 @@ impl App {
             ),
             user_controller: UserController::new(user_db.clone(), prediction_db.clone()),
             server_controller: ServerController::new(user_db, webserver_log_path),
-            mqtt_controller: MqttController::new(influx_client.clone()),
             influx_client,
         }
     }
@@ -191,11 +189,12 @@ impl App {
                         .get_all_usernames(request)
                         .await
                         .map(|ok| JsonRpcResponse::success(jsonrpc, ok, id)),
-                    Method::HandleMqttMessage => self
-                        .mqtt_controller
-                        .handle_mqtt_message(request)
-                        .await
-                        .map(|ok| JsonRpcResponse::success(jsonrpc, ok, id)),
+                    Method::ConnectToGame => {
+                        todo!()
+                    }
+                    Method::MakeMove => {
+                        todo!()
+                    }
                 }
             }
         };
