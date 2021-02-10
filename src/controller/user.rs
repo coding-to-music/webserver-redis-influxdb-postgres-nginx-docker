@@ -1,6 +1,5 @@
 use crate::AppError;
 use chrono::Utc;
-use db::{self, UserRole};
 use rand::SystemRandom;
 use ring::{
     digest,
@@ -8,17 +7,15 @@ use ring::{
 };
 use std::{convert::TryFrom, str::FromStr, sync::Arc};
 use webserver_contracts::{user::*, Error as JsonRpcError};
+use webserver_database::{self, Database, Prediction as DbPrediction, User as DbUser, UserRole};
 
 pub struct UserController {
-    user_db: Arc<db::Database<db::User>>,
-    prediction_db: Arc<db::Database<db::Prediction>>,
+    user_db: Arc<Database<DbUser>>,
+    prediction_db: Arc<Database<DbPrediction>>,
 }
 
 impl UserController {
-    pub fn new(
-        user_db: Arc<db::Database<db::User>>,
-        prediction_db: Arc<db::Database<db::Prediction>>,
-    ) -> Self {
+    pub fn new(user_db: Arc<Database<DbUser>>, prediction_db: Arc<Database<DbPrediction>>) -> Self {
         Self {
             user_db,
             prediction_db,
@@ -38,7 +35,7 @@ impl UserController {
         let salt = UserController::generate_salt();
         let hashed_password = crate::encrypt(&params.user().password().as_bytes(), &salt);
 
-        let user_row = db::User::new(
+        let user_row = DbUser::new(
             None,
             params.user().username().to_owned(),
             hashed_password,
@@ -87,7 +84,7 @@ impl UserController {
 
         let new_password = crate::encrypt(params.new_password().as_bytes(), current_salt);
 
-        let new_user_row = db::User::new(
+        let new_user_row = DbUser::new(
             user_row.id(),
             user_row.username().to_owned(),
             new_password,
@@ -146,7 +143,7 @@ impl UserController {
         if let Some(_user) = self.user_db.get_user(params.username())? {
             let result = self.user_db.update_user_role(
                 params.username(),
-                db::UserRole::from_str(params.role()).map_err(|_| {
+                UserRole::from_str(params.role()).map_err(|_| {
                     AppError::from(JsonRpcError::invalid_params().with_data("invalid user role"))
                         .with_context(&format!(
                             "user provided '{}', which is not a valid role",

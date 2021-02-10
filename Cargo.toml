@@ -4,12 +4,6 @@ version = "0.1.0"
 authors = ["Isak Jägberg <ijagberg@gmail.com>"]
 edition = "2018"
 
-[dependencies.webserver_contracts]
-path = "libs/webserver_contracts"
-
-[dependencies.db]
-path = "libs/db"
-
 [dependencies]
 dotenv = "0.15.0"
 tokio = { version = "0.2", features = ["macros"] }
@@ -25,3 +19,5 @@ ring = "0.16.13"
 structopt = "0.3.14"
 num-traits = "0.2.11"
 influx = { git = "https://github.com/ijagberg/influx", branch = "main" }
+webserver_database = { git = "https://github.com/ijagberg/webserver_database", branch = "main" }
+webserver_contracts = { git = "https://github.com/ijagberg/webserver_contracts", branch = "main" }

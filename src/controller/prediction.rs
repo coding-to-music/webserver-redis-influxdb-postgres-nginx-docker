@@ -1,8 +1,8 @@
 use crate::AppError;
 use chrono::Utc;
-use db;
 use std::{convert::TryFrom, sync::Arc};
 use webserver_contracts::{prediction::*, user::User, Error as JsonRpcError};
+use webserver_database as db;
 
 pub struct PredictionController {
     prediction_db: Arc<db::Database<db::Prediction>>,

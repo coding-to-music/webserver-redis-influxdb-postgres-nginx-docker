@@ -1,7 +1,6 @@
 #![allow(dead_code)]
 
 use controller::*;
-use db;
 use dotenv;
 use futures::future;
 use influx::{InfluxClient, Measurement};
@@ -16,6 +15,7 @@ use warp::{Filter, Reply};
 use webserver_contracts::{
     Error as JsonRpcError, JsonRpcRequest, JsonRpcResponse, JsonRpcVersion, Method,
 };
+use webserver_database as db;
 
 mod controller;
 

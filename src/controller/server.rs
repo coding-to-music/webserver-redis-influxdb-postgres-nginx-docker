@@ -1,9 +1,9 @@
 use crate::AppError;
-use db;
 use std::{convert::TryFrom, path::PathBuf, sync::Arc, time};
 use time::Duration;
 use tokio::sync::Mutex;
 use webserver_contracts::{server::*, user, Error as JsonRpcError};
+use webserver_database as db;
 
 pub struct ServerController {
     user_db: Arc<db::Database<db::User>>,
