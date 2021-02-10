@@ -8,7 +8,6 @@ use std::{
     str::FromStr,
 };
 
-pub mod chess;
 pub mod prediction;
 pub mod server;
 pub mod user;

@@ -13,15 +13,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0e4cec68f03f32e44924783795810fa50a7035d8c8ebe78580ad7e6c703fba38"
 
 [[package]]
-name = "chess"
-version = "0.1.0"
-source = "git+https://github.com/ijagberg/chess?branch=main#09d78b5620f63cb222f3d5e97e525933d5317478"
-dependencies = [
- "serde",
- "simple-grid",
-]
-
-[[package]]
 name = "chrono"
 version = "0.4.19"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -133,15 +124,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "simple-grid"
-version = "1.0.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b4dd3761475e06b90caf48eb75a6213885ebaf1b3bfed3d5c47c584670c42539"
-dependencies = [
- "serde",
-]
-
-[[package]]
 name = "slab"
 version = "0.4.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -209,7 +191,6 @@ checksum = "1a143597ca7c7793eff794def352d41792a93c481eb1042423ff7ff72ba2c31f"
 name = "webserver_contracts"
 version = "0.1.1"
 dependencies = [
- "chess",
  "chrono",
  "serde",
  "serde_json",
