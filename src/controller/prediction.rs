@@ -1,18 +1,20 @@
 use crate::AppError;
 use chrono::Utc;
+use db::Prediction as DbPrediction;
+use db::User as DbUser;
 use std::{convert::TryFrom, sync::Arc};
 use webserver_contracts::{prediction::*, user::User, Error as JsonRpcError};
 use webserver_database as db;
 
 pub struct PredictionController {
-    prediction_db: Arc<db::Database<db::Prediction>>,
-    user_db: Arc<db::Database<db::User>>,
+    prediction_db: Arc<db::Database<DbPrediction>>,
+    user_db: Arc<db::Database<DbUser>>,
 }
 
 impl PredictionController {
     pub fn new(
-        prediction_db: Arc<db::Database<db::Prediction>>,
-        user_db: Arc<db::Database<db::User>>,
+        prediction_db: Arc<db::Database<DbPrediction>>,
+        user_db: Arc<db::Database<DbUser>>,
     ) -> Self {
         Self {
             prediction_db,
