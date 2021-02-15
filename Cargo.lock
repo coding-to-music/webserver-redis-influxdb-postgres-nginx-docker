@@ -1092,9 +1092,9 @@ checksum = "a1d01941d82fa2ab50be1e79e6714289dd7cde78eba4c074bc5a4374f650dfe0"
 
 [[package]]
 name = "quote"
-version = "1.0.8"
+version = "1.0.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "991431c3519a3f36861882da93630ce66b52918dcf1b8e2fd66b397fc96f28df"
+checksum = "c3d0b9745dc2debf507c8422de05d7226cc1f0644216dfdfead988f9b1ab32a7"
 dependencies = [
  "proc-macro2",
 ]
@@ -1941,7 +1941,7 @@ dependencies = [
 [[package]]
 name = "webserver_contracts"
 version = "0.1.1"
-source = "git+https://github.com/ijagberg/webserver_contracts?branch=main#b8161036c63c26601547c1aa665eb9103e864306"
+source = "git+https://github.com/ijagberg/webserver_contracts?branch=main#d2959691f7d080f78e370c2bbe26a3016e92556e"
 dependencies = [
  "chrono",
  "serde",
@@ -1952,11 +1952,10 @@ dependencies = [
 [[package]]
 name = "webserver_database"
 version = "0.1.0"
-source = "git+https://github.com/ijagberg/webserver_database?branch=main#636e143aa6c4ba4ce19c866809d1a170ec6ff42e"
+source = "git+https://github.com/ijagberg/webserver_database?branch=main#7429abd0312cf9d556390b654a8bf985c2ec6eb0"
 dependencies = [
  "chrono",
  "log",
- "pretty_env_logger 0.3.1",
  "rusqlite",
 ]
 

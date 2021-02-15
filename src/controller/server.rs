@@ -52,10 +52,7 @@ impl ServerController {
 
         let log_files: Vec<_> = paths
             .filter_map(|p| p.ok())
-            .filter_map(|p| match p.metadata() {
-                Ok(metadata) if metadata.is_file() => Some(p),
-                _ => None,
-            })
+            .filter(|p| p.metadata().map(|m| m.is_file()).unwrap_or(false))
             .collect();
 
         info!(

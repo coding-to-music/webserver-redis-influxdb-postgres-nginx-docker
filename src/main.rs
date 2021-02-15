@@ -1,7 +1,6 @@
 #![allow(dead_code)]
 
 use controller::*;
-use dotenv;
 use futures::future;
 use influx::{InfluxClient, Measurement};
 use ring::digest;
@@ -40,7 +39,7 @@ pub struct Opts {
 
 #[tokio::main]
 async fn main() {
-    let env = std::env::var("WEBSERVER_ENV").unwrap_or("test".to_string());
+    let env = std::env::var("WEBSERVER_ENV").unwrap_or_else(|_| "test".to_string());
 
     match env.as_str() {
         "prod" => {
@@ -104,7 +103,7 @@ impl App {
                 prediction_db.clone(),
                 user_db.clone(),
             ),
-            user_controller: UserController::new(user_db.clone(), prediction_db.clone()),
+            user_controller: UserController::new(user_db.clone(), prediction_db),
             server_controller: ServerController::new(user_db, webserver_log_path),
             influx_client,
         }
@@ -189,12 +188,6 @@ impl App {
                         .get_all_usernames(request)
                         .await
                         .map(|ok| JsonRpcResponse::success(jsonrpc, ok, id)),
-                    Method::ConnectToGame => {
-                        todo!()
-                    }
-                    Method::MakeMove => {
-                        todo!()
-                    }
                 }
             }
         };
@@ -219,7 +212,10 @@ impl App {
             Measurement::builder(String::from("handle_request"))
                 .with_tag(String::from("method"), method.clone())
                 .with_field_u128(String::from("duration_micros"), elapsed.as_micros())
-                .with_field_string(String::from("request_id"), id.unwrap_or(String::from("")))
+                .with_field_string(
+                    String::from("request_id"),
+                    id.unwrap_or_else(|| String::from("")),
+                )
                 .build()
                 .unwrap(),
         )
@@ -241,7 +237,7 @@ impl App {
     async fn log_measurement(&self, measurement: Measurement) {
         let response = self
             .influx_client
-            .send_batch("server", &vec![measurement])
+            .send_batch("server", &[measurement])
             .await;
         if !response.status().is_success() {
             error!(

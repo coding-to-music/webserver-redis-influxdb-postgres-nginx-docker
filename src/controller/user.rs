@@ -7,7 +7,9 @@ use ring::{
 };
 use std::{convert::TryFrom, str::FromStr, sync::Arc};
 use webserver_contracts::{user::*, Error as JsonRpcError};
-use webserver_database::{self, Database, Prediction as DbPrediction, User as DbUser, UserRole};
+use webserver_database::{
+    self, Database, DatabaseError, Prediction as DbPrediction, User as DbUser, UserRole,
+};
 
 pub struct UserController {
     user_db: Arc<Database<DbUser>>,
@@ -63,22 +65,7 @@ impl UserController {
     ) -> Result<ChangePasswordResult, AppError> {
         let params = ChangePasswordParams::try_from(request)?;
 
-        let user_row = self.user_db.get_user(params.user().username())?;
-
-        // check that the user exists and that the password is valid
-        if !user_row
-            .as_ref()
-            .map(|u| {
-                let encrypted_password =
-                    crate::encrypt(params.user().password().as_bytes(), u.salt());
-                u.validate_password(&encrypted_password)
-            })
-            .unwrap_or(false)
-        {
-            return Err(AppError::from(JsonRpcError::invalid_username_or_password()));
-        }
-
-        let user_row = user_row.unwrap(); // always Some because we did unwrap_or(false) above
+        let user_row = self.get_user_if_valid(params.user())?;
 
         let current_salt = user_row.salt();
 
@@ -120,21 +107,7 @@ impl UserController {
     ) -> Result<SetRoleResult, AppError> {
         let params = SetRoleParams::try_from(request)?;
 
-        let user_row = self.user_db.get_user(params.user().username())?;
-
-        if !user_row
-            .as_ref()
-            .map(|u| {
-                let encrypted_password =
-                    crate::encrypt(params.user().password().as_bytes(), u.salt());
-                u.validate_password(&encrypted_password)
-            })
-            .unwrap_or(false)
-        {
-            return Err(AppError::from(JsonRpcError::invalid_username_or_password()));
-        }
-
-        let user_row = user_row.unwrap();
+        let user_row = self.get_user_if_valid(params.user())?;
 
         if user_row.role() < &UserRole::Admin {
             return Err(AppError::from(JsonRpcError::not_permitted()));
@@ -163,21 +136,7 @@ impl UserController {
     ) -> Result<DeleteUserResult, AppError> {
         let params = DeleteUserParams::try_from(request)?;
 
-        let user_row = self.user_db.get_user(params.user().username())?;
-
-        if !user_row
-            .as_ref()
-            .map(|u| {
-                let encrypted_password =
-                    crate::encrypt(params.user().password().as_bytes(), u.salt());
-                u.validate_password(&encrypted_password)
-            })
-            .unwrap_or(false)
-        {
-            return Err(AppError::from(JsonRpcError::invalid_username_or_password()));
-        }
-
-        let user_row = user_row.unwrap();
+        let user_row = self.get_user_if_valid(params.user())?;
 
         // only allow deletes if the user is an admin or if a user is trying to delete themselves
         if user_row.role() < &UserRole::Admin && params.user().username() != params.username() {
@@ -194,6 +153,48 @@ impl UserController {
             Ok(DeleteUserResult::new(result, deleted_predictions))
         } else {
             Err(AppError::from(JsonRpcError::database_error()))
+        }
+    }
+
+    fn get_user_if_valid(&self, user: &User) -> Result<DbUser, GetUserIfValidError> {
+        let user_row = self.user_db.get_user(user.username())?;
+
+        match user_row {
+            Some(user_row) => {
+                let encrypted_password =
+                    crate::encrypt(user.password().as_bytes(), user_row.salt());
+                match user_row.validate_password(&encrypted_password) {
+                    true => Ok(user_row),
+                    false => Err(GetUserIfValidError::InvalidPassword),
+                }
+            }
+            None => Err(GetUserIfValidError::NoSuchUser),
+        }
+    }
+}
+
+enum GetUserIfValidError {
+    DbError(DatabaseError),
+    NoSuchUser,
+    InvalidPassword,
+}
+
+impl From<DatabaseError> for GetUserIfValidError {
+    fn from(e: DatabaseError) -> Self {
+        GetUserIfValidError::DbError(e)
+    }
+}
+
+impl From<GetUserIfValidError> for AppError {
+    fn from(e: GetUserIfValidError) -> Self {
+        match e {
+            GetUserIfValidError::DbError(e) => e.into(),
+            GetUserIfValidError::NoSuchUser => {
+                AppError::from(JsonRpcError::invalid_username_or_password())
+            }
+            GetUserIfValidError::InvalidPassword => {
+                AppError::from(JsonRpcError::invalid_username_or_password())
+            }
         }
     }
 }
