@@ -18,6 +18,6 @@ chrono = "0.4.11"
 ring = "0.16.13"
 structopt = "0.3.14"
 num-traits = "0.2.11"
-influx = { git = "https://github.com/ijagberg/influx", branch = "main" }
-webserver_database = { git = "https://github.com/ijagberg/webserver_database", branch = "main" }
-webserver_contracts = { git = "https://github.com/ijagberg/webserver_contracts", branch = "main" }
+influx = { git = "ssh://git@github.com/ijagberg/influx", branch = "main" }
+webserver_database = { git = "ssh://git@github.com/ijagberg/webserver_database", branch = "main" }
+webserver_contracts = { git = "ssh://git@github.com/ijagberg/webserver_contracts", branch = "main" }
