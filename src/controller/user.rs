@@ -90,7 +90,7 @@ impl UserController {
         let params = ValidateUserParams::try_from(request)?;
         let result = self
             .user_db
-            .get_user(params.user().username())?
+            .get_user_by_username(params.user().username())?
             .map(|u| {
                 let encrypted_password =
                     crate::encrypt(params.user().password().as_bytes(), u.salt());
@@ -113,7 +113,7 @@ impl UserController {
             return Err(AppError::from(JsonRpcError::not_permitted()));
         }
 
-        if let Some(_user) = self.user_db.get_user(params.username())? {
+        if let Some(_user) = self.user_db.get_user_by_username(params.username())? {
             let result = self.user_db.update_user_role(
                 params.username(),
                 UserRole::from_str(params.role()).map_err(|_| {
@@ -157,7 +157,7 @@ impl UserController {
     }
 
     fn get_user_if_valid(&self, user: &User) -> Result<DbUser, GetUserIfValidError> {
-        let user_row = self.user_db.get_user(user.username())?;
+        let user_row = self.user_db.get_user_by_username(user.username())?;
 
         match user_row {
             Some(user_row) => {

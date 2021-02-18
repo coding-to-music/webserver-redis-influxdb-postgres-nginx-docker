@@ -641,9 +641,9 @@ dependencies = [
 
 [[package]]
 name = "idna"
-version = "0.2.1"
+version = "0.2.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "de910d521f7cc3135c4de8db1cb910e0b5ed1dc6f57c381cd07e8e661ce10094"
+checksum = "89829a5d69c23d348314a7ac337fe39173b61149a9864deabd260983aed48c21"
 dependencies = [
  "matches",
  "unicode-bidi",
@@ -1410,9 +1410,9 @@ dependencies = [
 
 [[package]]
 name = "sha-1"
-version = "0.9.3"
+version = "0.9.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f4b312c3731e3fe78a185e6b9b911a7aa715b8e31cce117975219aab2acf285d"
+checksum = "dfebf75d25bd900fd1e7d11501efab59bc846dbc76196839663e6637bba9f25f"
 dependencies = [
  "block-buffer 0.9.0",
  "cfg-if 1.0.0",
@@ -1626,9 +1626,9 @@ checksum = "360dfd1d6d30e05fda32ace2c8c70e9c0a9da713275777f5a4dbb8a1893930c6"
 
 [[package]]
 name = "tracing"
-version = "0.1.23"
+version = "0.1.24"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f7d40a22fd029e33300d8d89a5cc8ffce18bb7c587662f54629e94c9de5487f3"
+checksum = "f77d3842f76ca899ff2dbcf231c5c65813dea431301d6eb686279c15c4464f12"
 dependencies = [
  "cfg-if 1.0.0",
  "log",
@@ -1647,11 +1647,11 @@ dependencies = [
 
 [[package]]
 name = "tracing-futures"
-version = "0.2.4"
+version = "0.2.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ab7bb6f14721aa00656086e9335d363c5c8747bae02ebe32ea2c7dece5689b4c"
+checksum = "97d095ae15e245a057c8e8451bab9b3ee1e1f68e9ba2b4fbc18d0ac5237835f2"
 dependencies = [
- "pin-project 0.4.27",
+ "pin-project 1.0.5",
  "tracing",
 ]
 
@@ -1675,7 +1675,7 @@ dependencies = [
  "input_buffer",
  "log",
  "rand 0.7.3",
- "sha-1 0.9.3",
+ "sha-1 0.9.4",
  "url",
  "utf-8",
 ]
@@ -1941,7 +1941,7 @@ dependencies = [
 [[package]]
 name = "webserver_contracts"
 version = "0.1.1"
-source = "git+https://github.com/ijagberg/webserver_contracts?branch=main#d2959691f7d080f78e370c2bbe26a3016e92556e"
+source = "git+https://github.com/ijagberg/webserver_contracts?branch=main#e97d4be76733020fa38c5d65c5c179e74f38bba2"
 dependencies = [
  "chrono",
  "serde",
@@ -1952,7 +1952,7 @@ dependencies = [
 [[package]]
 name = "webserver_database"
 version = "0.1.0"
-source = "git+https://github.com/ijagberg/webserver_database?branch=main#7429abd0312cf9d556390b654a8bf985c2ec6eb0"
+source = "git+https://github.com/ijagberg/webserver_database?branch=main#44f27aedb6ce8c2e1e49424c81ce18187ac0ecd2"
 dependencies = [
  "chrono",
  "log",

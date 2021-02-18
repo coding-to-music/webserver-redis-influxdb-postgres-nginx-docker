@@ -126,7 +126,7 @@ impl PredictionController {
     fn get_and_validate_user(&self, user: &User) -> Result<bool, db::DatabaseError> {
         let valid = self
             .user_db
-            .get_user(user.username())?
+            .get_user_by_username(user.username())?
             .map(|u| {
                 let encrypted_password = crate::encrypt(user.password().as_bytes(), u.salt());
                 u.validate_password(&encrypted_password)

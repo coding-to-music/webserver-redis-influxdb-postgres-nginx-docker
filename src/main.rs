@@ -76,6 +76,7 @@ pub struct App {
     prediction_controller: PredictionController,
     user_controller: UserController,
     server_controller: ServerController,
+    list_controller: ListItemController,
     influx_client: Arc<InfluxClient>,
 }
 
@@ -85,6 +86,9 @@ impl App {
             Arc::new(db::Database::new(opts.database_path.clone()));
         let prediction_db: Arc<db::Database<db::Prediction>> =
             Arc::new(db::Database::new(opts.database_path.clone()));
+        let list_item_db: Arc<db::Database<db::ListItem>> =
+            Arc::new(db::Database::new(opts.database_path.clone()));
+
         let webserver_log_path: PathBuf = PathBuf::from(opts.log_path.clone());
 
         let influx_client = Arc::new(
@@ -105,6 +109,7 @@ impl App {
             ),
             user_controller: UserController::new(user_db.clone(), prediction_db),
             server_controller: ServerController::new(user_db, webserver_log_path),
+            list_controller: ListItemController::new(list_item_db),
             influx_client,
         }
     }
@@ -186,6 +191,16 @@ impl App {
                     Method::GetAllUsers => self
                         .server_controller
                         .get_all_usernames(request)
+                        .await
+                        .map(|ok| JsonRpcResponse::success(jsonrpc, ok, id)),
+                    Method::AddListItem => self
+                        .list_controller
+                        .add_list_item(request)
+                        .await
+                        .map(|ok| JsonRpcResponse::success(jsonrpc, ok, id)),
+                    Method::GetListItems => self
+                        .list_controller
+                        .get_list_items(request)
                         .await
                         .map(|ok| JsonRpcResponse::success(jsonrpc, ok, id)),
                 }
