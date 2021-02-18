@@ -21,3 +21,4 @@ num-traits = "0.2.11"
 influx = { git = "ssh://git@github.com/ijagberg/influx", branch = "main" }
 webserver_database = { git = "ssh://git@github.com/ijagberg/webserver_database", branch = "main" }
 webserver_contracts = { git = "ssh://git@github.com/ijagberg/webserver_contracts", branch = "main" }
+uuid = "0.8.2"
