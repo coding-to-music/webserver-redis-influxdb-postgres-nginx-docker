@@ -71,6 +71,8 @@ impl ListItemController {
                             *old_best.next_worse(),
                         )?;
                     }
+                } else {
+                    return Err(AppError::from(webserver_contracts::Error::application_error(-31997).with_message("can't add a new best item if 'next_worse' does not point to the old best item")));
                 }
             }
             (Some(better), None) => {
@@ -94,6 +96,8 @@ impl ListItemController {
                             Some(new_item_id),
                         )?;
                     }
+                } else {
+                    return Err(AppError::from(webserver_contracts::Error::application_error(-31997).with_message("can't add a new worst item if 'next_best' does not point to the old worst item")));
                 }
             }
             (Some(better), Some(worse)) => {
