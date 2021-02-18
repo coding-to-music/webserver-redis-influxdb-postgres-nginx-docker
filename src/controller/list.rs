@@ -53,24 +53,23 @@ impl ListItemController {
             (None, Some(worse)) => {
                 // this is the new best item
                 // so the worse item should be the old best item
-                if let Some(old_best) = items_in_list.get(worse) {
-                    if old_best.next_better().is_none() {
-                        self.db().insert_list_item(
-                            new_item_id,
-                            list_type,
-                            item_name,
-                            *next_better,
-                            *next_worse,
-                            created_s,
-                        )?;
-                        // update the old best to point to the new best
-                        self.db().update_list_item(
-                            *old_best.id(),
-                            old_best.item_name(),
-                            Some(new_item_id),
-                            *old_best.next_worse(),
-                        )?;
-                    }
+                let old_best = items_in_list.get(worse).unwrap();
+                if old_best.next_better().is_none() {
+                    self.db().insert_list_item(
+                        new_item_id,
+                        list_type,
+                        item_name,
+                        *next_better,
+                        *next_worse,
+                        created_s,
+                    )?;
+                    // update the old best to point to the new best
+                    self.db().update_list_item(
+                        *old_best.id(),
+                        old_best.item_name(),
+                        Some(new_item_id),
+                        *old_best.next_worse(),
+                    )?;
                 } else {
                     return Err(AppError::from(webserver_contracts::Error::application_error(-31997).with_message("can't add a new best item if 'next_worse' does not point to the old best item")));
                 }
@@ -78,24 +77,23 @@ impl ListItemController {
             (Some(better), None) => {
                 // this is the new worst item
                 // so the better item should be the old worst item
-                if let Some(old_worst) = items_in_list.get(better) {
-                    if old_worst.next_worse().is_none() {
-                        self.db().insert_list_item(
-                            new_item_id,
-                            list_type,
-                            item_name,
-                            *next_better,
-                            *next_worse,
-                            created_s,
-                        )?;
-                        // update the old worst to point to the new worst
-                        self.db().update_list_item(
-                            *old_worst.id(),
-                            old_worst.item_name(),
-                            *old_worst.next_better(),
-                            Some(new_item_id),
-                        )?;
-                    }
+                let old_worst = items_in_list.get(better).unwrap();
+                if old_worst.next_worse().is_none() {
+                    self.db().insert_list_item(
+                        new_item_id,
+                        list_type,
+                        item_name,
+                        *next_better,
+                        *next_worse,
+                        created_s,
+                    )?;
+                    // update the old worst to point to the new worst
+                    self.db().update_list_item(
+                        *old_worst.id(),
+                        old_worst.item_name(),
+                        *old_worst.next_better(),
+                        Some(new_item_id),
+                    )?;
                 } else {
                     return Err(AppError::from(webserver_contracts::Error::application_error(-31997).with_message("can't add a new worst item if 'next_best' does not point to the old worst item")));
                 }
