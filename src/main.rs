@@ -208,6 +208,11 @@ impl App {
                         .delete_list_item(request)
                         .await
                         .map(|ok| JsonRpcResponse::success(jsonrpc, ok, id)),
+                    Method::GetListTypes => self
+                        .list_controller
+                        .get_list_types(request)
+                        .await
+                        .map(|ok| JsonRpcResponse::success(jsonrpc, ok, id)),
                 }
             }
         };
