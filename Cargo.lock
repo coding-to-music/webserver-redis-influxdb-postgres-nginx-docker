@@ -488,7 +488,7 @@ checksum = "c9495705279e7140bf035dde1f6e750c162df8b625267cd52cc44e0b156732c8"
 dependencies = [
  "cfg-if 1.0.0",
  "libc",
- "wasi 0.10.0+wasi-snapshot-preview1",
+ "wasi 0.10.2+wasi-snapshot-preview1",
 ]
 
 [[package]]
@@ -1528,12 +1528,11 @@ dependencies = [
 
 [[package]]
 name = "time"
-version = "0.1.44"
+version = "0.1.43"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6db9e6914ab8b1ae1c260a4ae7a49b6c5611b40328a735b21862567685e73255"
+checksum = "ca8a50ef2360fbd1eeb0ecd46795a87a19024eb4b53c5dc916ca1fd95fe62438"
 dependencies = [
  "libc",
- "wasi 0.10.0+wasi-snapshot-preview1",
  "winapi 0.3.9",
 ]
 
@@ -1771,6 +1770,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "05e42f7c18b8f902290b009cde6d651262f956c98bc51bca4cd1d511c9cd85c7"
 
 [[package]]
+name = "uuid"
+version = "0.8.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bc5cf98d8186244414c848017f0e2676b3fcb46807f6668a97dfe67359a3c4b7"
+dependencies = [
+ "getrandom 0.2.2",
+ "serde",
+]
+
+[[package]]
 name = "vcpkg"
 version = "0.2.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1834,9 +1843,9 @@ checksum = "cccddf32554fecc6acb585f82a32a72e28b48f8c4c1883ddfeeeaa96f7d8e519"
 
 [[package]]
 name = "wasi"
-version = "0.10.0+wasi-snapshot-preview1"
+version = "0.10.2+wasi-snapshot-preview1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1a143597ca7c7793eff794def352d41792a93c481eb1042423ff7ff72ba2c31f"
+checksum = "fd6fbd9a79829dd1ad0cc20627bf1ed606756a7f77edff7b66b7064f9cb327c6"
 
 [[package]]
 name = "wasm-bindgen"
@@ -1933,6 +1942,7 @@ dependencies = [
  "serde_json",
  "structopt",
  "tokio",
+ "uuid",
  "warp",
  "webserver_contracts",
  "webserver_database",
@@ -1941,22 +1951,24 @@ dependencies = [
 [[package]]
 name = "webserver_contracts"
 version = "0.1.1"
-source = "git+https://github.com/ijagberg/webserver_contracts?branch=main#e97d4be76733020fa38c5d65c5c179e74f38bba2"
+source = "git+https://github.com/ijagberg/webserver_contracts?branch=main#513dc764448413d0180fbd1692c2b4e8ac37ef05"
 dependencies = [
  "chrono",
  "serde",
  "serde_json",
  "tokio",
+ "uuid",
 ]
 
 [[package]]
 name = "webserver_database"
 version = "0.1.0"
-source = "git+https://github.com/ijagberg/webserver_database?branch=main#44f27aedb6ce8c2e1e49424c81ce18187ac0ecd2"
+source = "git+https://github.com/ijagberg/webserver_database?branch=main#a9f536a73f59b0db8fb390d53d7ef0f9af41e4ed"
 dependencies = [
  "chrono",
  "log",
  "rusqlite",
+ "uuid",
 ]
 
 [[package]]

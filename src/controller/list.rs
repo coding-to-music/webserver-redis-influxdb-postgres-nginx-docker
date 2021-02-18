@@ -1,6 +1,7 @@
 use std::{collections::HashMap, convert::TryFrom, sync::Arc};
 
 use chrono::Utc;
+use uuid::Uuid;
 use webserver_contracts::{
     list::{
         AddListItemParams, AddListItemParamsInvalid, AddListItemResult, GetListItemsParams,
@@ -29,18 +30,19 @@ impl ListItemController {
 
         let created_s = Utc::now().timestamp() as u32;
 
-        let items_in_list = self.get_list_items_as_hash_map(params.list_item().list_type())?;
+        let items_in_list = self.get_list_items_as_hash_map(params.list_type())?;
 
-        let list_type = params.list_item().list_type();
-        let item_name = params.list_item().item_name();
-        let next_best = params.next_best();
+        let new_item_id = params.id().unwrap_or_else(|| Uuid::new_v4());
+        let list_type = params.list_type();
+        let item_name = params.item_name();
+        let next_better = params.next_better();
         let next_worse = params.next_worse();
 
-        match (next_best, next_worse) {
+        match (next_better, next_worse) {
             (None, None) if items_in_list.is_empty() => {
                 // add item to new list
                 self.list_item_db()
-                    .insert_list_item(list_type, item_name, None, None, created_s)
+                    .insert_list_item(new_item_id, list_type, item_name, None, None, created_s)
                     .unwrap();
             }
             (None, None) => {
@@ -50,23 +52,20 @@ impl ListItemController {
                 // this is the new best item
                 // so the worse item should be the old best item
                 if let Some(old_best) = items_in_list.get(worse) {
-                    if old_best.next_best().is_none() {
+                    if old_best.next_better().is_none() {
                         self.list_item_db().insert_list_item(
+                            new_item_id,
                             list_type,
                             item_name,
-                            *next_best,
+                            *next_better,
                             *next_worse,
                             created_s,
                         )?;
-                        let new_best = self
-                            .list_item_db()
-                            .get_list_item(list_type, item_name)?
-                            .unwrap();
                         // update the old best to point to the new best
                         self.list_item_db().update_list_item(
                             *old_best.id(),
                             old_best.item_name(),
-                            Some(*new_best.id()),
+                            Some(new_item_id),
                             *old_best.next_worse(),
                         )?;
                     }
@@ -78,22 +77,19 @@ impl ListItemController {
                 if let Some(old_worst) = items_in_list.get(better) {
                     if old_worst.next_worse().is_none() {
                         self.list_item_db().insert_list_item(
+                            new_item_id,
                             list_type,
                             item_name,
-                            *next_best,
+                            *next_better,
                             *next_worse,
                             created_s,
                         )?;
-                        let new_worst = self
-                            .list_item_db()
-                            .get_list_item(list_type, item_name)?
-                            .unwrap();
                         // update the old worst to point to the new worst
                         self.list_item_db().update_list_item(
                             *old_worst.id(),
                             old_worst.item_name(),
-                            *old_worst.next_best(),
-                            Some(*new_worst.id()),
+                            *old_worst.next_better(),
+                            Some(new_item_id),
                         )?;
                     }
                 }
@@ -104,35 +100,32 @@ impl ListItemController {
                     (items_in_list.get(better), items_in_list.get(worse))
                 {
                     self.list_item_db().insert_list_item(
+                        new_item_id,
                         list_type,
                         item_name,
-                        *next_best,
+                        *next_better,
                         *next_worse,
                         created_s,
                     )?;
-                    let new_item = self
-                        .list_item_db()
-                        .get_list_item(list_type, item_name)?
-                        .unwrap();
 
                     self.list_item_db().update_list_item(
                         *better.id(),
                         better.item_name(),
-                        *better.next_best(),
-                        Some(*new_item.id()),
+                        *better.next_better(),
+                        Some(new_item_id),
                     )?;
 
                     self.list_item_db().update_list_item(
                         *worse.id(),
                         worse.item_name(),
-                        Some(*new_item.id()),
+                        Some(new_item_id),
                         *worse.next_worse(),
                     )?;
                 }
             }
         }
 
-        Ok(AddListItemResult::new(true))
+        Ok(AddListItemResult::new(true, Some(new_item_id)))
     }
 
     pub async fn get_list_items(
@@ -145,7 +138,15 @@ impl ListItemController {
 
         let list_items = list_items
             .into_iter()
-            .map(|li| ListItem::new(li.list_type().to_owned(), li.item_name().to_owned()))
+            .map(|li| {
+                ListItem::new(
+                    *li.id(),
+                    li.list_type().to_owned(),
+                    li.item_name().to_owned(),
+                    *li.next_better(),
+                    *li.next_worse(),
+                )
+            })
             .collect();
 
         Ok(GetListItemsResult::new(list_items))
@@ -154,7 +155,7 @@ impl ListItemController {
     fn get_list_items_as_hash_map(
         &self,
         list_type: &str,
-    ) -> Result<HashMap<u32, DbListItem>, DatabaseError> {
+    ) -> Result<HashMap<Uuid, DbListItem>, DatabaseError> {
         let items_in_list = self.list_item_db.get_list_items(list_type)?;
 
         Ok(items_in_list
