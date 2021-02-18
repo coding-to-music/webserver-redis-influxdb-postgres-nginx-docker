@@ -1951,7 +1951,7 @@ dependencies = [
 [[package]]
 name = "webserver_contracts"
 version = "0.1.1"
-source = "git+https://github.com/ijagberg/webserver_contracts?branch=main#513dc764448413d0180fbd1692c2b4e8ac37ef05"
+source = "git+https://github.com/ijagberg/webserver_contracts?branch=main#a553d7d0bd7cf90419a723221c6890b9fe4216aa"
 dependencies = [
  "chrono",
  "serde",

@@ -4,7 +4,8 @@ use chrono::Utc;
 use uuid::Uuid;
 use webserver_contracts::{
     list::{
-        AddListItemParams, AddListItemParamsInvalid, AddListItemResult, GetListItemsParams,
+        AddListItemParams, AddListItemParamsInvalid, AddListItemResult, DeleteListItemParams,
+        DeleteListItemParamsInvalid, DeleteListItemResult, GetListItemsParams,
         GetListItemsParamsInvalid, GetListItemsResult, ListItem,
     },
     Error as JsonRpcError, JsonRpcRequest,
@@ -152,6 +153,17 @@ impl ListItemController {
         Ok(GetListItemsResult::new(list_items))
     }
 
+    pub async fn delete_list_item(
+        &self,
+        request: JsonRpcRequest,
+    ) -> Result<DeleteListItemResult, AppError> {
+        let params = DeleteListItemParams::try_from(request)?;
+
+        let deleted = self.list_item_db().delete_list_item(*params.id())?;
+
+        Ok(DeleteListItemResult::new(deleted))
+    }
+
     fn get_list_items_as_hash_map(
         &self,
         list_type: &str,
@@ -190,6 +202,16 @@ impl From<GetListItemsParamsInvalid> for AppError {
                 JsonRpcError::invalid_params()
                     .with_message("list_type must not be empty or whitespace"),
             ),
+        }
+    }
+}
+
+impl From<DeleteListItemParamsInvalid> for AppError {
+    fn from(error: DeleteListItemParamsInvalid) -> Self {
+        match error {
+            DeleteListItemParamsInvalid::InvalidFormat(e) => {
+                AppError::from(JsonRpcError::invalid_format(e))
+            }
         }
     }
 }

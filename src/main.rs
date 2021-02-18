@@ -203,6 +203,11 @@ impl App {
                         .get_list_items(request)
                         .await
                         .map(|ok| JsonRpcResponse::success(jsonrpc, ok, id)),
+                    Method::DeleteListItem => self
+                        .list_controller
+                        .delete_list_item(request)
+                        .await
+                        .map(|ok| JsonRpcResponse::success(jsonrpc, ok, id)),
                 }
             }
         };
