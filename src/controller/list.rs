@@ -164,12 +164,26 @@ impl ListItemController {
 
         let id = *params.id();
 
+        info!("deleting list item with id '{}'", id);
+
         if let Some(item_to_delete) = self.db().get_list_item(id)? {
             let items_in_list = self.get_list_items_as_hash_map(item_to_delete.list_type())?;
 
             let result = match (item_to_delete.next_better(), item_to_delete.next_worse()) {
-                (None, None) => self.db().delete_list_item(id)?,
+                (None, None) => {
+                    info!(
+                        "list item with id '{}' is the only item in list '{}'",
+                        id,
+                        item_to_delete.list_type()
+                    );
+                    self.db().delete_list_item(id)?
+                }
                 (None, Some(worse)) => {
+                    info!(
+                        "list item with id '{}' is the best item in list '{}'",
+                        id,
+                        item_to_delete.list_type()
+                    );
                     let worse_item = items_in_list.get(worse).unwrap();
                     self.db().update_list_item(
                         *worse_item.id(),
@@ -179,6 +193,11 @@ impl ListItemController {
                     )? == 1
                 }
                 (Some(better), None) => {
+                    info!(
+                        "list item with id '{}' is the worst item in list '{}'",
+                        id,
+                        item_to_delete.list_type()
+                    );
                     let better_item = items_in_list.get(better).unwrap();
                     self.db().update_list_item(
                         *better_item.id(),
@@ -188,19 +207,26 @@ impl ListItemController {
                     )? == 1
                 }
                 (Some(better), Some(worse)) => {
+                    info!(
+                        "list item with id '{}' is better than '{}' but worse than '{}' in list '{}'",
+                        id,
+                        worse,
+                        better,
+                        item_to_delete.list_type()
+                    );
                     let worse_item = items_in_list.get(worse).unwrap();
                     let better_item = items_in_list.get(better).unwrap();
                     self.db().update_list_item(
                         *worse_item.id(),
                         worse_item.item_name(),
-                        None,
+                        *item_to_delete.next_better(),
                         *worse_item.next_worse(),
                     )? == 1
                         && self.db().update_list_item(
                             *better_item.id(),
                             better_item.item_name(),
                             *better_item.next_better(),
-                            None,
+                            *item_to_delete.next_worse(),
                         )? == 1
                 }
             };
