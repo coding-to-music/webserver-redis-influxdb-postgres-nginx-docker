@@ -190,7 +190,8 @@ impl ListItemController {
                         worse_item.item_name(),
                         None,
                         *worse_item.next_worse(),
-                    )? == 1
+                    )?;
+                    self.db().delete_list_item(id)?
                 }
                 (Some(better), None) => {
                     info!(
@@ -204,7 +205,8 @@ impl ListItemController {
                         better_item.item_name(),
                         *better_item.next_better(),
                         None,
-                    )? == 1
+                    )?;
+                    self.db().delete_list_item(id)?
                 }
                 (Some(better), Some(worse)) => {
                     info!(
@@ -221,13 +223,14 @@ impl ListItemController {
                         worse_item.item_name(),
                         *item_to_delete.next_better(),
                         *worse_item.next_worse(),
-                    )? == 1
-                        && self.db().update_list_item(
-                            *better_item.id(),
-                            better_item.item_name(),
-                            *better_item.next_better(),
-                            *item_to_delete.next_worse(),
-                        )? == 1
+                    )?;
+                    self.db().update_list_item(
+                        *better_item.id(),
+                        better_item.item_name(),
+                        *better_item.next_better(),
+                        *item_to_delete.next_worse(),
+                    )?;
+                    self.db().delete_list_item(id)?
                 }
             };
 
