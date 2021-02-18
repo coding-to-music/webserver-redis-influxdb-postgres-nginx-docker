@@ -98,33 +98,42 @@ impl ListItemController {
                     return Err(AppError::from(webserver_contracts::Error::application_error(-31997).with_message("can't add a new worst item if 'next_best' does not point to the old worst item")));
                 }
             }
-            (Some(better), Some(worse)) => {
+            (&Some(better_id), &Some(worse_id)) => {
                 // this item goes in between two old items
-                if let (Some(better), Some(worse)) =
-                    (items_in_list.get(better), items_in_list.get(worse))
-                {
-                    self.db().insert_list_item(
-                        new_item_id,
-                        list_type,
-                        item_name,
-                        *next_better,
-                        *next_worse,
-                        created_s,
-                    )?;
+                match (items_in_list.get(&better_id), items_in_list.get(&worse_id)) {
+                    (None, None) => {
+                        return Err(JsonRpcError::could_not_find_list_item(better_id).into());
+                    }
+                    (None, Some(_)) => {
+                        return Err(JsonRpcError::could_not_find_list_item(better_id).into());
+                    }
+                    (Some(_), None) => {
+                        return Err(JsonRpcError::could_not_find_list_item(worse_id).into());
+                    }
+                    (Some(better), Some(worse)) => {
+                        self.db().insert_list_item(
+                            new_item_id,
+                            list_type,
+                            item_name,
+                            *next_better,
+                            *next_worse,
+                            created_s,
+                        )?;
 
-                    self.db().update_list_item(
-                        *better.id(),
-                        better.item_name(),
-                        *better.next_better(),
-                        Some(new_item_id),
-                    )?;
+                        self.db().update_list_item(
+                            *better.id(),
+                            better.item_name(),
+                            *better.next_better(),
+                            Some(new_item_id),
+                        )?;
 
-                    self.db().update_list_item(
-                        *worse.id(),
-                        worse.item_name(),
-                        Some(new_item_id),
-                        *worse.next_worse(),
-                    )?;
+                        self.db().update_list_item(
+                            *worse.id(),
+                            worse.item_name(),
+                            Some(new_item_id),
+                            *worse.next_worse(),
+                        )?;
+                    }
                 }
             }
         }
