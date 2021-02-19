@@ -137,82 +137,87 @@ impl App {
                         .prediction_controller
                         .add(request)
                         .await
-                        .map(|ok| JsonRpcResponse::success(jsonrpc, ok, id)),
+                        .map(|result| JsonRpcResponse::success(jsonrpc, result, id)),
                     Method::DeletePrediction => self
                         .prediction_controller
                         .delete(request)
                         .await
-                        .map(|ok| JsonRpcResponse::success(jsonrpc, ok, id)),
+                        .map(|result| JsonRpcResponse::success(jsonrpc, result, id)),
                     Method::SearchPredictions => self
                         .prediction_controller
                         .search(request)
                         .await
-                        .map(|ok| JsonRpcResponse::success(jsonrpc, ok, id)),
+                        .map(|result| JsonRpcResponse::success(jsonrpc, result, id)),
                     Method::AddUser => self
                         .user_controller
                         .add(request)
                         .await
-                        .map(|ok| JsonRpcResponse::success(jsonrpc, ok, id)),
+                        .map(|result| JsonRpcResponse::success(jsonrpc, result, id)),
                     Method::ChangePassword => self
                         .user_controller
                         .change_password(request)
                         .await
-                        .map(|ok| JsonRpcResponse::success(jsonrpc, ok, id)),
+                        .map(|result| JsonRpcResponse::success(jsonrpc, result, id)),
                     Method::ValidateUser => self
                         .user_controller
                         .validate_user(request)
                         .await
-                        .map(|ok| JsonRpcResponse::success(jsonrpc, ok, id)),
+                        .map(|result| JsonRpcResponse::success(jsonrpc, result, id)),
                     Method::DeleteUser => self
                         .user_controller
                         .delete_user(request)
                         .await
-                        .map(|ok| JsonRpcResponse::success(jsonrpc, ok, id)),
+                        .map(|result| JsonRpcResponse::success(jsonrpc, result, id)),
                     Method::SetRole => self
                         .user_controller
                         .set_role(request)
                         .await
-                        .map(|ok| JsonRpcResponse::success(jsonrpc, ok, id)),
+                        .map(|result| JsonRpcResponse::success(jsonrpc, result, id)),
                     Method::Sleep => self
                         .server_controller
                         .sleep(request)
                         .await
-                        .map(|ok| JsonRpcResponse::success(jsonrpc, ok, id)),
+                        .map(|result| JsonRpcResponse::success(jsonrpc, result, id)),
                     Method::ClearLogs => self
                         .server_controller
                         .clear_logs(request)
                         .await
-                        .map(|ok| JsonRpcResponse::success(jsonrpc, ok, id)),
+                        .map(|result| JsonRpcResponse::success(jsonrpc, result, id)),
                     Method::PrepareTests => self
                         .server_controller
                         .prepare_tests(request)
                         .await
-                        .map(|ok| JsonRpcResponse::success(jsonrpc, ok, id)),
+                        .map(|result| JsonRpcResponse::success(jsonrpc, result, id)),
                     Method::GetAllUsers => self
                         .server_controller
                         .get_all_usernames(request)
                         .await
-                        .map(|ok| JsonRpcResponse::success(jsonrpc, ok, id)),
+                        .map(|result| JsonRpcResponse::success(jsonrpc, result, id)),
                     Method::AddListItem => self
                         .list_controller
                         .add_list_item(request)
                         .await
-                        .map(|ok| JsonRpcResponse::success(jsonrpc, ok, id)),
+                        .map(|result| JsonRpcResponse::success(jsonrpc, result, id)),
                     Method::GetListItems => self
                         .list_controller
                         .get_list_items(request)
                         .await
-                        .map(|ok| JsonRpcResponse::success(jsonrpc, ok, id)),
+                        .map(|result| JsonRpcResponse::success(jsonrpc, result, id)),
                     Method::DeleteListItem => self
                         .list_controller
                         .delete_list_item(request)
                         .await
-                        .map(|ok| JsonRpcResponse::success(jsonrpc, ok, id)),
+                        .map(|result| JsonRpcResponse::success(jsonrpc, result, id)),
                     Method::GetListTypes => self
                         .list_controller
                         .get_list_types(request)
                         .await
-                        .map(|ok| JsonRpcResponse::success(jsonrpc, ok, id)),
+                        .map(|result| JsonRpcResponse::success(jsonrpc, result, id)),
+                    Method::RenameListType => self
+                        .list_controller
+                        .rename_list_type(request)
+                        .await
+                        .map(|result| JsonRpcResponse::success(jsonrpc, result, id)),
                 }
             }
         };

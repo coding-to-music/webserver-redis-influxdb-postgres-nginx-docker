@@ -1,4 +1,8 @@
-use std::{collections::HashMap, convert::TryFrom, sync::Arc};
+use std::{
+    collections::{HashMap, HashSet},
+    convert::TryFrom,
+    sync::Arc,
+};
 
 use chrono::Utc;
 use uuid::Uuid;
@@ -7,7 +11,8 @@ use webserver_contracts::{
         AddListItemParams, AddListItemParamsInvalid, AddListItemResult, DeleteListItemParams,
         DeleteListItemParamsInvalid, DeleteListItemResult, GetListItemsParams,
         GetListItemsParamsInvalid, GetListItemsResult, GetListTypesParams,
-        GetListTypesParamsInvalid, GetListTypesResult, ListItem,
+        GetListTypesParamsInvalid, GetListTypesResult, ListItem, RenameListTypeParams,
+        RenameListTypeParamsInvalid, RenameListTypeResult,
     },
     Error as JsonRpcError, JsonRpcRequest,
 };
@@ -272,6 +277,27 @@ impl ListItemController {
         Ok(GetListTypesResult::new(list_types))
     }
 
+    pub async fn rename_list_type(
+        &self,
+        request: JsonRpcRequest,
+    ) -> Result<RenameListTypeResult, AppError> {
+        let params = RenameListTypeParams::try_from(request)?;
+
+        let existing_list_types: HashSet<_> = self.db().get_list_types()?.into_iter().collect();
+
+        if !existing_list_types.contains(&params.old_name) {
+            return Ok(RenameListTypeResult { success: false });
+        }
+
+        let updated_rows = self
+            .db()
+            .rename_list_type(&params.old_name, &params.new_name)?;
+
+        Ok(RenameListTypeResult {
+            success: updated_rows > 0,
+        })
+    }
+
     fn get_list_items_as_hash_map(
         &self,
         list_type: &str,
@@ -329,6 +355,22 @@ impl From<GetListTypesParamsInvalid> for AppError {
             GetListTypesParamsInvalid::InvalidFormat(e) => {
                 AppError::from(JsonRpcError::invalid_format(e))
             }
+        }
+    }
+}
+
+impl From<RenameListTypeParamsInvalid> for AppError {
+    fn from(error: RenameListTypeParamsInvalid) -> Self {
+        match error {
+            RenameListTypeParamsInvalid::InvalidFormat(e) => {
+                AppError::from(JsonRpcError::invalid_format(e))
+            }
+            RenameListTypeParamsInvalid::EmptyOldName => JsonRpcError::invalid_params()
+                .with_message("'old_name' cannot be empty or whitespace")
+                .into(),
+            RenameListTypeParamsInvalid::EmptyNewName => JsonRpcError::invalid_params()
+                .with_message("'new_name' cannot be empty or whitespace")
+                .into(),
         }
     }
 }
