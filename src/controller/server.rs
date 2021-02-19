@@ -22,15 +22,15 @@ impl ServerController {
 
     pub async fn sleep(&self, request: crate::JsonRpcRequest) -> Result<SleepResult, AppError> {
         let params = SleepParams::try_from(request)?;
-        self.authorize_admin(params.user())?;
+        self.authorize_admin(&params.user)?;
 
-        let elapsed = if params.sync() {
+        let elapsed = if params.sync {
             let now = std::time::Instant::now();
-            std::thread::sleep(Duration::from_secs_f32(params.seconds()));
+            std::thread::sleep(Duration::from_secs_f32(params.seconds));
             now.elapsed()
         } else {
             let now = std::time::Instant::now();
-            tokio::time::delay_for(Duration::from_secs_f32(params.seconds())).await;
+            tokio::time::delay_for(Duration::from_secs_f32(params.seconds)).await;
             now.elapsed()
         };
 
@@ -45,7 +45,7 @@ impl ServerController {
     ) -> Result<ClearLogsResult, AppError> {
         let params = ClearLogsParams::try_from(request)?;
 
-        self.authorize_admin(params.user())?;
+        self.authorize_admin(&params.user)?;
 
         let paths =
             std::fs::read_dir(&self.log_directory).map_err(|_e| JsonRpcError::internal_error())?;
@@ -67,7 +67,7 @@ impl ServerController {
                 .metadata()
                 .map_err(|_e| JsonRpcError::internal_error())?
                 .len();
-            if !params.dry_run() {
+            if !params.dry_run {
                 std::fs::remove_file(f.path()).map_err(|_e| JsonRpcError::internal_error())?;
             }
 
@@ -77,7 +77,7 @@ impl ServerController {
         self.increment_served_requests().await;
 
         Ok(ClearLogsResult::new(
-            params.dry_run(),
+            params.dry_run,
             log_files.len(),
             total_size,
         ))
@@ -89,7 +89,7 @@ impl ServerController {
     ) -> Result<PrepareTestsResult, AppError> {
         let params = PrepareTestsParams::try_from(request)?;
 
-        self.authorize_admin(params.user())?;
+        self.authorize_admin(&params.user)?;
 
         Ok(PrepareTestsResult::new(false))
     }
@@ -99,7 +99,7 @@ impl ServerController {
         request: crate::JsonRpcRequest,
     ) -> Result<GetAllUsernamesResult, AppError> {
         let params = GetAllUsernamesParams::try_from(request)?;
-        self.authorize_admin(params.user())?;
+        self.authorize_admin(&params.user)?;
 
         let result = self.user_db.get_all_usernames()?;
 
@@ -108,16 +108,13 @@ impl ServerController {
 
     fn authorize_admin(&self, user: &user::User) -> Result<(), AppError> {
         debug!("validating user {:?}", user);
-        match self
-            .user_db
-            .get_user_by_username(user.username())?
-            .map(|u| {
-                let encrypted_password = crate::encrypt(user.password().as_bytes(), u.salt());
-                (
-                    u.validate_password(&encrypted_password),
-                    u.is_authorized(db::UserRole::Admin),
-                )
-            }) {
+        match self.user_db.get_user_by_username(&user.username)?.map(|u| {
+            let encrypted_password = crate::encrypt(user.password.as_bytes(), u.salt());
+            (
+                u.validate_password(&encrypted_password),
+                u.is_authorized(db::UserRole::Admin),
+            )
+        }) {
             // tuple is (password is correct, user is admin)
             Some((true, true)) => {
                 debug!("password is valid and user is admin");

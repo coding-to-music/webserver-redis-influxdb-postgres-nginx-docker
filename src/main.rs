@@ -116,14 +116,13 @@ impl App {
 
     /// Handle a single JSON RPC request
     async fn handle_single(&self, request: JsonRpcRequest) -> JsonRpcResponse {
-        let jsonrpc = request.version().clone();
-        let id = request.id().clone();
-        let method = request.method().to_owned();
+        let jsonrpc = request.jsonrpc;
+        let id = request.id.clone();
+        let method = request.method.to_owned();
         let timer = std::time::Instant::now();
         info!(
             "handling request with id {:?} with method: '{}'",
-            id,
-            request.method()
+            id, request.method
         );
 
         let result = match Method::from_str(&method) {
@@ -218,6 +217,9 @@ impl App {
                         .rename_list_type(request)
                         .await
                         .map(|result| JsonRpcResponse::success(jsonrpc, result, id)),
+                    Method::UpdateListItem => {
+                        todo!()
+                    }
                 }
             }
         };

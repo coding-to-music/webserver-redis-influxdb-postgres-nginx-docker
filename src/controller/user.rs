@@ -27,7 +27,7 @@ impl UserController {
     pub async fn add(&self, request: crate::JsonRpcRequest) -> Result<AddUserResult, AppError> {
         let params = AddUserParams::try_from(request)?;
 
-        if self.user_db.username_exists(&params.user().username()) {
+        if self.user_db.username_exists(&params.user.username) {
             return Err(AppError::from(
                 JsonRpcError::internal_error()
                     .with_data("a user with that username already exists"),
@@ -35,11 +35,11 @@ impl UserController {
         }
 
         let salt = UserController::generate_salt();
-        let hashed_password = crate::encrypt(&params.user().password().as_bytes(), &salt);
+        let hashed_password = crate::encrypt(&params.user.password.as_bytes(), &salt);
 
         let user_row = DbUser::new(
             None,
-            params.user().username().to_owned(),
+            params.user.username.to_owned(),
             hashed_password,
             salt,
             Utc::now().timestamp() as u32,
@@ -65,11 +65,11 @@ impl UserController {
     ) -> Result<ChangePasswordResult, AppError> {
         let params = ChangePasswordParams::try_from(request)?;
 
-        let user_row = self.get_user_if_valid(params.user())?;
+        let user_row = self.get_user_if_valid(&params.user)?;
 
         let current_salt = user_row.salt();
 
-        let new_password = crate::encrypt(params.new_password().as_bytes(), current_salt);
+        let new_password = crate::encrypt(params.new_password.as_bytes(), current_salt);
 
         let new_user_row = DbUser::new(
             user_row.id(),
@@ -90,10 +90,9 @@ impl UserController {
         let params = ValidateUserParams::try_from(request)?;
         let result = self
             .user_db
-            .get_user_by_username(params.user().username())?
+            .get_user_by_username(&params.user.username)?
             .map(|u| {
-                let encrypted_password =
-                    crate::encrypt(params.user().password().as_bytes(), u.salt());
+                let encrypted_password = crate::encrypt(params.user.password.as_bytes(), u.salt());
                 u.validate_password(&encrypted_password)
             })
             .unwrap_or(false);
@@ -107,20 +106,20 @@ impl UserController {
     ) -> Result<SetRoleResult, AppError> {
         let params = SetRoleParams::try_from(request)?;
 
-        let user_row = self.get_user_if_valid(params.user())?;
+        let user_row = self.get_user_if_valid(&params.user)?;
 
         if user_row.role() < &UserRole::Admin {
             return Err(AppError::from(JsonRpcError::not_permitted()));
         }
 
-        if let Some(_user) = self.user_db.get_user_by_username(params.username())? {
+        if let Some(_user) = self.user_db.get_user_by_username(&params.username)? {
             let result = self.user_db.update_user_role(
-                params.username(),
-                UserRole::from_str(params.role()).map_err(|_| {
+                &params.username,
+                UserRole::from_str(&params.role).map_err(|_| {
                     AppError::from(JsonRpcError::invalid_params().with_data("invalid user role"))
                         .with_context(&format!(
                             "user provided '{}', which is not a valid role",
-                            params.role()
+                            params.role
                         ))
                 })?,
             )?;
@@ -136,20 +135,20 @@ impl UserController {
     ) -> Result<DeleteUserResult, AppError> {
         let params = DeleteUserParams::try_from(request)?;
 
-        let user_row = self.get_user_if_valid(params.user())?;
+        let user_row = self.get_user_if_valid(&params.user)?;
 
         // only allow deletes if the user is an admin or if a user is trying to delete themselves
-        if user_row.role() < &UserRole::Admin && params.user().username() != params.username() {
+        if user_row.role() < &UserRole::Admin && params.user.username != params.username {
             return Err(AppError::from(JsonRpcError::not_permitted()));
         }
 
-        let result = self.user_db.delete_user(params.username())?;
+        let result = self.user_db.delete_user(&params.username)?;
 
         if result {
             // delete any predictions associated with this user
             let deleted_predictions = self
                 .prediction_db
-                .delete_predictions_by_username(params.username())?;
+                .delete_predictions_by_username(&params.username)?;
             Ok(DeleteUserResult::new(result, deleted_predictions))
         } else {
             Err(AppError::from(JsonRpcError::database_error()))
@@ -157,12 +156,11 @@ impl UserController {
     }
 
     fn get_user_if_valid(&self, user: &User) -> Result<DbUser, GetUserIfValidError> {
-        let user_row = self.user_db.get_user_by_username(user.username())?;
+        let user_row = self.user_db.get_user_by_username(&user.username)?;
 
         match user_row {
             Some(user_row) => {
-                let encrypted_password =
-                    crate::encrypt(user.password().as_bytes(), user_row.salt());
+                let encrypted_password = crate::encrypt(user.password.as_bytes(), user_row.salt());
                 match user_row.validate_password(&encrypted_password) {
                     true => Ok(user_row),
                     false => Err(GetUserIfValidError::InvalidPassword),
