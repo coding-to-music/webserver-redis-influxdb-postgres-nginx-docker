@@ -56,7 +56,7 @@ impl PredictionController {
             let prediction = self.prediction_db.get_predictions_by_id(params.id)?;
             let same_user = prediction
                 .as_ref()
-                .map(|pred| pred.username() == params.user.username)
+                .map(|pred| pred.username == params.user.username)
                 .unwrap_or(false);
 
             match (prediction, same_user) {
@@ -98,12 +98,12 @@ impl PredictionController {
                     .map(|db_pred| {
                         Prediction::new(
                             if user.username == params.username {
-                                db_pred.id()
+                                db_pred.id
                             } else {
                                 None
                             },
-                            db_pred.text().to_owned(),
-                            db_pred.timestamp_s(),
+                            db_pred.text.to_owned(),
+                            db_pred.timestamp_s,
                         )
                     })
                     .collect(),
@@ -116,7 +116,7 @@ impl PredictionController {
             (None, _) => Ok(SearchPredictionsResult::new(
                 predictions
                     .into_iter()
-                    .map(|row| Prediction::new(None, row.text().to_owned(), row.timestamp_s()))
+                    .map(|row| Prediction::new(None, row.text, row.timestamp_s))
                     .collect(),
             )),
         }
@@ -128,7 +128,7 @@ impl PredictionController {
             .user_db
             .get_user_by_username(&user.username)?
             .map(|u| {
-                let encrypted_password = crate::encrypt(user.password.as_bytes(), u.salt());
+                let encrypted_password = crate::encrypt(user.password.as_bytes(), &u.salt);
                 u.validate_password(&encrypted_password)
             })
             .unwrap_or(false);

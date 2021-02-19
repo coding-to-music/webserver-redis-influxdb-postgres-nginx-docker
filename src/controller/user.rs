@@ -67,16 +67,16 @@ impl UserController {
 
         let user_row = self.get_user_if_valid(&params.user)?;
 
-        let current_salt = user_row.salt();
+        let current_salt = user_row.salt;
 
-        let new_password = crate::encrypt(params.new_password.as_bytes(), current_salt);
+        let new_password = crate::encrypt(params.new_password.as_bytes(), &current_salt);
 
         let new_user_row = DbUser::new(
-            user_row.id(),
-            user_row.username().to_owned(),
+            user_row.id,
+            user_row.username,
             new_password,
-            *current_salt,
-            user_row.created_s(),
+            current_salt,
+            user_row.created_s,
         );
 
         let result = self.user_db.update_user_password(new_user_row)?;
@@ -92,7 +92,7 @@ impl UserController {
             .user_db
             .get_user_by_username(&params.user.username)?
             .map(|u| {
-                let encrypted_password = crate::encrypt(params.user.password.as_bytes(), u.salt());
+                let encrypted_password = crate::encrypt(params.user.password.as_bytes(), &u.salt);
                 u.validate_password(&encrypted_password)
             })
             .unwrap_or(false);
@@ -108,7 +108,7 @@ impl UserController {
 
         let user_row = self.get_user_if_valid(&params.user)?;
 
-        if user_row.role() < &UserRole::Admin {
+        if &user_row.role < &UserRole::Admin {
             return Err(AppError::from(JsonRpcError::not_permitted()));
         }
 
@@ -138,7 +138,7 @@ impl UserController {
         let user_row = self.get_user_if_valid(&params.user)?;
 
         // only allow deletes if the user is an admin or if a user is trying to delete themselves
-        if user_row.role() < &UserRole::Admin && params.user.username != params.username {
+        if &user_row.role < &UserRole::Admin && params.user.username != params.username {
             return Err(AppError::from(JsonRpcError::not_permitted()));
         }
 
@@ -160,7 +160,7 @@ impl UserController {
 
         match user_row {
             Some(user_row) => {
-                let encrypted_password = crate::encrypt(user.password.as_bytes(), user_row.salt());
+                let encrypted_password = crate::encrypt(user.password.as_bytes(), &user_row.salt);
                 match user_row.validate_password(&encrypted_password) {
                     true => Ok(user_row),
                     false => Err(GetUserIfValidError::InvalidPassword),

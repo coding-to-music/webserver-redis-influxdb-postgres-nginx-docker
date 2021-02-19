@@ -21,12 +21,12 @@ use webserver_database::{Database, DatabaseError, ListItem as DbListItem};
 use crate::AppError;
 
 pub struct ListItemController {
-    list_item_db: Arc<Database<DbListItem>>,
+    db: Arc<Database<DbListItem>>,
 }
 
 impl ListItemController {
     pub fn new(list_item_db: Arc<Database<DbListItem>>) -> Self {
-        Self { list_item_db }
+        Self { db: list_item_db }
     }
 
     pub async fn add_list_item(
@@ -48,7 +48,7 @@ impl ListItemController {
         match (next_better, next_worse) {
             (None, None) if items_in_list.is_empty() => {
                 // add item to new list
-                self.db().insert_list_item(
+                self.db.insert_list_item(
                     new_item_id,
                     &list_type,
                     &item_name,
@@ -66,8 +66,8 @@ impl ListItemController {
                 let old_best = items_in_list
                     .get(&worse)
                     .ok_or(JsonRpcError::could_not_find_list_item(worse))?;
-                if old_best.next_better().is_none() {
-                    self.db().insert_list_item(
+                if old_best.next_better.is_none() {
+                    self.db.insert_list_item(
                         new_item_id,
                         &list_type,
                         &item_name,
@@ -76,11 +76,11 @@ impl ListItemController {
                         created_s,
                     )?;
                     // update the old best to point to the new best
-                    self.db().update_list_item(
-                        *old_best.id(),
-                        old_best.item_name(),
+                    self.db.update_list_item(
+                        old_best.id,
+                        &old_best.item_name,
                         Some(new_item_id),
-                        *old_best.next_worse(),
+                        old_best.next_worse,
                     )?;
                 } else {
                     return Err(JsonRpcError::application_error(-31997).with_message("can't add a new best item if 'next_worse' does not point to the old best item").into());
@@ -92,8 +92,8 @@ impl ListItemController {
                 let old_worst = items_in_list
                     .get(&better)
                     .ok_or(JsonRpcError::could_not_find_list_item(better))?;
-                if old_worst.next_worse().is_none() {
-                    self.db().insert_list_item(
+                if old_worst.next_worse.is_none() {
+                    self.db.insert_list_item(
                         new_item_id,
                         &list_type,
                         &item_name,
@@ -102,10 +102,10 @@ impl ListItemController {
                         created_s,
                     )?;
                     // update the old worst to point to the new worst
-                    self.db().update_list_item(
-                        *old_worst.id(),
-                        old_worst.item_name(),
-                        *old_worst.next_better(),
+                    self.db.update_list_item(
+                        old_worst.id,
+                        &old_worst.item_name,
+                        old_worst.next_better,
                         Some(new_item_id),
                     )?;
                 } else {
@@ -125,7 +125,7 @@ impl ListItemController {
                         return Err(JsonRpcError::could_not_find_list_item(worse_id).into());
                     }
                     (Some(better), Some(worse)) => {
-                        self.db().insert_list_item(
+                        self.db.insert_list_item(
                             new_item_id,
                             &list_type,
                             &item_name,
@@ -134,18 +134,18 @@ impl ListItemController {
                             created_s,
                         )?;
 
-                        self.db().update_list_item(
-                            *better.id(),
-                            better.item_name(),
-                            *better.next_better(),
+                        self.db.update_list_item(
+                            better.id,
+                            &better.item_name,
+                            better.next_better,
                             Some(new_item_id),
                         )?;
 
-                        self.db().update_list_item(
-                            *worse.id(),
-                            worse.item_name(),
+                        self.db.update_list_item(
+                            worse.id,
+                            &worse.item_name,
                             Some(new_item_id),
-                            *worse.next_worse(),
+                            worse.next_worse,
                         )?;
                     }
                 }
@@ -161,17 +161,17 @@ impl ListItemController {
     ) -> Result<GetListItemsResult, AppError> {
         let params = GetListItemsParams::try_from(request)?;
 
-        let list_items = self.db().get_list_items(&params.list_type)?;
+        let list_items = self.db.get_list_items(&params.list_type)?;
 
         let list_items = list_items
             .into_iter()
             .map(|li| {
                 ListItem::new(
-                    *li.id(),
-                    li.list_type().to_owned(),
-                    li.item_name().to_owned(),
-                    *li.next_better(),
-                    *li.next_worse(),
+                    li.id,
+                    li.list_type,
+                    li.item_name,
+                    li.next_better,
+                    li.next_worse,
                 )
             })
             .collect();
@@ -189,47 +189,44 @@ impl ListItemController {
 
         info!("deleting list item with id '{}'", id);
 
-        if let Some(item_to_delete) = self.db().get_list_item(id)? {
-            let items_in_list = self.get_list_items_as_hash_map(item_to_delete.list_type())?;
+        if let Some(item_to_delete) = self.db.get_list_item(id)? {
+            let items_in_list = self.get_list_items_as_hash_map(&item_to_delete.list_type)?;
 
-            let result = match (item_to_delete.next_better(), item_to_delete.next_worse()) {
+            let result = match (&item_to_delete.next_better, &item_to_delete.next_worse) {
                 (None, None) => {
                     info!(
                         "list item with id '{}' is the only item in list '{}'",
-                        id,
-                        item_to_delete.list_type()
+                        id, item_to_delete.list_type
                     );
-                    self.db().delete_list_item(id)?
+                    self.db.delete_list_item(id)?
                 }
                 (None, Some(worse)) => {
                     info!(
                         "list item with id '{}' is the best item in list '{}'",
-                        id,
-                        item_to_delete.list_type()
+                        id, item_to_delete.list_type
                     );
                     let worse_item = items_in_list.get(worse).unwrap();
-                    self.db().update_list_item(
-                        *worse_item.id(),
-                        worse_item.item_name(),
+                    self.db.update_list_item(
+                        worse_item.id,
+                        &worse_item.item_name,
                         None,
-                        *worse_item.next_worse(),
+                        worse_item.next_worse,
                     )?;
-                    self.db().delete_list_item(id)?
+                    self.db.delete_list_item(id)?
                 }
                 (Some(better), None) => {
                     info!(
                         "list item with id '{}' is the worst item in list '{}'",
-                        id,
-                        item_to_delete.list_type()
+                        id, item_to_delete.list_type
                     );
                     let better_item = items_in_list.get(better).unwrap();
-                    self.db().update_list_item(
-                        *better_item.id(),
-                        better_item.item_name(),
-                        *better_item.next_better(),
+                    self.db.update_list_item(
+                        better_item.id,
+                        &better_item.item_name,
+                        better_item.next_better,
                         None,
                     )?;
-                    self.db().delete_list_item(id)?
+                    self.db.delete_list_item(id)?
                 }
                 (Some(better), Some(worse)) => {
                     info!(
@@ -237,23 +234,23 @@ impl ListItemController {
                         id,
                         worse,
                         better,
-                        item_to_delete.list_type()
+                        item_to_delete.list_type
                     );
                     let worse_item = items_in_list.get(worse).unwrap();
                     let better_item = items_in_list.get(better).unwrap();
-                    self.db().update_list_item(
-                        *worse_item.id(),
-                        worse_item.item_name(),
-                        *item_to_delete.next_better(),
-                        *worse_item.next_worse(),
+                    self.db.update_list_item(
+                        worse_item.id,
+                        &worse_item.item_name,
+                        item_to_delete.next_better,
+                        worse_item.next_worse,
                     )?;
-                    self.db().update_list_item(
-                        *better_item.id(),
-                        better_item.item_name(),
-                        *better_item.next_better(),
-                        *item_to_delete.next_worse(),
+                    self.db.update_list_item(
+                        better_item.id,
+                        &better_item.item_name,
+                        better_item.next_better,
+                        item_to_delete.next_worse,
                     )?;
-                    self.db().delete_list_item(id)?
+                    self.db.delete_list_item(id)?
                 }
             };
 
@@ -272,7 +269,7 @@ impl ListItemController {
     ) -> Result<GetListTypesResult, AppError> {
         let _params = GetListTypesParams::try_from(request)?;
 
-        let list_types = self.db().get_list_types()?;
+        let list_types = self.db.get_list_types()?;
 
         Ok(GetListTypesResult::new(list_types))
     }
@@ -283,14 +280,14 @@ impl ListItemController {
     ) -> Result<RenameListTypeResult, AppError> {
         let params = RenameListTypeParams::try_from(request)?;
 
-        let existing_list_types: HashSet<_> = self.db().get_list_types()?.into_iter().collect();
+        let existing_list_types: HashSet<_> = self.db.get_list_types()?.into_iter().collect();
 
         if !existing_list_types.contains(&params.old_name) {
             return Ok(RenameListTypeResult::new(false));
         }
 
         let updated_rows = self
-            .db()
+            .db
             .rename_list_type(&params.old_name, &params.new_name)?;
 
         Ok(RenameListTypeResult::new(updated_rows > 0))
@@ -300,16 +297,12 @@ impl ListItemController {
         &self,
         list_type: &str,
     ) -> Result<HashMap<Uuid, DbListItem>, DatabaseError> {
-        let items_in_list = self.list_item_db.get_list_items(list_type)?;
+        let items_in_list = self.db.get_list_items(list_type)?;
 
         Ok(items_in_list
             .into_iter()
-            .map(|item| (*item.id(), item))
+            .map(|item| (item.id, item))
             .collect())
-    }
-
-    pub fn db(&self) -> &Arc<Database<DbListItem>> {
-        &self.list_item_db
     }
 }
 
