@@ -14,7 +14,9 @@ use warp::{Filter, Reply};
 use webserver_contracts::{
     Error as JsonRpcError, JsonRpcRequest, JsonRpcResponse, JsonRpcVersion, Method,
 };
-use webserver_database as db;
+use webserver_database::{
+    Database, DatabaseError, ListItem as DbListItem, Prediction as DbPrediction, User as DbUser,
+};
 
 mod controller;
 
@@ -82,12 +84,11 @@ pub struct App {
 
 impl App {
     pub fn new(opts: Opts) -> Self {
-        let user_db: Arc<db::Database<db::User>> =
-            Arc::new(db::Database::new(opts.database_path.clone()));
-        let prediction_db: Arc<db::Database<db::Prediction>> =
-            Arc::new(db::Database::new(opts.database_path.clone()));
-        let list_item_db: Arc<db::Database<db::ListItem>> =
-            Arc::new(db::Database::new(opts.database_path.clone()));
+        let user_db: Arc<Database<DbUser>> = Arc::new(Database::new(opts.database_path.clone()));
+        let prediction_db: Arc<Database<DbPrediction>> =
+            Arc::new(Database::new(opts.database_path.clone()));
+        let list_item_db: Arc<Database<DbListItem>> =
+            Arc::new(Database::new(opts.database_path.clone()));
 
         let webserver_log_path: PathBuf = PathBuf::from(opts.log_path.clone());
 
@@ -241,13 +242,10 @@ impl App {
         };
 
         self.log_measurement(
-            Measurement::builder(String::from("handle_request"))
-                .with_tag(String::from("method"), method.clone())
-                .with_field_u128(String::from("duration_micros"), elapsed.as_micros())
-                .with_field_string(
-                    String::from("request_id"),
-                    id.unwrap_or_else(|| String::from("")),
-                )
+            Measurement::builder("handle_request")
+                .with_tag("method", method)
+                .with_field("duration_micros", elapsed.as_micros())
+                .with_field("request_id", id.unwrap_or_default())
                 .build()
                 .unwrap(),
         )
@@ -305,8 +303,8 @@ impl From<webserver_contracts::Error> for AppError {
     }
 }
 
-impl From<db::DatabaseError> for AppError {
-    fn from(db_error: db::DatabaseError) -> Self {
+impl From<DatabaseError> for AppError {
+    fn from(db_error: DatabaseError) -> Self {
         AppError::from(webserver_contracts::Error::database_error()).with_context(&db_error)
     }
 }
