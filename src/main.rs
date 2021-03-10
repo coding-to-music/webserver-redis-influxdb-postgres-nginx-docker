@@ -6,16 +6,16 @@ use influx::{InfluxClient, Measurement};
 use ring::digest;
 use serde_json::Value;
 use std::{
-    any::Any, convert::Infallible, fmt::Debug, num::NonZeroU32, path::PathBuf, str::FromStr,
+    any::Any, collections::HashSet, convert::Infallible, fmt::Debug, num::NonZeroU32, str::FromStr,
     sync::Arc,
 };
 use structopt::StructOpt;
-use warp::{Filter, Reply};
+use warp::{Filter, Rejection, Reply, http::HeaderValue, hyper::server::accept::Accept};
 use webserver_contracts::{
     Error as JsonRpcError, JsonRpcRequest, JsonRpcResponse, JsonRpcVersion, Method,
 };
 use webserver_database::{
-    Database, DatabaseError, ListItem as DbListItem, Prediction as DbPrediction, User as DbUser,
+    Database, DatabaseError, ListItem as DbListItem, Prediction as DbPrediction,
 };
 
 mod controller;
@@ -37,6 +37,8 @@ pub struct Opts {
     influx_key: String,
     #[structopt(long, env = "WEBSERVER_INFLUX_ORG")]
     influx_org: String,
+    #[structopt(long, env = "WEBSERVER_KEY_FILE_PATH")]
+    keys_file: String,
 }
 
 #[tokio::main]
@@ -66,6 +68,10 @@ async fn main() {
 
     let handler = warp::post()
         .and(warp::path("api"))
+        .and(
+            warp::header::value("x-webserver-key")
+                .map(|v: HeaderValue| authorize(v.to_str().unwrap().to_owned(), &app.keys)),
+        )
         .and(warp::body::json())
         .and_then(move |body| handle_request(app.clone(), body))
         .with(log);
@@ -73,24 +79,31 @@ async fn main() {
     warp::serve(handler).run(([0, 0, 0, 0], port)).await;
 }
 
+fn authorize(
+    key: String,
+    keys: &HashSet<String>,
+) -> impl Filter<Extract = (), Error = Rejection> + Copy {
+    if keys.contains(&key) {
+        Accept
+    } else {
+        Rejection
+    }
+}
+
 pub struct App {
     opts: Opts,
+    keys: HashSet<String>,
     prediction_controller: PredictionController,
-    user_controller: UserController,
-    server_controller: ServerController,
     list_controller: ListItemController,
     influx_client: Arc<InfluxClient>,
 }
 
 impl App {
     pub fn new(opts: Opts) -> Self {
-        let user_db: Arc<Database<DbUser>> = Arc::new(Database::new(opts.database_path.clone()));
         let prediction_db: Arc<Database<DbPrediction>> =
             Arc::new(Database::new(opts.database_path.clone()));
         let list_item_db: Arc<Database<DbListItem>> =
             Arc::new(Database::new(opts.database_path.clone()));
-
-        let webserver_log_path: PathBuf = PathBuf::from(opts.log_path.clone());
 
         let influx_client = Arc::new(
             InfluxClient::builder(
@@ -102,14 +115,16 @@ impl App {
             .unwrap(),
         );
 
+        let keys = std::fs::read_to_string(&opts.keys_file)
+            .expect(&format!("could not find key file '{}'", opts.keys_file))
+            .lines()
+            .map(|l| l.to_owned())
+            .collect();
+
         Self {
             opts,
-            prediction_controller: PredictionController::new(
-                prediction_db.clone(),
-                user_db.clone(),
-            ),
-            user_controller: UserController::new(user_db.clone(), prediction_db),
-            server_controller: ServerController::new(user_db, webserver_log_path),
+            keys,
+            prediction_controller: PredictionController::new(prediction_db),
             list_controller: ListItemController::new(list_item_db),
             influx_client,
         }
@@ -143,54 +158,9 @@ impl App {
                         .delete(request)
                         .await
                         .map(|result| JsonRpcResponse::success(jsonrpc, result, id)),
-                    Method::SearchPredictions => self
+                    Method::GetPrediction => self
                         .prediction_controller
-                        .search(request)
-                        .await
-                        .map(|result| JsonRpcResponse::success(jsonrpc, result, id)),
-                    Method::AddUser => self
-                        .user_controller
-                        .add(request)
-                        .await
-                        .map(|result| JsonRpcResponse::success(jsonrpc, result, id)),
-                    Method::ChangePassword => self
-                        .user_controller
-                        .change_password(request)
-                        .await
-                        .map(|result| JsonRpcResponse::success(jsonrpc, result, id)),
-                    Method::ValidateUser => self
-                        .user_controller
-                        .validate_user(request)
-                        .await
-                        .map(|result| JsonRpcResponse::success(jsonrpc, result, id)),
-                    Method::DeleteUser => self
-                        .user_controller
-                        .delete_user(request)
-                        .await
-                        .map(|result| JsonRpcResponse::success(jsonrpc, result, id)),
-                    Method::SetRole => self
-                        .user_controller
-                        .set_role(request)
-                        .await
-                        .map(|result| JsonRpcResponse::success(jsonrpc, result, id)),
-                    Method::Sleep => self
-                        .server_controller
-                        .sleep(request)
-                        .await
-                        .map(|result| JsonRpcResponse::success(jsonrpc, result, id)),
-                    Method::ClearLogs => self
-                        .server_controller
-                        .clear_logs(request)
-                        .await
-                        .map(|result| JsonRpcResponse::success(jsonrpc, result, id)),
-                    Method::PrepareTests => self
-                        .server_controller
-                        .prepare_tests(request)
-                        .await
-                        .map(|result| JsonRpcResponse::success(jsonrpc, result, id)),
-                    Method::GetAllUsers => self
-                        .server_controller
-                        .get_all_usernames(request)
+                        .get(request)
                         .await
                         .map(|result| JsonRpcResponse::success(jsonrpc, result, id)),
                     Method::AddListItem => self
@@ -219,7 +189,10 @@ impl App {
                         .await
                         .map(|result| JsonRpcResponse::success(jsonrpc, result, id)),
                     Method::UpdateListItem => {
-                        todo!()
+                        unimplemented!()
+                    }
+                    Method::Sleep => {
+                        unimplemented!()
                     }
                 }
             }
