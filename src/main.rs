@@ -23,8 +23,6 @@ pub struct Opts {
     port: u16,
     #[structopt(long, env = "WEBSERVER_SQLITE_PATH")]
     database_path: String,
-    #[structopt(long, env = "WEBSERVER_LOG_PATH")]
-    log_path: String,
     #[structopt(long, env = "WEBSERVER_INFLUX_URL")]
     influx_url: String,
     #[structopt(long, env = "WEBSERVER_INFLUX_KEY")]
@@ -35,6 +33,10 @@ pub struct Opts {
     cert_path: String,
     #[structopt(long, env = "WEBSERVER_CERT_KEY_PATH")]
     key_path: String,
+    #[structopt(long, env = "WEBSERVER_REDIS_ADDR")]
+    redis_addr: String,
+    #[structopt(long, env = "WEBSERVER_JWT_SECRET")]
+    jwt_secret: String,
 }
 
 #[tokio::main]
@@ -100,7 +102,8 @@ impl App {
         );
 
         let list_controller = ListItemController::new(list_item_db);
-        let auth_controller = AuthController::new("localhost".into());
+        let auth_controller =
+            AuthController::new(opts.redis_addr.to_owned(), opts.jwt_secret.to_owned());
 
         Self {
             opts,
