@@ -12,7 +12,7 @@ use webserver_contracts::{
     Error as JsonRpcError, JsonRpcRequest, JsonRpcResponse, JsonRpcVersion, Method,
 };
 use webserver_database::{
-    Database, DatabaseError, ListItem as DbListItem, Prediction as DbPrediction,
+    Database, DatabaseError, ListItem as DbListItem, 
 };
 
 mod controller;
@@ -81,15 +81,12 @@ async fn main() {
 
 pub struct App {
     opts: Opts,
-    prediction_controller: PredictionController,
     list_controller: ListItemController,
     influx_client: Arc<InfluxClient>,
 }
 
 impl App {
     pub fn new(opts: Opts) -> Self {
-        let prediction_db: Arc<Database<DbPrediction>> =
-            Arc::new(Database::new(opts.database_path.clone()));
         let list_item_db: Arc<Database<DbListItem>> =
             Arc::new(Database::new(opts.database_path.clone()));
 
@@ -105,7 +102,6 @@ impl App {
 
         Self {
             opts,
-            prediction_controller: PredictionController::new(prediction_db),
             list_controller: ListItemController::new(list_item_db),
             influx_client,
         }
@@ -129,21 +125,6 @@ impl App {
                 let jsonrpc = jsonrpc.clone();
                 let id = id.clone();
                 match method {
-                    Method::AddPrediction => self
-                        .prediction_controller
-                        .add(request)
-                        .await
-                        .map(|result| JsonRpcResponse::success(jsonrpc, result, id)),
-                    Method::DeletePrediction => self
-                        .prediction_controller
-                        .delete(request)
-                        .await
-                        .map(|result| JsonRpcResponse::success(jsonrpc, result, id)),
-                    Method::GetPrediction => self
-                        .prediction_controller
-                        .get(request)
-                        .await
-                        .map(|result| JsonRpcResponse::success(jsonrpc, result, id)),
                     Method::AddListItem => self
                         .list_controller
                         .add_list_item(request)
