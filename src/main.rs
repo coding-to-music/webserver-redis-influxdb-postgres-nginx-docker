@@ -43,18 +43,21 @@ pub struct Opts {
 #[tokio::main]
 async fn main() {
     let env = std::env::var("WEBSERVER_ENV").unwrap_or_else(|_| "test".to_string());
+    
+    pretty_env_logger::init();
 
     match env.as_str() {
         "prod" => {
+            info!("Starting webserver in prod env");
             dotenv::from_filename("prod.env").ok();
         }
         "test" => {
+            info!("Starting webserver in test env");
             dotenv::from_filename("test.env").ok();
         }
         invalid => panic!("invalid environment specified: '{}'", invalid),
     }
 
-    pretty_env_logger::init();
     let opts = Opts::from_args();
 
     info!("Starting webserver with opts: {:?}", opts);
