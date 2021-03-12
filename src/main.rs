@@ -54,16 +54,8 @@ async fn main() {
         invalid => panic!("invalid environment specified: '{}'", invalid),
     }
 
-    pretty_env_logger::formatted_builder()
-        .format(|buf, record| {
-            writeln!(
-                buf,
-                "{} [{}] > {}",
-                chrono::Utc::now().to_rfc3339(),
-                record.level(),
-                record.args()
-            )
-        })
+    pretty_env_logger::formatted_timed_builder()
+        .parse_filters(&std::env::var("RUST_LOG").unwrap())
         .init();
 
     let opts = Opts::from_args();
