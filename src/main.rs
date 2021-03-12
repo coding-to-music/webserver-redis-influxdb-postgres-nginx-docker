@@ -3,17 +3,14 @@
 use controller::*;
 use futures::future;
 use influx::{InfluxClient, Measurement};
-use ring::digest;
 use serde_json::Value;
-use std::{any::Any, convert::Infallible, fmt::Debug, num::NonZeroU32, str::FromStr, sync::Arc};
+use std::{any::Any, convert::Infallible, fmt::Debug, str::FromStr, sync::Arc};
 use structopt::StructOpt;
 use warp::{Filter, Reply};
 use webserver_contracts::{
     Error as JsonRpcError, JsonRpcRequest, JsonRpcResponse, JsonRpcVersion, Method,
 };
-use webserver_database::{
-    Database, DatabaseError, ListItem as DbListItem, 
-};
+use webserver_database::{Database, DatabaseError, ListItem as DbListItem};
 
 mod controller;
 
@@ -43,7 +40,7 @@ pub struct Opts {
 #[tokio::main]
 async fn main() {
     let env = std::env::var("WEBSERVER_ENV").unwrap_or_else(|_| "prod".to_string());
-    
+
     match env.as_str() {
         "prod" => {
             dotenv::from_filename("prod.env").ok();
@@ -58,7 +55,7 @@ async fn main() {
 
     let opts = Opts::from_args();
 
-    info!("Starting webserver with opts: {:?}", opts);
+    info!("starting webserver with opts: {:?}", opts);
 
     let port = opts.port;
 
@@ -83,6 +80,7 @@ async fn main() {
 pub struct App {
     opts: Opts,
     list_controller: ListItemController,
+    auth_controller: AuthController,
     influx_client: Arc<InfluxClient>,
 }
 
@@ -101,9 +99,13 @@ impl App {
             .unwrap(),
         );
 
+        let list_controller = ListItemController::new(list_item_db);
+        let auth_controller = AuthController::new("localhost".into());
+
         Self {
             opts,
-            list_controller: ListItemController::new(list_item_db),
+            list_controller,
+            auth_controller,
             influx_client,
         }
     }
@@ -154,9 +156,11 @@ impl App {
                     Method::UpdateListItem => {
                         unimplemented!()
                     }
-                    Method::Sleep => {
-                        unimplemented!()
-                    }
+                    Method::GetToken => self
+                        .auth_controller
+                        .get_token(request)
+                        .await
+                        .map(|result| JsonRpcResponse::success(jsonrpc, result, id)),
                 }
             }
         };
@@ -245,6 +249,12 @@ impl From<DatabaseError> for AppError {
     }
 }
 
+impl From<redis::RedisError> for AppError {
+    fn from(redis_error: redis::RedisError) -> Self {
+        AppError::from(webserver_contracts::Error::internal_error()).with_context(&redis_error)
+    }
+}
+
 /// Process the raw JSON body of a request
 /// If the request is a JSON array, handle it as a batch request
 pub async fn handle_request(app: Arc<App>, body: Value) -> Result<impl Reply, Infallible> {
@@ -287,22 +297,4 @@ where
                 std::any::type_name::<T>()
             )
         })
-}
-
-/// Encrypt `password` with `salt`
-pub(crate) fn encrypt(
-    password: &[u8],
-    salt: &[u8; digest::SHA512_OUTPUT_LEN],
-) -> [u8; digest::SHA512_OUTPUT_LEN] {
-    let mut hash = [0u8; digest::SHA512_OUTPUT_LEN];
-
-    ring::pbkdf2::derive(
-        ring::pbkdf2::PBKDF2_HMAC_SHA512,
-        NonZeroU32::new(100_000).unwrap(),
-        salt,
-        password,
-        &mut hash,
-    );
-
-    hash
 }
