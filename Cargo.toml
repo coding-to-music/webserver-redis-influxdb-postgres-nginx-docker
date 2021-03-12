@@ -12,7 +12,7 @@ serde_json = "1.0.47"
 log = "0.4"
 pretty_env_logger = "0.3"
 futures = "0.3.4"
-warp = "0.2.2"
+warp = { version = "0.2.2", features = ["tls"] }
 chrono = "0.4.11"
 ring = "0.16.13"
 structopt = "0.3.14"
@@ -21,3 +21,4 @@ influx = { path = "../influx" }
 webserver_database = { path = "../webserver_database" }
 webserver_contracts = { path = "../webserver_contracts" }
 uuid = "0.8.2"
+jsonwebtoken = "7.2.0"

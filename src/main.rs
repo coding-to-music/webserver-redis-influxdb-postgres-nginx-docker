@@ -5,12 +5,9 @@ use futures::future;
 use influx::{InfluxClient, Measurement};
 use ring::digest;
 use serde_json::Value;
-use std::{
-    any::Any, collections::HashSet, convert::Infallible, fmt::Debug, num::NonZeroU32, str::FromStr,
-    sync::Arc,
-};
+use std::{any::Any, convert::Infallible, fmt::Debug, num::NonZeroU32, str::FromStr, sync::Arc};
 use structopt::StructOpt;
-use warp::{Filter, Rejection, Reply, http::HeaderValue, hyper::server::accept::Accept};
+use warp::{Filter, Reply};
 use webserver_contracts::{
     Error as JsonRpcError, JsonRpcRequest, JsonRpcResponse, JsonRpcVersion, Method,
 };
@@ -23,7 +20,7 @@ mod controller;
 #[macro_use]
 extern crate log;
 
-#[derive(StructOpt, Debug)]
+#[derive(StructOpt, Debug, Clone)]
 pub struct Opts {
     #[structopt(long, default_value = "3000", env = "WEBSERVER_LISTEN_PORT")]
     port: u16,
@@ -37,8 +34,10 @@ pub struct Opts {
     influx_key: String,
     #[structopt(long, env = "WEBSERVER_INFLUX_ORG")]
     influx_org: String,
-    #[structopt(long, env = "WEBSERVER_KEY_FILE_PATH")]
-    keys_file: String,
+    #[structopt(long, env = "WEBSERVER_CERT_PATH")]
+    cert_path: String,
+    #[structopt(long, env = "WEBSERVER_CERT_KEY_PATH")]
+    key_path: String,
 }
 
 #[tokio::main]
@@ -62,37 +61,26 @@ async fn main() {
 
     let port = opts.port;
 
-    let app = Arc::new(App::new(opts));
+    let app = Arc::new(App::new(opts.clone()));
 
     let log = warp::log("api");
 
     let handler = warp::post()
         .and(warp::path("api"))
-        .and(
-            warp::header::value("x-webserver-key")
-                .map(|v: HeaderValue| authorize(v.to_str().unwrap().to_owned(), &app.keys)),
-        )
         .and(warp::body::json())
         .and_then(move |body| handle_request(app.clone(), body))
         .with(log);
 
-    warp::serve(handler).run(([0, 0, 0, 0], port)).await;
-}
-
-fn authorize(
-    key: String,
-    keys: &HashSet<String>,
-) -> impl Filter<Extract = (), Error = Rejection> + Copy {
-    if keys.contains(&key) {
-        Accept
-    } else {
-        Rejection
-    }
+    warp::serve(handler)
+        .tls()
+        .cert_path(&opts.cert_path)
+        .key_path(&opts.key_path)
+        .run(([0, 0, 0, 0], port))
+        .await;
 }
 
 pub struct App {
     opts: Opts,
-    keys: HashSet<String>,
     prediction_controller: PredictionController,
     list_controller: ListItemController,
     influx_client: Arc<InfluxClient>,
@@ -115,15 +103,8 @@ impl App {
             .unwrap(),
         );
 
-        let keys = std::fs::read_to_string(&opts.keys_file)
-            .expect(&format!("could not find key file '{}'", opts.keys_file))
-            .lines()
-            .map(|l| l.to_owned())
-            .collect();
-
         Self {
             opts,
-            keys,
             prediction_controller: PredictionController::new(prediction_db),
             list_controller: ListItemController::new(list_item_db),
             influx_client,
