@@ -9,7 +9,7 @@ use std::{any::Any, convert::Infallible, fmt::Debug, str::FromStr, sync::Arc};
 use structopt::StructOpt;
 use warp::{Filter, Reply};
 use webserver_contracts::{
-    auth::Claims, Error as JsonRpcError, JsonRpcRequest, JsonRpcResponse, JsonRpcVersion, Method,
+    Error as JsonRpcError, JsonRpcRequest, JsonRpcResponse, JsonRpcVersion, Method,
 };
 use webserver_database::{Database, DatabaseError, ListItem as DbListItem};
 
@@ -59,10 +59,8 @@ async fn main() {
         .init();
 
     let opts = Opts::from_args();
-
-    info!("starting webserver with opts: {:?}", opts);
-
-    let port = opts.port;
+    
+    log_opts_at_startup(&opts);
 
     let app = Arc::new(App::new(opts.clone()));
 
@@ -78,8 +76,17 @@ async fn main() {
         .tls()
         .cert_path(&opts.cert_path)
         .key_path(&opts.key_path)
-        .run(([0, 0, 0, 0], port))
+        .run(([0, 0, 0, 0], opts.port))
         .await;
+}
+
+fn log_opts_at_startup(opts: &Opts) {
+    info!("starting webserver with opts: ");
+    info!("WEBSERVER_LISTEN_PORT = {}", opts.port);
+    info!("WEBSERVER_SQLITE_PATH = {}", opts.database_path);
+    info!("WEBSERVER_INFLUX_URL  = {}", opts.influx_url);
+    info!("WEBSERVER_INFLUX_ORG  = {}", opts.influx_org);
+    info!("WEBSERVER_REDIS_ADDR  = {}", opts.redis_addr);
 }
 
 pub struct App {
@@ -315,7 +322,18 @@ fn validate_token(token: &str, secret: &str) -> Result<Claims, jsonwebtoken::err
         token,
         &DecodingKey::from_secret(secret.as_bytes()),
         &Validation::new(Algorithm::default()),
-    )?; 
+    )?;
 
     Ok(decoded.claims)
+}
+
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct Claims {
+    exp: i64,
+}
+
+impl Claims {
+    pub fn new(exp: i64) -> Self {
+        Self { exp }
+    }
 }

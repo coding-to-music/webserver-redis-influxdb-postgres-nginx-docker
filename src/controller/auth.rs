@@ -4,13 +4,13 @@ use jsonwebtoken::{EncodingKey, Header};
 use redis::Commands;
 use webserver_contracts::{
     auth::{
-        Claims, GetTokenParams, GetTokenParamsInvalid, GetTokenResult, ValidateTokenParams,
+        GetTokenParams, GetTokenParamsInvalid, GetTokenResult, ValidateTokenParams,
         ValidateTokenParamsInvalid, ValidateTokenResult,
     },
     Error as JsonRpcError, JsonRpcRequest,
 };
 
-use crate::AppError;
+use crate::{AppError, Claims};
 
 pub struct AuthController {
     redis_client: redis::Client,
@@ -35,7 +35,7 @@ impl AuthController {
 
         if conn.exists(key)? {
             info!("key exists");
-            let token = self.generate_token(&params.claims);
+            let token = self.generate_token();
 
             Ok(GetTokenResult::new(token))
         } else {
@@ -59,10 +59,14 @@ impl AuthController {
         }
     }
 
-    fn generate_token(&self, claims: &Claims) -> String {
+    fn generate_token(&self) -> String {
+        let exp = chrono::Utc::now()
+            .checked_add_signed(chrono::Duration::seconds(3600))
+            .unwrap()
+            .timestamp();
         jsonwebtoken::encode(
             &Header::default(),
-            claims,
+            &Claims::new(exp),
             &EncodingKey::from_secret(self.jwt_secret.as_bytes()),
         )
         .unwrap()
@@ -89,20 +93,5 @@ impl From<ValidateTokenParamsInvalid> for AppError {
         match err {
             ValidateTokenParamsInvalid::InvalidFormat(e) => JsonRpcError::invalid_format(e).into(),
         }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn generate_token_test() {
-        let controller = AuthController::new("redis://localhost".to_owned(), "test".to_owned());
-        let token = controller.generate_token(&Claims::new("admin".to_owned()));
-
-        println!("Token: '{}'", token);
-
-        assert_eq!(token.as_str(), "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJyb2xlIjoiYWRtaW4ifQ.oNJmSCDLzVHLqGVM6OVtQdSrhoUiRI3VlZkCe4f0NxY");
     }
 }
