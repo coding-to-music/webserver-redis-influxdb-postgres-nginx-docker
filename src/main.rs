@@ -42,7 +42,8 @@ pub struct Opts {
 
 #[tokio::main]
 async fn main() {
-    let env = std::env::var("WEBSERVER_ENV").unwrap_or_else(|_| "test".to_string());
+    println!("Running...");
+    let env = std::env::var("WEBSERVER_ENV").unwrap_or_else(|_| "prod".to_string());
     
     pretty_env_logger::init();
 
