@@ -3,7 +3,10 @@ use std::convert::TryFrom;
 use jsonwebtoken::{EncodingKey, Header};
 use redis::Commands;
 use webserver_contracts::{
-    auth::{Claims, GetTokenParams, GetTokenParamsInvalid, GetTokenResult},
+    auth::{
+        Claims, GetTokenParams, GetTokenParamsInvalid, GetTokenResult, ValidateTokenParams,
+        ValidateTokenParamsInvalid, ValidateTokenResult,
+    },
     Error as JsonRpcError, JsonRpcRequest,
 };
 
@@ -41,6 +44,18 @@ impl AuthController {
         }
     }
 
+    pub async fn validate_token(
+        &self,
+        request: JsonRpcRequest,
+    ) -> Result<ValidateTokenResult, AppError> {
+        let params = ValidateTokenParams::try_from(request)?;
+
+        match crate::validate_token(&params.token, &self.jwt_secret) {
+            Ok(_claims) => Ok(ValidateTokenResult::new(true)),
+            Err(_) => Ok(ValidateTokenResult::new(false)),
+        }
+    }
+
     fn generate_token(&self, claims: &Claims) -> String {
         jsonwebtoken::encode(
             &Header::default(),
@@ -49,6 +64,10 @@ impl AuthController {
         )
         .unwrap()
     }
+}
+
+fn key(name: &str, value: &str) -> String {
+    format!("{}-{}", name, value)
 }
 
 impl From<GetTokenParamsInvalid> for AppError {
@@ -62,8 +81,12 @@ impl From<GetTokenParamsInvalid> for AppError {
     }
 }
 
-fn key(name: &str, value: &str) -> String {
-    format!("{}-{}", name, value)
+impl From<ValidateTokenParamsInvalid> for AppError {
+    fn from(err: ValidateTokenParamsInvalid) -> Self {
+        match err {
+            ValidateTokenParamsInvalid::InvalidFormat(e) => JsonRpcError::invalid_format(e).into(),
+        }
+    }
 }
 
 #[cfg(test)]
@@ -74,9 +97,9 @@ mod tests {
     fn generate_token_test() {
         let controller = AuthController::new("redis://localhost".to_owned(), "test".to_owned());
         let token = controller.generate_token(&Claims::new("admin".to_owned()));
-        
+
         println!("Token: '{}'", token);
-        
+
         assert_eq!(token.as_str(), "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJyb2xlIjoiYWRtaW4ifQ.oNJmSCDLzVHLqGVM6OVtQdSrhoUiRI3VlZkCe4f0NxY");
     }
 }

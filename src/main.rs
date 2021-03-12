@@ -3,12 +3,13 @@
 use controller::*;
 use futures::future;
 use influx::{InfluxClient, Measurement};
+use jsonwebtoken::{Algorithm, DecodingKey, TokenData, Validation};
 use serde_json::Value;
 use std::{any::Any, convert::Infallible, fmt::Debug, str::FromStr, sync::Arc};
 use structopt::StructOpt;
 use warp::{Filter, Reply};
 use webserver_contracts::{
-    Error as JsonRpcError, JsonRpcRequest, JsonRpcResponse, JsonRpcVersion, Method,
+    auth::Claims, Error as JsonRpcError, JsonRpcRequest, JsonRpcResponse, JsonRpcVersion, Method,
 };
 use webserver_database::{Database, DatabaseError, ListItem as DbListItem};
 
@@ -164,6 +165,11 @@ impl App {
                         .get_token(request)
                         .await
                         .map(|result| JsonRpcResponse::success(jsonrpc, result, id)),
+                    Method::ValidateToken => self
+                        .auth_controller
+                        .validate_token(request)
+                        .await
+                        .map(|result| JsonRpcResponse::success(jsonrpc, result, id)),
                 }
             }
         };
@@ -300,4 +306,15 @@ where
                 std::any::type_name::<T>()
             )
         })
+}
+
+fn validate_token(token: &str, secret: &str) -> Result<Claims, ()> {
+    let decoded: TokenData<Claims> = jsonwebtoken::decode(
+        token,
+        &DecodingKey::from_secret(secret.as_bytes()),
+        &Validation::new(Algorithm::default()),
+    )
+    .map_err(|_| ())?; // todo maybe improve error handling here
+
+    Ok(decoded.claims)
 }
