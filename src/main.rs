@@ -5,7 +5,7 @@ use futures::future;
 use influx::{InfluxClient, Measurement};
 use jsonwebtoken::{Algorithm, DecodingKey, TokenData, Validation};
 use serde_json::Value;
-use std::{any::Any, convert::Infallible, fmt::Debug, str::FromStr, sync::Arc};
+use std::{any::Any, convert::Infallible, fmt::Debug, io::Write, str::FromStr, sync::Arc};
 use structopt::StructOpt;
 use warp::{Filter, Reply};
 use webserver_contracts::{
@@ -54,7 +54,17 @@ async fn main() {
         invalid => panic!("invalid environment specified: '{}'", invalid),
     }
 
-    pretty_env_logger::init();
+    pretty_env_logger::formatted_builder()
+        .format(|buf, record| {
+            writeln!(
+                buf,
+                "{} [{}] > {}",
+                chrono::Utc::now().to_rfc3339(),
+                record.level(),
+                record.args()
+            )
+        })
+        .init();
 
     let opts = Opts::from_args();
 
