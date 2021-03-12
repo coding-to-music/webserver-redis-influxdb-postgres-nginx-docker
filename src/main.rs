@@ -5,7 +5,7 @@ use futures::future;
 use influx::{InfluxClient, Measurement};
 use jsonwebtoken::{Algorithm, DecodingKey, TokenData, Validation};
 use serde_json::Value;
-use std::{any::Any, convert::Infallible, fmt::Debug, io::Write, str::FromStr, sync::Arc};
+use std::{any::Any, convert::Infallible, fmt::Debug, str::FromStr, sync::Arc};
 use structopt::StructOpt;
 use warp::{Filter, Reply};
 use webserver_contracts::{
@@ -310,13 +310,12 @@ where
         })
 }
 
-fn validate_token(token: &str, secret: &str) -> Result<Claims, ()> {
+fn validate_token(token: &str, secret: &str) -> Result<Claims, jsonwebtoken::errors::Error> {
     let decoded: TokenData<Claims> = jsonwebtoken::decode(
         token,
         &DecodingKey::from_secret(secret.as_bytes()),
         &Validation::new(Algorithm::default()),
-    )
-    .map_err(|_| ())?; // todo maybe improve error handling here
+    )?; 
 
     Ok(decoded.claims)
 }

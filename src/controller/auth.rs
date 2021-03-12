@@ -52,7 +52,10 @@ impl AuthController {
 
         match crate::validate_token(&params.token, &self.jwt_secret) {
             Ok(_claims) => Ok(ValidateTokenResult::new(true)),
-            Err(_) => Ok(ValidateTokenResult::new(false)),
+            Err(e) => {
+                error!("failed to validate JWT with error: '{}'", e);
+                Ok(ValidateTokenResult::new(false))
+            }
         }
     }
 
