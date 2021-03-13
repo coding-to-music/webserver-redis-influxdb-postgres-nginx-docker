@@ -1,6 +1,5 @@
 use std::convert::TryFrom;
 
-use jsonwebtoken::{EncodingKey, Header};
 use redis::Commands;
 use webserver_contracts::{
     auth::{
@@ -10,19 +9,19 @@ use webserver_contracts::{
     Error as JsonRpcError, JsonRpcRequest,
 };
 
-use crate::{AppError, Claims};
+use crate::{token::TokenHandler, AppError};
 
 pub struct AuthController {
     redis_client: redis::Client,
-    jwt_secret: String,
+    token_handler: TokenHandler,
 }
 
 impl AuthController {
-    pub fn new(redis_addr: String, jwt_secret: String) -> Self {
+    pub fn new(redis_addr: String, token_handler: TokenHandler) -> Self {
         let redis_client = redis::Client::open(redis_addr).unwrap();
         Self {
             redis_client,
-            jwt_secret,
+            token_handler,
         }
     }
 
@@ -35,7 +34,7 @@ impl AuthController {
 
         if conn.exists(key)? {
             info!("key exists");
-            let token = self.generate_token();
+            let token = self.token_handler.generate_token();
 
             Ok(GetTokenResult::new(token))
         } else {
@@ -50,26 +49,12 @@ impl AuthController {
     ) -> Result<ValidateTokenResult, AppError> {
         let params = ValidateTokenParams::try_from(request)?;
 
-        match crate::validate_token(&params.token, &self.jwt_secret) {
+        match self.token_handler.validate_token(&params.token) {
             Ok(_claims) => Ok(ValidateTokenResult::new(true)),
-            Err(e) => {
-                error!("failed to validate JWT with error: '{}'", e);
+            Err(_e) => {
                 Ok(ValidateTokenResult::new(false))
             }
         }
-    }
-
-    fn generate_token(&self) -> String {
-        let exp = chrono::Utc::now()
-            .checked_add_signed(chrono::Duration::seconds(3600))
-            .unwrap()
-            .timestamp();
-        jsonwebtoken::encode(
-            &Header::default(),
-            &Claims::new(exp),
-            &EncodingKey::from_secret(self.jwt_secret.as_bytes()),
-        )
-        .unwrap()
     }
 }
 

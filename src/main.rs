@@ -3,10 +3,10 @@
 use controller::*;
 use futures::future;
 use influx::{InfluxClient, Measurement};
-use jsonwebtoken::{Algorithm, DecodingKey, TokenData, Validation};
 use serde_json::Value;
 use std::{any::Any, convert::Infallible, fmt::Debug, str::FromStr, sync::Arc};
 use structopt::StructOpt;
+use token::TokenHandler;
 use warp::{Filter, Reply};
 use webserver_contracts::{
     Error as JsonRpcError, JsonRpcRequest, JsonRpcResponse, JsonRpcVersion, Method,
@@ -14,6 +14,7 @@ use webserver_contracts::{
 use webserver_database::{Database, DatabaseError, ListItem as DbListItem};
 
 mod controller;
+pub mod token;
 
 #[macro_use]
 extern crate log;
@@ -59,7 +60,7 @@ async fn main() {
         .init();
 
     let opts = Opts::from_args();
-    
+
     log_opts_at_startup(&opts);
 
     let app = Arc::new(App::new(opts.clone()));
@@ -111,9 +112,10 @@ impl App {
             .unwrap(),
         );
 
-        let list_controller = ListItemController::new(list_item_db);
-        let auth_controller =
-            AuthController::new(opts.redis_addr.to_owned(), opts.jwt_secret.to_owned());
+        let token_handler = TokenHandler::new(opts.jwt_secret.clone());
+
+        let list_controller = ListItemController::new(list_item_db, token_handler.clone());
+        let auth_controller = AuthController::new(opts.redis_addr.to_owned(), token_handler);
 
         Self {
             opts,
@@ -315,25 +317,4 @@ where
                 std::any::type_name::<T>()
             )
         })
-}
-
-fn validate_token(token: &str, secret: &str) -> Result<Claims, jsonwebtoken::errors::Error> {
-    let decoded: TokenData<Claims> = jsonwebtoken::decode(
-        token,
-        &DecodingKey::from_secret(secret.as_bytes()),
-        &Validation::new(Algorithm::default()),
-    )?;
-
-    Ok(decoded.claims)
-}
-
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
-pub struct Claims {
-    exp: i64,
-}
-
-impl Claims {
-    pub fn new(exp: i64) -> Self {
-        Self { exp }
-    }
 }

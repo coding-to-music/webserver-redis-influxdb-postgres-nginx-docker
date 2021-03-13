@@ -18,15 +18,19 @@ use webserver_contracts::{
 };
 use webserver_database::{Database, DatabaseError, ListItem as DbListItem};
 
-use crate::AppError;
+use crate::{token::TokenHandler, AppError};
 
 pub struct ListItemController {
     db: Arc<Database<DbListItem>>,
+    token_handler: TokenHandler,
 }
 
 impl ListItemController {
-    pub fn new(list_item_db: Arc<Database<DbListItem>>) -> Self {
-        Self { db: list_item_db }
+    pub fn new(list_item_db: Arc<Database<DbListItem>>, token_handler: TokenHandler) -> Self {
+        Self {
+            db: list_item_db,
+            token_handler,
+        }
     }
 
     pub async fn add_list_item(
@@ -34,6 +38,7 @@ impl ListItemController {
         request: JsonRpcRequest,
     ) -> Result<AddListItemResult, AppError> {
         let params = AddListItemParams::try_from(request)?;
+        self.token_handler.validate_token(&params.token)?;
 
         let created_s = Utc::now().timestamp() as u32;
 
@@ -160,6 +165,7 @@ impl ListItemController {
         request: JsonRpcRequest,
     ) -> Result<GetListItemsResult, AppError> {
         let params = GetListItemsParams::try_from(request)?;
+        self.token_handler.validate_token(&params.token)?;
 
         let list_items = self.db.get_list_items(&params.list_type)?;
 
@@ -184,6 +190,7 @@ impl ListItemController {
         request: JsonRpcRequest,
     ) -> Result<DeleteListItemResult, AppError> {
         let params = DeleteListItemParams::try_from(request)?;
+        self.token_handler.validate_token(&params.token)?;
 
         let id = params.id;
 
@@ -267,7 +274,8 @@ impl ListItemController {
         &self,
         request: JsonRpcRequest,
     ) -> Result<GetListTypesResult, AppError> {
-        let _params = GetListTypesParams::try_from(request)?;
+        let params = GetListTypesParams::try_from(request)?;
+        self.token_handler.validate_token(&params.token)?;
 
         let list_types = self.db.get_list_types()?;
 
@@ -279,6 +287,7 @@ impl ListItemController {
         request: JsonRpcRequest,
     ) -> Result<RenameListTypeResult, AppError> {
         let params = RenameListTypeParams::try_from(request)?;
+        self.token_handler.validate_token(&params.token)?;
 
         let existing_list_types: HashSet<_> = self.db.get_list_types()?.into_iter().collect();
 
