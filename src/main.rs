@@ -185,9 +185,11 @@ impl App {
                         .validate_token(request)
                         .await
                         .map(|result| JsonRpcResponse::success(jsonrpc, result, id)),
-                    Method::Sleep => {
-                        unimplemented!()
-                    }
+                    Method::Sleep => self
+                        .server_controller
+                        .sleep(request)
+                        .await
+                        .map(|result| JsonRpcResponse::success(jsonrpc, result, id)),
                 }
             }
         };
