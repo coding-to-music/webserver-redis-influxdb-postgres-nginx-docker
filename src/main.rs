@@ -94,6 +94,7 @@ pub struct App {
     opts: Opts,
     list_controller: ListItemController,
     auth_controller: AuthController,
+    server_controller: ServerController,
     influx_client: Arc<InfluxClient>,
 }
 
@@ -115,12 +116,15 @@ impl App {
         let token_handler = TokenHandler::new(opts.jwt_secret.clone());
 
         let list_controller = ListItemController::new(list_item_db, token_handler.clone());
-        let auth_controller = AuthController::new(opts.redis_addr.to_owned(), token_handler);
+        let auth_controller =
+            AuthController::new(opts.redis_addr.to_owned(), token_handler.clone());
+        let server_controller = ServerController::new(token_handler);
 
         Self {
             opts,
             list_controller,
             auth_controller,
+            server_controller,
             influx_client,
         }
     }
@@ -181,6 +185,9 @@ impl App {
                         .validate_token(request)
                         .await
                         .map(|result| JsonRpcResponse::success(jsonrpc, result, id)),
+                    Method::Sleep => {
+                        unimplemented!()
+                    }
                 }
             }
         };

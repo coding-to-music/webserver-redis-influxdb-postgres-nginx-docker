@@ -6,16 +6,7 @@ use std::{
 
 use chrono::Utc;
 use uuid::Uuid;
-use webserver_contracts::{
-    list::{
-        AddListItemParams, AddListItemParamsInvalid, AddListItemResult, DeleteListItemParams,
-        DeleteListItemParamsInvalid, DeleteListItemResult, GetListItemsParams,
-        GetListItemsParamsInvalid, GetListItemsResult, GetListTypesParams,
-        GetListTypesParamsInvalid, GetListTypesResult, ListItem, RenameListTypeParams,
-        RenameListTypeParamsInvalid, RenameListTypeResult,
-    },
-    Error as JsonRpcError, JsonRpcRequest,
-};
+use webserver_contracts::{list::*, Error as JsonRpcError, JsonRpcRequest};
 use webserver_database::{Database, DatabaseError, ListItem as DbListItem};
 
 use crate::{token::TokenHandler, AppError};
