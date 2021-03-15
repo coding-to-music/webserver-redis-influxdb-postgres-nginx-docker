@@ -2,12 +2,11 @@
 
 use controller::*;
 use futures::future;
-use influx::{InfluxClient, Measurement};
-use serde_json::{json, Value};
+use serde_json::Value;
 use std::{any::Any, convert::Infallible, fmt::Debug, str::FromStr, sync::Arc};
 use structopt::StructOpt;
 use token::TokenHandler;
-use warp::{Filter, Rejection, Reply, http::StatusCode};
+use warp::{Filter, Reply};
 use webserver_contracts::{
     Error as JsonRpcError, GetTokenRequest, JsonRpcRequest, JsonRpcResponse, JsonRpcVersion, Method,
 };
@@ -25,16 +24,6 @@ pub struct Opts {
     port: u16,
     #[structopt(long, env = "WEBSERVER_SQLITE_PATH")]
     database_path: String,
-    #[structopt(long, env = "WEBSERVER_INFLUX_URL")]
-    influx_url: String,
-    #[structopt(long, env = "WEBSERVER_INFLUX_KEY")]
-    influx_key: String,
-    #[structopt(long, env = "WEBSERVER_INFLUX_ORG")]
-    influx_org: String,
-    #[structopt(long, env = "WEBSERVER_CERT_PATH")]
-    cert_path: String,
-    #[structopt(long, env = "WEBSERVER_CERT_KEY_PATH")]
-    key_path: String,
     #[structopt(long, env = "WEBSERVER_REDIS_ADDR")]
     redis_addr: String,
     #[structopt(long, env = "WEBSERVER_JWT_SECRET")]
@@ -73,12 +62,7 @@ async fn main() {
         .and_then(move |body| handle_request(app.clone(), body))
         .with(log);
 
-    warp::serve(rpc)
-        .tls()
-        .cert_path(&opts.cert_path)
-        .key_path(&opts.key_path)
-        .run(([0, 0, 0, 0], opts.port))
-        .await;
+    warp::serve(rpc).run(([0, 0, 0, 0], opts.port)).await;
 }
 
 fn get_token(app: Arc<App>, body: Value) -> Result<String, ()> {
@@ -92,8 +76,6 @@ fn log_opts_at_startup(opts: &Opts) {
     info!("starting webserver with opts: ");
     info!("WEBSERVER_LISTEN_PORT = {}", opts.port);
     info!("WEBSERVER_SQLITE_PATH = {}", opts.database_path);
-    info!("WEBSERVER_INFLUX_URL  = {}", opts.influx_url);
-    info!("WEBSERVER_INFLUX_ORG  = {}", opts.influx_org);
     info!("WEBSERVER_REDIS_ADDR  = {}", opts.redis_addr);
 }
 
@@ -103,23 +85,12 @@ pub struct App {
     auth_controller: AuthController,
     server_controller: ServerController,
     token_handler: Arc<TokenHandler>,
-    influx_client: Arc<InfluxClient>,
 }
 
 impl App {
     pub fn new(opts: Opts) -> Self {
         let list_item_db: Arc<Database<DbListItem>> =
             Arc::new(Database::new(opts.database_path.clone()));
-
-        let influx_client = Arc::new(
-            InfluxClient::builder(
-                opts.influx_url.to_string(),
-                opts.influx_key.to_string(),
-                opts.influx_org.to_string(),
-            )
-            .build()
-            .unwrap(),
-        );
 
         let token_handler = Arc::new(TokenHandler::new(
             opts.redis_addr.clone(),
@@ -136,7 +107,6 @@ impl App {
             auth_controller,
             server_controller,
             token_handler,
-            influx_client,
         }
     }
 
@@ -216,16 +186,6 @@ impl App {
             }
         };
 
-        self.log_measurement(
-            Measurement::builder("handle_request")
-                .with_tag("method", method)
-                .with_field("duration_micros", elapsed.as_micros())
-                .with_field("request_id", id.unwrap_or_default())
-                .build()
-                .unwrap(),
-        )
-        .await;
-
         response
     }
 
@@ -237,19 +197,6 @@ impl App {
                 .collect::<Vec<_>>(),
         )
         .await
-    }
-
-    async fn log_measurement(&self, measurement: Measurement) {
-        let response = self
-            .influx_client
-            .send_batch("server", &[measurement])
-            .await;
-        if !response.status().is_success() {
-            error!(
-                "failed to send measurement to InfluxDB with status '{}'",
-                response.status()
-            );
-        }
     }
 }
 

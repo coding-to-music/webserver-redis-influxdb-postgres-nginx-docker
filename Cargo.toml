@@ -16,9 +16,8 @@ warp = { version = "0.2.2", features = ["tls"] }
 chrono = "0.4.11"
 structopt = "0.3.14"
 num-traits = "0.2.11"
-influx = { path = "../influx" }
-webserver_database = { path = "../webserver_database" }
-webserver_contracts = { path = "../webserver_contracts" }
+webserver_database = { git = "https://git@github.com/ijagberg/webserver_database", branch = "main" }
+webserver_contracts = { git = "https://git@github.com/ijagberg/webserver_contracts", branch = "main" }
 uuid = "0.8.2"
 jsonwebtoken = "7.2.0"
 redis = "0.20.0"
