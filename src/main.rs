@@ -74,9 +74,6 @@ async fn main() {
         .with(log);
 
     warp::serve(handler)
-        .tls()
-        .cert_path(&opts.cert_path)
-        .key_path(&opts.key_path)
         .run(([0, 0, 0, 0], opts.port))
         .await;
 }
@@ -88,6 +85,8 @@ fn log_opts_at_startup(opts: &Opts) {
     info!("WEBSERVER_INFLUX_URL  = {}", opts.influx_url);
     info!("WEBSERVER_INFLUX_ORG  = {}", opts.influx_org);
     info!("WEBSERVER_REDIS_ADDR  = {}", opts.redis_addr);
+    info!("CERTIFICATE_PATH      = {}", opts.cert_path);
+    info!("KEY_PATH              = {}", opts.key_path);
 }
 
 pub struct App {

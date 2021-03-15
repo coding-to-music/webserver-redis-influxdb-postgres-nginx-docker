@@ -701,6 +701,7 @@ dependencies = [
 [[package]]
 name = "influx"
 version = "0.1.0"
+source = "git+https://github.com/ijagberg/influx?branch=main#59a061d90ceaed0ae4469504cf74ab1917383463"
 dependencies = [
  "chrono",
  "csv",
@@ -2096,6 +2097,7 @@ dependencies = [
 [[package]]
 name = "webserver_contracts"
 version = "0.1.1"
+source = "git+ssh://git@github.com/ijagberg/webserver_contracts?branch=main#095a2c3ebc7e8bb6bd48172b1d6f4aece42aabd8"
 dependencies = [
  "chrono",
  "serde",
@@ -2107,6 +2109,7 @@ dependencies = [
 [[package]]
 name = "webserver_database"
 version = "0.1.0"
+source = "git+ssh://git@github.com/ijagberg/webserver_database?branch=main#e92143655c5436e87d4ff2c188fc8d1238c5e190"
 dependencies = [
  "chrono",
  "log",
