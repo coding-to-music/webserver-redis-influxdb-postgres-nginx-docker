@@ -3,13 +3,13 @@
 use controller::*;
 use futures::future;
 use influx::{InfluxClient, Measurement};
-use serde_json::Value;
+use serde_json::{json, Value};
 use std::{any::Any, convert::Infallible, fmt::Debug, str::FromStr, sync::Arc};
 use structopt::StructOpt;
 use token::TokenHandler;
-use warp::{Filter, Reply};
+use warp::{Filter, Rejection, Reply, http::StatusCode};
 use webserver_contracts::{
-    Error as JsonRpcError, JsonRpcRequest, JsonRpcResponse, JsonRpcVersion, Method,
+    Error as JsonRpcError, GetTokenRequest, JsonRpcRequest, JsonRpcResponse, JsonRpcVersion, Method,
 };
 use webserver_database::{Database, DatabaseError, ListItem as DbListItem};
 
@@ -67,18 +67,25 @@ async fn main() {
 
     let log = warp::log("api");
 
-    let handler = warp::post()
+    let rpc = warp::post()
         .and(warp::path("api"))
         .and(warp::body::json())
         .and_then(move |body| handle_request(app.clone(), body))
         .with(log);
 
-    warp::serve(handler)
+    warp::serve(rpc)
         .tls()
         .cert_path(&opts.cert_path)
         .key_path(&opts.key_path)
         .run(([0, 0, 0, 0], opts.port))
         .await;
+}
+
+fn get_token(app: Arc<App>, body: Value) -> Result<String, ()> {
+    match serde_json::from_value::<GetTokenRequest>(body) {
+        Ok(req) => app.token_handler.get_token(&req.key_name, &req.key_value),
+        Err(_serde_error) => Err(()),
+    }
 }
 
 fn log_opts_at_startup(opts: &Opts) {
@@ -95,6 +102,7 @@ pub struct App {
     list_controller: ListItemController,
     auth_controller: AuthController,
     server_controller: ServerController,
+    token_handler: Arc<TokenHandler>,
     influx_client: Arc<InfluxClient>,
 }
 
@@ -113,18 +121,21 @@ impl App {
             .unwrap(),
         );
 
-        let token_handler = TokenHandler::new(opts.jwt_secret.clone());
+        let token_handler = Arc::new(TokenHandler::new(
+            opts.redis_addr.clone(),
+            opts.jwt_secret.clone(),
+        ));
 
-        let list_controller = ListItemController::new(list_item_db, token_handler.clone());
-        let auth_controller =
-            AuthController::new(opts.redis_addr.to_owned(), token_handler.clone());
-        let server_controller = ServerController::new(token_handler);
+        let list_controller = ListItemController::new(list_item_db);
+        let auth_controller = AuthController::new(token_handler.clone());
+        let server_controller = ServerController::new();
 
         Self {
             opts,
             list_controller,
             auth_controller,
             server_controller,
+            token_handler,
             influx_client,
         }
     }
@@ -175,11 +186,6 @@ impl App {
                     Method::UpdateListItem => {
                         unimplemented!()
                     }
-                    Method::GetToken => self
-                        .auth_controller
-                        .get_token(request)
-                        .await
-                        .map(|result| JsonRpcResponse::success(jsonrpc, result, id)),
                     Method::ValidateToken => self
                         .auth_controller
                         .validate_token(request)
@@ -288,10 +294,15 @@ impl From<redis::RedisError> for AppError {
 /// If the request is a JSON array, handle it as a batch request
 pub async fn handle_request(app: Arc<App>, body: Value) -> Result<impl Reply, Infallible> {
     if body.is_object() {
-        Ok(warp::reply::json(
-            &app.handle_single(serde_json::from_value(body).unwrap())
-                .await,
-        ))
+        match serde_json::from_value::<JsonRpcRequest>(body) {
+            Ok(request) => Ok(warp::reply::json(&app.handle_single(request).await)),
+            Err(serde_error) => {
+                error!("received invalid JSONRPC Request: '{}'", serde_error);
+                Ok(warp::reply::json(
+                    &serde_json::to_value(JsonRpcError::invalid_request()).unwrap(),
+                ))
+            }
+        }
     } else if let Value::Array(values) = body {
         Ok(warp::reply::json(
             &app.handle_batch(
