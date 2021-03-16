@@ -301,6 +301,11 @@ pub async fn handle_request(
     request: Request<Body>,
 ) -> Result<Response<Body>, hyper::Error> {
     info!("handling request: '{:?}'", request);
+    match request.uri().to_string().as_str() {
+        "/api" => info!("api route"),
+        "/token" => info!("token route"),
+        e => error!("invalid route"),
+    }
     unimplemented!()
 }
 
