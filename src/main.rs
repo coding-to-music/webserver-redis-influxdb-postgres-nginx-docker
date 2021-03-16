@@ -330,9 +330,9 @@ pub async fn handle_request(
 
             Ok(response)
         }
-        "/token" => {
+        "/api/token" => {
             info!("token route");
-            unimplemented!();
+            Ok(token_route(app, request).await)
         }
         e => {
             error!("invalid route: '{}'", e);
