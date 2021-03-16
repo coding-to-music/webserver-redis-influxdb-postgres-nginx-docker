@@ -6,7 +6,7 @@ use std::{
 
 use chrono::Utc;
 use uuid::Uuid;
-use webserver_contracts::{list::*, Error as JsonRpcError, JsonRpcRequest};
+use webserver_contracts::{list::*, JsonRpcError, JsonRpcRequest};
 use webserver_database::{Database, DatabaseError, ListItem as DbListItem};
 
 use crate::AppError;
@@ -248,8 +248,7 @@ impl ListItemController {
             Ok(DeleteListItemResult::new(result))
         } else {
             Err(AppError::from(
-                webserver_contracts::Error::application_error(-31998)
-                    .with_message("item does not exist"),
+                JsonRpcError::application_error(-31998).with_message("item does not exist"),
             ))
         }
     }

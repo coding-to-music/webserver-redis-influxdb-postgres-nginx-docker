@@ -13,7 +13,7 @@ use std::{fmt::Debug, str::FromStr, sync::Arc};
 use structopt::StructOpt;
 use token::TokenHandler;
 use webserver_contracts::{
-    Error as JsonRpcError, GetTokenRequest, JsonRpcRequest, JsonRpcResponse, JsonRpcVersion, Method,
+    GetTokenRequest, JsonRpcError, JsonRpcRequest, JsonRpcResponse, JsonRpcVersion, Method,
 };
 use webserver_database::{Database, DatabaseError, ListItem as DbListItem};
 
@@ -107,7 +107,6 @@ fn log_opts_at_startup(opts: &Opts) {
 pub struct App {
     opts: Opts,
     list_controller: ListItemController,
-    auth_controller: AuthController,
     server_controller: ServerController,
     token_handler: Arc<TokenHandler>,
     influx_client: Arc<InfluxClient>,
@@ -134,13 +133,11 @@ impl App {
         ));
 
         let list_controller = ListItemController::new(list_item_db);
-        let auth_controller = AuthController::new(token_handler.clone());
         let server_controller = ServerController::new();
 
         Self {
             opts,
             list_controller,
-            auth_controller,
             server_controller,
             token_handler,
             influx_client,
@@ -193,11 +190,6 @@ impl App {
                     Method::UpdateListItem => {
                         unimplemented!()
                     }
-                    Method::ValidateToken => self
-                        .auth_controller
-                        .validate_token(request)
-                        .await
-                        .map(|result| JsonRpcResponse::success(jsonrpc, result, id)),
                     Method::Sleep => self
                         .server_controller
                         .sleep(request)
@@ -264,7 +256,7 @@ impl App {
 
 #[derive(Debug)]
 pub struct AppError {
-    rpc_error: webserver_contracts::Error,
+    rpc_error: JsonRpcError,
     context: Option<String>,
 }
 
@@ -278,8 +270,8 @@ impl AppError {
     }
 }
 
-impl From<webserver_contracts::Error> for AppError {
-    fn from(rpc_error: webserver_contracts::Error) -> Self {
+impl From<JsonRpcError> for AppError {
+    fn from(rpc_error: JsonRpcError) -> Self {
         Self {
             rpc_error,
             context: None,
@@ -289,13 +281,13 @@ impl From<webserver_contracts::Error> for AppError {
 
 impl From<DatabaseError> for AppError {
     fn from(db_error: DatabaseError) -> Self {
-        AppError::from(webserver_contracts::Error::database_error()).with_context(&db_error)
+        AppError::from(JsonRpcError::database_error()).with_context(&db_error)
     }
 }
 
 impl From<redis::RedisError> for AppError {
     fn from(redis_error: redis::RedisError) -> Self {
-        AppError::from(webserver_contracts::Error::internal_error()).with_context(&redis_error)
+        AppError::from(JsonRpcError::internal_error()).with_context(&redis_error)
     }
 }
 
@@ -429,13 +421,10 @@ async fn api_json(app: Arc<App>, json: Value) -> Result<Response<Body>, AppError
                 .map_err(|e| AppError::from(JsonRpcError::invalid_request()).with_context(&e))?;
 
             let response = app.handle_batch(rpc_requests).await;
-            let str = serde_json::to_string(&response).unwrap();
-            let body = Body::from(str);
-            Ok(Response::builder()
-                .status(200)
-                .header("Content-Type", "application/json")
-                .body(body)
-                .unwrap())
+            Ok(generic_json_response(
+                serde_json::to_string(&response).unwrap(),
+                200,
+            ))
         }
         obj @ Value::Object(_) => {
             trace!("object request");

@@ -3,7 +3,7 @@ use std::{convert::TryFrom, time};
 use crate::AppError;
 use webserver_contracts::{
     server::{SleepParams, SleepParamsInvalid, SleepResult},
-    Error as JsonRpcError, JsonRpcRequest,
+    JsonRpcError, JsonRpcRequest,
 };
 
 pub struct ServerController {}
