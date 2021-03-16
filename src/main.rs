@@ -53,10 +53,16 @@ async fn main() {
 
     match env.as_str() {
         "prod" => {
-            dotenv::from_filename("prod.env").ok();
+            dotenv::from_filename("prod.env").expect(&format!(
+                "prod.env not present in '{:?}'",
+                std::env::current_dir().unwrap()
+            ));
         }
         "test" => {
-            dotenv::from_filename("test.env").ok();
+            dotenv::from_filename("test.env").expect(&format!(
+                "test.env not present in '{:?}'",
+                std::env::current_dir().unwrap()
+            ));
         }
         invalid => panic!("invalid environment specified: '{}'", invalid),
     }
