@@ -2,13 +2,18 @@
 
 use controller::*;
 use futures::future;
-use serde_json::Value;
-use std::{any::Any, convert::Infallible, fmt::Debug, str::FromStr, sync::Arc};
+use hyper::{
+    body::Buf,
+    service::{make_service_fn, service_fn},
+    Body, Request, Response, Server,
+};
+use influx::{InfluxClient, Measurement};
+use serde_json::{json, Value};
+use std::{fmt::Debug, str::FromStr, sync::Arc};
 use structopt::StructOpt;
 use token::TokenHandler;
-use warp::{Filter, Reply};
 use webserver_contracts::{
-    Error as JsonRpcError, GetTokenRequest, JsonRpcRequest, JsonRpcResponse, JsonRpcVersion, Method,
+    GetTokenRequest, JsonRpcError, JsonRpcRequest, JsonRpcResponse, JsonRpcVersion, Method,
 };
 use webserver_database::{Database, DatabaseError, ListItem as DbListItem};
 
@@ -24,6 +29,18 @@ pub struct Opts {
     port: u16,
     #[structopt(long, env = "WEBSERVER_SQLITE_PATH")]
     database_path: String,
+    #[structopt(long, env = "WEBSERVER_SHOULD_LOG_METRICS")]
+    log_metrics: bool,
+    #[structopt(long, env = "WEBSERVER_INFLUX_URL")]
+    influx_url: String,
+    #[structopt(long, env = "WEBSERVER_INFLUX_KEY")]
+    influx_key: String,
+    #[structopt(long, env = "WEBSERVER_INFLUX_ORG")]
+    influx_org: String,
+    #[structopt(long, env = "WEBSERVER_CERT_PATH")]
+    cert_path: String,
+    #[structopt(long, env = "WEBSERVER_CERT_KEY_PATH")]
+    key_path: String,
     #[structopt(long, env = "WEBSERVER_REDIS_ADDR")]
     redis_addr: String,
     #[structopt(long, env = "WEBSERVER_JWT_SECRET")]
@@ -54,15 +71,21 @@ async fn main() {
 
     let app = Arc::new(App::new(opts.clone()));
 
-    let log = warp::log("api");
+    let addr = ([0, 0, 0, 0], opts.port).into();
 
-    let rpc = warp::post()
-        .and(warp::path("api"))
-        .and(warp::body::json())
-        .and_then(move |body| handle_request(app.clone(), body))
-        .with(log);
+    let service = make_service_fn(|_| {
+        let app = app.clone();
+        async {
+            Ok::<_, hyper::Error>(service_fn(move |request| {
+                let app = app.clone();
+                handle_request(app, request)
+            }))
+        }
+    });
 
-    warp::serve(rpc).run(([0, 0, 0, 0], opts.port)).await;
+    let server = Server::bind(&addr).serve(service);
+
+    let _ = server.await;
 }
 
 fn get_token(app: Arc<App>, body: Value) -> Result<String, ()> {
@@ -82,7 +105,6 @@ fn log_opts_at_startup(opts: &Opts) {
 pub struct App {
     opts: Opts,
     list_controller: ListItemController,
-    auth_controller: AuthController,
     server_controller: ServerController,
     token_handler: Arc<TokenHandler>,
 }
@@ -98,13 +120,11 @@ impl App {
         ));
 
         let list_controller = ListItemController::new(list_item_db);
-        let auth_controller = AuthController::new(token_handler.clone());
         let server_controller = ServerController::new();
 
         Self {
             opts,
             list_controller,
-            auth_controller,
             server_controller,
             token_handler,
         }
@@ -156,11 +176,6 @@ impl App {
                     Method::UpdateListItem => {
                         unimplemented!()
                     }
-                    Method::ValidateToken => self
-                        .auth_controller
-                        .validate_token(request)
-                        .await
-                        .map(|result| JsonRpcResponse::success(jsonrpc, result, id)),
                     Method::Sleep => self
                         .server_controller
                         .sleep(request)
@@ -186,6 +201,18 @@ impl App {
             }
         };
 
+        if self.opts.log_metrics {
+            self.log_measurement(
+                Measurement::builder("handle_request")
+                    .with_tag("method", method)
+                    .with_field("duration_micros", elapsed.as_micros())
+                    .with_field("request_id", id.unwrap_or_default())
+                    .build()
+                    .unwrap(),
+            )
+            .await;
+        }
+
         response
     }
 
@@ -202,7 +229,7 @@ impl App {
 
 #[derive(Debug)]
 pub struct AppError {
-    rpc_error: webserver_contracts::Error,
+    rpc_error: JsonRpcError,
     context: Option<String>,
 }
 
@@ -216,8 +243,8 @@ impl AppError {
     }
 }
 
-impl From<webserver_contracts::Error> for AppError {
-    fn from(rpc_error: webserver_contracts::Error) -> Self {
+impl From<JsonRpcError> for AppError {
+    fn from(rpc_error: JsonRpcError) -> Self {
         Self {
             rpc_error,
             context: None,
@@ -227,61 +254,177 @@ impl From<webserver_contracts::Error> for AppError {
 
 impl From<DatabaseError> for AppError {
     fn from(db_error: DatabaseError) -> Self {
-        AppError::from(webserver_contracts::Error::database_error()).with_context(&db_error)
+        AppError::from(JsonRpcError::database_error()).with_context(&db_error)
     }
 }
 
 impl From<redis::RedisError> for AppError {
     fn from(redis_error: redis::RedisError) -> Self {
-        AppError::from(webserver_contracts::Error::internal_error()).with_context(&redis_error)
+        AppError::from(JsonRpcError::internal_error()).with_context(&redis_error)
+    }
+}
+
+impl From<hyper::Error> for AppError {
+    fn from(hyper_error: hyper::Error) -> Self {
+        AppError::from(JsonRpcError::internal_error()).with_context(&hyper_error)
     }
 }
 
 /// Process the raw JSON body of a request
 /// If the request is a JSON array, handle it as a batch request
-pub async fn handle_request(app: Arc<App>, body: Value) -> Result<impl Reply, Infallible> {
-    if body.is_object() {
-        match serde_json::from_value::<JsonRpcRequest>(body) {
-            Ok(request) => Ok(warp::reply::json(&app.handle_single(request).await)),
-            Err(serde_error) => {
-                error!("received invalid JSONRPC Request: '{}'", serde_error);
-                Ok(warp::reply::json(
-                    &serde_json::to_value(JsonRpcError::invalid_request()).unwrap(),
-                ))
-            }
+pub async fn handle_request(
+    app: Arc<App>,
+    request: Request<Body>,
+) -> Result<Response<Body>, hyper::Error> {
+    match request.uri().to_string().as_str() {
+        "/api" => {
+            info!("api route");
+            let response = match api_route(app, request).await {
+                Ok(resp) => resp,
+                Err(err) => {
+                    let response = JsonRpcResponse::error(JsonRpcVersion::Two, err.rpc_error, None);
+                    let str = serde_json::to_string(&response).unwrap();
+                    let body = Body::from(str);
+                    Response::builder()
+                        .status(200)
+                        .header("Content-Type", "application/json")
+                        .body(body)
+                        .unwrap()
+                }
+            };
+
+            Ok(response)
         }
-    } else if let Value::Array(values) = body {
-        Ok(warp::reply::json(
-            &app.handle_batch(
-                values
-                    .into_iter()
-                    .map(|value| serde_json::from_value(value).unwrap())
-                    .collect(),
-            )
-            .await,
-        ))
-    } else {
-        Ok(warp::reply::json(&JsonRpcResponse::error(
-            JsonRpcVersion::Two,
-            JsonRpcError::invalid_request(),
-            None,
-        )))
+        "/api/token" => {
+            info!("token route");
+            Ok(token_route(app, request).await)
+        }
+        e => {
+            error!("invalid route: '{}'", e);
+            Ok(generic_json_response(
+                json!({
+                    "message": "not found"
+                })
+                .to_string(),
+                404,
+            ))
+        }
     }
 }
 
-/// Parse an environment variable as some type
-pub fn from_env_var<T: FromStr + Any>(var: &str) -> Result<T, String>
-where
-    <T as FromStr>::Err: Debug,
-{
-    std::env::var(var)
-        .map_err(|_| format!("could not find env var '{}'", var))?
-        .parse::<T>()
-        .map_err(|_| {
-            format!(
-                "could not parse env var '{}' as '{}'",
-                var,
-                std::any::type_name::<T>()
-            )
-        })
+async fn token_route(app: Arc<App>, request: Request<Body>) -> Response<Body> {
+    match hyper::body::aggregate(request).await {
+        Ok(buf) => match serde_json::from_reader(buf.reader()) {
+            Ok(req) => {
+                let req: GetTokenRequest = req;
+                let token = app.token_handler.get_token(&req.key_name, &req.key_value);
+                match token {
+                    Ok(tok) => {
+                        let obj = json!({ "access_token": tok }).to_string();
+                        generic_json_response(obj, 200)
+                    }
+                    Err(_) => {
+                        let err = json!({
+                            "message": "not authorized"
+                        })
+                        .to_string();
+
+                        generic_json_response(err, 401)
+                    }
+                }
+            }
+            Err(_e) => {
+                let err = json!({
+                    "message": "invalid request"
+                })
+                .to_string();
+                generic_json_response(err, 500)
+            }
+        },
+        Err(_hyper_error) => {
+            let err = json!({
+                "message": "internal error"
+            })
+            .to_string();
+            generic_json_response(err, 500)
+        }
+    }
+}
+
+async fn api_route(app: Arc<App>, request: Request<Body>) -> Result<Response<Body>, AppError> {
+    match request.headers().get("Authorization") {
+        Some(value) => {
+            let s = value.to_str().unwrap();
+            let s = s.strip_prefix("Bearer ").unwrap_or_default();
+            match app.token_handler.validate_token(s) {
+                Ok(_claims) => {}
+                Err(_) => {
+                    let err = json!({
+                        "message": "not authorized"
+                    })
+                    .to_string();
+                    return Ok(generic_json_response(err, 401));
+                }
+            }
+        }
+        None => {
+            let err = json!({
+                "message": "missing 'Authorization' header"
+            })
+            .to_string();
+            return Ok(generic_json_response(err, 401));
+        }
+    }
+    let buf = hyper::body::aggregate(request).await?;
+    match serde_json::from_reader(buf.reader()) {
+        Ok(json) => api_json(app, json).await,
+        Err(e) => Err(AppError::from(JsonRpcError::invalid_request()).with_context(&e)),
+    }
+}
+
+async fn api_json(app: Arc<App>, json: Value) -> Result<Response<Body>, AppError> {
+    trace!("handling json in api route: '{}'", json);
+    match json {
+        Value::Array(requests) => {
+            trace!("batch request");
+            let rpc_requests = requests
+                .into_iter()
+                .map(|v| serde_json::from_value(v))
+                .collect::<Result<Vec<JsonRpcRequest>, serde_json::Error>>()
+                .map_err(|e| AppError::from(JsonRpcError::invalid_request()).with_context(&e))?;
+
+            let response = app.handle_batch(rpc_requests).await;
+            Ok(generic_json_response(
+                serde_json::to_string(&response).unwrap(),
+                200,
+            ))
+        }
+        obj @ Value::Object(_) => {
+            trace!("object request");
+            let rpc_request: JsonRpcRequest = serde_json::from_value(obj)
+                .map_err(|e| AppError::from(JsonRpcError::invalid_request()).with_context(&e))?;
+
+            let response = app.handle_single(rpc_request).await;
+            Ok(generic_json_response(
+                serde_json::to_string(&response).unwrap(),
+                200,
+            ))
+        }
+        _ => {
+            let response =
+                JsonRpcResponse::error(JsonRpcVersion::Two, JsonRpcError::invalid_request(), None);
+            Ok(generic_json_response(
+                serde_json::to_string(&response).unwrap(),
+                200,
+            ))
+        }
+    }
+}
+
+fn generic_json_response(body: String, status: u16) -> Response<Body> {
+    Response::builder()
+        .status(status)
+        .header("Content-Type", "application/json")
+        .body(Body::from(body))
+        .unwrap()
 }
