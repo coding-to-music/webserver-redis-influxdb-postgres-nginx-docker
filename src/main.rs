@@ -106,7 +106,7 @@ fn log_opts_at_startup(opts: &Opts) {
     info!("WEBSERVER_LISTEN_PORT        = {}", opts.port);
     info!("WEBSERVER_SQLITE_PATH        = {}", opts.database_path);
     info!("WEBSERVER_REDIS_ADDR         = {}", opts.redis_addr);
-    info!("WEBSERVER_SHOULD_LOG_METRICS = {}", opts.influx_url);
+    info!("WEBSERVER_SHOULD_LOG_METRICS = {}", opts.log_metrics);
     info!("WEBSERVER_INFLUX_URL         = {}", opts.influx_url);
     info!("WEBSERVER_INFLUX_ORG         = {}", opts.influx_org);
 }
