@@ -336,7 +336,13 @@ pub async fn handle_request(
         }
         e => {
             error!("invalid route: '{}'", e);
-            unimplemented!();
+            Ok(generic_json_response(
+                json!({
+                    "message": "not found"
+                })
+                .to_string(),
+                404,
+            ))
         }
     }
 }
@@ -381,6 +387,25 @@ async fn token_route(app: Arc<App>, request: Request<Body>) -> Response<Body> {
 }
 
 async fn api_route(app: Arc<App>, request: Request<Body>) -> Result<Response<Body>, AppError> {
+    match request.headers().get("Authorization") {
+        Some(value) => match app.token_handler.validate_token(value.to_str().unwrap()) {
+            Ok(_claims) => {}
+            Err(_) => {
+                let err = json!({
+                    "message": "not authorized"
+                })
+                .to_string();
+                return Ok(generic_json_response(err, 401));
+            }
+        },
+        None => {
+            let err = json!({
+                "message": "missing 'Authorization' header"
+            })
+            .to_string();
+            return Ok(generic_json_response(err, 401));
+        }
+    }
     let buf = hyper::body::aggregate(request).await?;
     match serde_json::from_reader(buf.reader()) {
         Ok(json) => api_json(app, json).await,
@@ -414,25 +439,18 @@ async fn api_json(app: Arc<App>, json: Value) -> Result<Response<Body>, AppError
                 .map_err(|e| AppError::from(JsonRpcError::invalid_request()).with_context(&e))?;
 
             let response = app.handle_single(rpc_request).await;
-            let str = serde_json::to_string(&response).unwrap();
-            let body = Body::from(str);
-            Ok(Response::builder()
-                .status(200)
-                .header("Content-Type", "application/json")
-                .body(body)
-                .unwrap())
+            Ok(generic_json_response(
+                serde_json::to_string(&response).unwrap(),
+                200,
+            ))
         }
         _ => {
             let response =
                 JsonRpcResponse::error(JsonRpcVersion::Two, JsonRpcError::invalid_request(), None);
-
-            let str = serde_json::to_string(&response).unwrap();
-            let body = Body::from(str);
-            Ok(Response::builder()
-                .status(200)
-                .header("Content-Type", "application/json")
-                .body(body)
-                .unwrap())
+            Ok(generic_json_response(
+                serde_json::to_string(&response).unwrap(),
+                200,
+            ))
         }
     }
 }
