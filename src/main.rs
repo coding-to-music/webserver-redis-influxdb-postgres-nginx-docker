@@ -388,16 +388,20 @@ async fn token_route(app: Arc<App>, request: Request<Body>) -> Response<Body> {
 
 async fn api_route(app: Arc<App>, request: Request<Body>) -> Result<Response<Body>, AppError> {
     match request.headers().get("Authorization") {
-        Some(value) => match app.token_handler.validate_token(value.to_str().unwrap()) {
-            Ok(_claims) => {}
-            Err(_) => {
-                let err = json!({
-                    "message": "not authorized"
-                })
-                .to_string();
-                return Ok(generic_json_response(err, 401));
+        Some(value) => {
+            let s = value.to_str().unwrap();
+            let s = s.strip_prefix("Bearer ").unwrap_or_default();
+            match app.token_handler.validate_token(s) {
+                Ok(_claims) => {}
+                Err(_) => {
+                    let err = json!({
+                        "message": "not authorized"
+                    })
+                    .to_string();
+                    return Ok(generic_json_response(err, 401));
+                }
             }
-        },
+        }
         None => {
             let err = json!({
                 "message": "missing 'Authorization' header"
