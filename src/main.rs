@@ -2,6 +2,7 @@
 
 use controller::*;
 use futures::future;
+<<<<<<< HEAD
 use hyper::{
     body::Buf,
     service::{make_service_fn, service_fn},
@@ -12,6 +13,13 @@ use serde_json::{json, Value};
 use std::{fmt::Debug, str::FromStr, sync::Arc};
 use structopt::StructOpt;
 use token::TokenHandler;
+=======
+use serde_json::Value;
+use std::{any::Any, convert::Infallible, fmt::Debug, str::FromStr, sync::Arc};
+use structopt::StructOpt;
+use token::TokenHandler;
+use warp::{Filter, Reply};
+>>>>>>> master
 use webserver_contracts::{
     GetTokenRequest, JsonRpcError, JsonRpcRequest, JsonRpcResponse, JsonRpcVersion, Method,
 };
@@ -29,6 +37,7 @@ pub struct Opts {
     port: u16,
     #[structopt(long, env = "WEBSERVER_SQLITE_PATH")]
     database_path: String,
+<<<<<<< HEAD
     #[structopt(long, env = "WEBSERVER_SHOULD_LOG_METRICS")]
     log_metrics: bool,
     #[structopt(long, env = "WEBSERVER_INFLUX_URL")]
@@ -41,6 +50,8 @@ pub struct Opts {
     cert_path: String,
     #[structopt(long, env = "WEBSERVER_CERT_KEY_PATH")]
     key_path: String,
+=======
+>>>>>>> master
     #[structopt(long, env = "WEBSERVER_REDIS_ADDR")]
     redis_addr: String,
     #[structopt(long, env = "WEBSERVER_JWT_SECRET")]
@@ -49,7 +60,7 @@ pub struct Opts {
 
 #[tokio::main]
 async fn main() {
-    let env = std::env::var("WEBSERVER_ENV").unwrap_or_else(|_| "prod".to_string());
+    let env = std::env::var("WEBSERVER_ENV").unwrap_or_else(|_| "test".to_string());
 
     match env.as_str() {
         "prod" => {
@@ -85,7 +96,11 @@ async fn main() {
 
     let server = Server::bind(&addr).serve(service);
 
+<<<<<<< HEAD
     let _ = server.await;
+=======
+    warp::serve(rpc).run(([0, 0, 0, 0], opts.port)).await;
+>>>>>>> master
 }
 
 fn get_token(app: Arc<App>, body: Value) -> Result<String, ()> {
@@ -99,8 +114,6 @@ fn log_opts_at_startup(opts: &Opts) {
     info!("starting webserver with opts: ");
     info!("WEBSERVER_LISTEN_PORT = {}", opts.port);
     info!("WEBSERVER_SQLITE_PATH = {}", opts.database_path);
-    info!("WEBSERVER_INFLUX_URL  = {}", opts.influx_url);
-    info!("WEBSERVER_INFLUX_ORG  = {}", opts.influx_org);
     info!("WEBSERVER_REDIS_ADDR  = {}", opts.redis_addr);
 }
 
@@ -109,23 +122,12 @@ pub struct App {
     list_controller: ListItemController,
     server_controller: ServerController,
     token_handler: Arc<TokenHandler>,
-    influx_client: Arc<InfluxClient>,
 }
 
 impl App {
     pub fn new(opts: Opts) -> Self {
         let list_item_db: Arc<Database<DbListItem>> =
             Arc::new(Database::new(opts.database_path.clone()));
-
-        let influx_client = Arc::new(
-            InfluxClient::builder(
-                opts.influx_url.to_string(),
-                opts.influx_key.to_string(),
-                opts.influx_org.to_string(),
-            )
-            .build()
-            .unwrap(),
-        );
 
         let token_handler = Arc::new(TokenHandler::new(
             opts.redis_addr.clone(),
@@ -140,7 +142,6 @@ impl App {
             list_controller,
             server_controller,
             token_handler,
-            influx_client,
         }
     }
 
@@ -215,6 +216,7 @@ impl App {
             }
         };
 
+<<<<<<< HEAD
         if self.opts.log_metrics {
             self.log_measurement(
                 Measurement::builder("handle_request")
@@ -227,6 +229,8 @@ impl App {
             .await;
         }
 
+=======
+>>>>>>> master
         response
     }
 
@@ -238,19 +242,6 @@ impl App {
                 .collect::<Vec<_>>(),
         )
         .await
-    }
-
-    async fn log_measurement(&self, measurement: Measurement) {
-        let response = self
-            .influx_client
-            .send_batch("server", &[measurement])
-            .await;
-        if !response.status().is_success() {
-            error!(
-                "failed to send measurement to InfluxDB with status '{}'",
-                response.status()
-            );
-        }
     }
 }
 
