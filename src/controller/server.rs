@@ -17,7 +17,7 @@ impl ServerController {
         let params = SleepParams::try_from(request)?;
 
         let timer = time::Instant::now();
-        tokio::time::delay_for(time::Duration::from_millis(params.ms)).await;
+        tokio::time::sleep(time::Duration::from_millis(params.ms)).await;
         let elapsed = timer.elapsed();
 
         Ok(SleepResult::new(elapsed.as_millis() as u64))

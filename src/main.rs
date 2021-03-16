@@ -82,7 +82,7 @@ async fn main() {
 
     let server = Server::bind(&addr).serve(service);
 
-    server.await.unwrap();
+    let _ = server.await;
 }
 
 fn get_token(app: Arc<App>, body: Value) -> Result<String, ()> {
