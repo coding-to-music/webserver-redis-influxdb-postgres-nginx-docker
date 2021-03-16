@@ -29,6 +29,8 @@ pub struct Opts {
     port: u16,
     #[structopt(long, env = "WEBSERVER_SQLITE_PATH")]
     database_path: String,
+    #[structopt(long, env = "WEBSERVER_SHOULD_LOG_METRICS")]
+    log_metrics: bool,
     #[structopt(long, env = "WEBSERVER_INFLUX_URL")]
     influx_url: String,
     #[structopt(long, env = "WEBSERVER_INFLUX_KEY")]
@@ -221,15 +223,17 @@ impl App {
             }
         };
 
-        self.log_measurement(
-            Measurement::builder("handle_request")
-                .with_tag("method", method)
-                .with_field("duration_micros", elapsed.as_micros())
-                .with_field("request_id", id.unwrap_or_default())
-                .build()
-                .unwrap(),
-        )
-        .await;
+        if self.opts.log_metrics {
+            self.log_measurement(
+                Measurement::builder("handle_request")
+                    .with_tag("method", method)
+                    .with_field("duration_micros", elapsed.as_micros())
+                    .with_field("request_id", id.unwrap_or_default())
+                    .build()
+                    .unwrap(),
+            )
+            .await;
+        }
 
         response
     }
@@ -351,19 +355,19 @@ async fn api_json(app: Arc<App>, json: Value) -> Result<Response<Body>, AppError
         Value::Array(requests) => {
             trace!("batch request");
             let rpc_requests = requests
-            .into_iter()
-            .map(|v| serde_json::from_value(v))
-            .collect::<Result<Vec<JsonRpcRequest>, serde_json::Error>>()
-            .map_err(|e| AppError::from(JsonRpcError::invalid_request()).with_context(&e))?;
-            
+                .into_iter()
+                .map(|v| serde_json::from_value(v))
+                .collect::<Result<Vec<JsonRpcRequest>, serde_json::Error>>()
+                .map_err(|e| AppError::from(JsonRpcError::invalid_request()).with_context(&e))?;
+
             let response = app.handle_batch(rpc_requests).await;
             let str = serde_json::to_string(&response).unwrap();
             let body = Body::from(str);
             Ok(Response::builder()
-            .status(200)
-            .header("Content-Type", "application/json")
-            .body(body)
-            .unwrap())
+                .status(200)
+                .header("Content-Type", "application/json")
+                .body(body)
+                .unwrap())
         }
         obj @ Value::Object(_) => {
             trace!("object request");
