@@ -3,6 +3,7 @@
 use controller::*;
 use futures::future;
 use hyper::{
+    body::Buf,
     service::{make_service_fn, service_fn},
     Body, Request, Response, Server,
 };
@@ -302,7 +303,16 @@ pub async fn handle_request(
 ) -> Result<Response<Body>, hyper::Error> {
     info!("handling request: '{:?}'", request);
     match request.uri().to_string().as_str() {
-        "/api" => info!("api route"),
+        "/api" => {
+            info!("api route");
+            // asynchronously aggregate the chunks of the body
+            let body = hyper::body::aggregate(request).await?;
+
+            // try to parse as json with serde_json
+            let req: JsonRpcRequest = serde_json::from_reader(body.reader()).unwrap();
+
+            info!("rpc method: '{}'", req.method);
+        }
         "/token" => info!("token route"),
         e => error!("invalid route"),
     }
