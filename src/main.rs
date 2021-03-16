@@ -319,6 +319,42 @@ pub async fn handle_request(
     unimplemented!()
 }
 
+async fn api_route(app: Arc<App>, request: Request<Body>) -> Result<Response<Body>, hyper::Error> {
+    let buf = hyper::body::aggregate(request).await?;
+    match serde_json::from_reader(buf.reader()) {
+        Ok(json_request) => {
+            let rpc_request: Value = json_request;
+            match rpc_request {
+                Value::Array(requests) => {
+                    info!("batch request");
+                    unimplemented!()
+                }
+                obj @ Value::Object(_) => {
+                    info!("single request");
+                    unimplemented!()
+                }
+                _ => {
+                    let err =
+                        serde_json::to_string_pretty(&JsonRpcError::invalid_request()).unwrap();
+                    let response = Response::builder()
+                        .status(200)
+                        .body(Body::from(err))
+                        .unwrap();
+                    Ok(response)
+                }
+            }
+        }
+        Err(serde_error) => {
+            let err = serde_json::to_string_pretty(&JsonRpcError::invalid_request()).unwrap();
+            let response = Response::builder()
+                .status(200)
+                .body(Body::from(err))
+                .unwrap();
+            Ok(response)
+        }
+    }
+}
+
 /// Parse an environment variable as some type
 pub fn from_env_var<T: FromStr + Any>(var: &str) -> Result<T, String>
 where
