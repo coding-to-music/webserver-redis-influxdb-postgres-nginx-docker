@@ -97,9 +97,12 @@ fn get_token(app: Arc<App>, body: Value) -> Result<String, ()> {
 
 fn log_opts_at_startup(opts: &Opts) {
     info!("starting webserver with opts: ");
-    info!("WEBSERVER_LISTEN_PORT = {}", opts.port);
-    info!("WEBSERVER_SQLITE_PATH = {}", opts.database_path);
-    info!("WEBSERVER_REDIS_ADDR  = {}", opts.redis_addr);
+    info!("WEBSERVER_LISTEN_PORT        = {}", opts.port);
+    info!("WEBSERVER_SQLITE_PATH        = {}", opts.database_path);
+    info!("WEBSERVER_REDIS_ADDR         = {}", opts.redis_addr);
+    info!("WEBSERVER_SHOULD_LOG_METRICS = {}", opts.influx_url);
+    info!("WEBSERVER_INFLUX_URL         = {}", opts.influx_url);
+    info!("WEBSERVER_INFLUX_ORG         = {}", opts.influx_org);
 }
 
 pub struct App {
@@ -107,6 +110,7 @@ pub struct App {
     list_controller: ListItemController,
     server_controller: ServerController,
     token_handler: Arc<TokenHandler>,
+    influx_client: InfluxClientWrapper,
 }
 
 impl App {
@@ -121,12 +125,13 @@ impl App {
 
         let list_controller = ListItemController::new(list_item_db);
         let server_controller = ServerController::new();
-
+        let influx_client = InfluxClientWrapper::new(&opts);
         Self {
             opts,
             list_controller,
             server_controller,
             token_handler,
+            influx_client,
         }
     }
 
@@ -201,18 +206,17 @@ impl App {
             }
         };
 
-        if self.opts.log_metrics {
-            self.log_measurement(
-                Measurement::builder("handle_request")
+        self.influx_client
+            .send_measurements(
+                "webserver",
+                &[Measurement::builder("handle_request")
                     .with_tag("method", method)
                     .with_field("duration_micros", elapsed.as_micros())
                     .with_field("request_id", id.unwrap_or_default())
                     .build()
-                    .unwrap(),
+                    .unwrap()],
             )
             .await;
-        }
-
         response
     }
 
@@ -427,4 +431,54 @@ fn generic_json_response(body: String, status: u16) -> Response<Body> {
         .header("Content-Type", "application/json")
         .body(Body::from(body))
         .unwrap()
+}
+
+struct InfluxClientWrapper {
+    client: Option<InfluxClient>,
+}
+
+impl InfluxClientWrapper {
+    fn new(opts: &Opts) -> Self {
+        if opts.log_metrics {
+            let client = Some(
+                InfluxClient::builder(
+                    opts.influx_url.clone(),
+                    opts.influx_key.clone(),
+                    opts.influx_org.clone(),
+                )
+                .build()
+                .unwrap(),
+            );
+            Self { client }
+        } else {
+            Self { client: None }
+        }
+    }
+
+    async fn send_measurements(&self, bucket: &str, measurements: &[Measurement]) {
+        let client = match &self.client {
+            Some(cl) => cl,
+            None => {
+                return;
+            }
+        };
+
+        match client.send_batch(bucket, measurements).await {
+            Ok(result) if result.status().is_success() => {
+                info!(
+                    "received success response from Influx with status: '{}'",
+                    result.status()
+                );
+            }
+            Ok(result) => {
+                warn!(
+                    "received non-success response from Influx with status: '{}'",
+                    result.status()
+                );
+            }
+            Err(err) => {
+                error!("influx client error: '{}'", err);
+            }
+        }
+    }
 }
