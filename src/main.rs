@@ -8,7 +8,7 @@ use hyper::{
     Body, Request, Response, Server,
 };
 use influx::{InfluxClient, Measurement};
-use serde_json::Value;
+use serde_json::{json, Value};
 use std::{fmt::Debug, str::FromStr, sync::Arc};
 use structopt::StructOpt;
 use token::TokenHandler;
@@ -341,6 +341,45 @@ pub async fn handle_request(
     }
 }
 
+async fn token_route(app: Arc<App>, request: Request<Body>) -> Response<Body> {
+    match hyper::body::aggregate(request).await {
+        Ok(buf) => match serde_json::from_reader(buf.reader()) {
+            Ok(req) => {
+                let req: GetTokenRequest = req;
+                let token = app.token_handler.get_token(&req.key_name, &req.key_value);
+                match token {
+                    Ok(tok) => {
+                        let obj = json!({ "access_token": tok }).to_string();
+                        generic_json_response(obj, 200)
+                    }
+                    Err(_) => {
+                        let err = json!({
+                            "message": "not authorized"
+                        })
+                        .to_string();
+
+                        generic_json_response(err, 401)
+                    }
+                }
+            }
+            Err(_e) => {
+                let err = json!({
+                    "message": "invalid request"
+                })
+                .to_string();
+                generic_json_response(err, 500)
+            }
+        },
+        Err(_hyper_error) => {
+            let err = json!({
+                "message": "internal error"
+            })
+            .to_string();
+            generic_json_response(err, 500)
+        }
+    }
+}
+
 async fn api_route(app: Arc<App>, request: Request<Body>) -> Result<Response<Body>, AppError> {
     let buf = hyper::body::aggregate(request).await?;
     match serde_json::from_reader(buf.reader()) {
@@ -396,4 +435,12 @@ async fn api_json(app: Arc<App>, json: Value) -> Result<Response<Body>, AppError
                 .unwrap())
         }
     }
+}
+
+fn generic_json_response(body: String, status: u16) -> Response<Body> {
+    Response::builder()
+        .status(status)
+        .header("Content-Type", "application/json")
+        .body(Body::from(body))
+        .unwrap()
 }

@@ -21,8 +21,12 @@ impl TokenHandler {
     pub fn get_token(&self, key_name: &str, key_value: &str) -> Result<String, ()> {
         let mut redis_client = redis::Client::open(self.redis_addr.clone()).map_err(|_| ())?;
 
+        let redis_key = format!("{}-{}", key_name, key_value);
+
+        trace!("retrieving key: '{}'", redis_key);
+
         let exists: bool = redis_client
-            .exists(format!("{}-{}", key_name, key_value))
+            .exists(redis_key)
             .map_err(|_| ())?;
 
         if exists {
