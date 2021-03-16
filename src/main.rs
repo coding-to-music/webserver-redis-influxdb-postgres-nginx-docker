@@ -305,18 +305,17 @@ pub async fn handle_request(
     match request.uri().to_string().as_str() {
         "/api" => {
             info!("api route");
-            // asynchronously aggregate the chunks of the body
-            let body = hyper::body::aggregate(request).await?;
-
-            // try to parse as json with serde_json
-            let req: JsonRpcRequest = serde_json::from_reader(body.reader()).unwrap();
-
-            info!("rpc method: '{}'", req.method);
+            api_route(app, request).await
         }
-        "/token" => info!("token route"),
-        e => error!("invalid route"),
+        "/token" => {
+            info!("token route");
+            unimplemented!();
+        }
+        e => {
+            error!("invalid route");
+            unimplemented!();
+        }
     }
-    unimplemented!()
 }
 
 async fn api_route(app: Arc<App>, request: Request<Body>) -> Result<Response<Body>, hyper::Error> {
