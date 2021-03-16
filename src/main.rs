@@ -9,11 +9,11 @@ use hyper::{
 };
 use influx::{InfluxClient, Measurement};
 use serde_json::Value;
-use std::{any::Any, fmt::Debug, str::FromStr, sync::Arc};
+use std::{fmt::Debug, str::FromStr, sync::Arc};
 use structopt::StructOpt;
 use token::TokenHandler;
 use webserver_contracts::{
-    Error as JsonRpcError, GetTokenRequest, JsonRpcRequest, JsonRpcResponse, Method,
+    Error as JsonRpcError, GetTokenRequest, JsonRpcRequest, JsonRpcResponse, JsonRpcVersion, Method,
 };
 use webserver_database::{Database, DatabaseError, ListItem as DbListItem};
 
@@ -295,78 +295,98 @@ impl From<redis::RedisError> for AppError {
     }
 }
 
+impl From<hyper::Error> for AppError {
+    fn from(hyper_error: hyper::Error) -> Self {
+        AppError::from(JsonRpcError::internal_error()).with_context(&hyper_error)
+    }
+}
+
 /// Process the raw JSON body of a request
 /// If the request is a JSON array, handle it as a batch request
 pub async fn handle_request(
     app: Arc<App>,
     request: Request<Body>,
 ) -> Result<Response<Body>, hyper::Error> {
-    info!("handling request: '{:?}'", request);
     match request.uri().to_string().as_str() {
         "/api" => {
             info!("api route");
-            api_route(app, request).await
+            let response = match api_route(app, request).await {
+                Ok(resp) => resp,
+                Err(err) => {
+                    let response = JsonRpcResponse::error(JsonRpcVersion::Two, err.rpc_error, None);
+                    let str = serde_json::to_string(&response).unwrap();
+                    let body = Body::from(str);
+                    Response::builder()
+                        .status(200)
+                        .header("Content-Type", "application/json")
+                        .body(body)
+                        .unwrap()
+                }
+            };
+
+            Ok(response)
         }
         "/token" => {
             info!("token route");
             unimplemented!();
         }
         e => {
-            error!("invalid route");
+            error!("invalid route: '{}'", e);
             unimplemented!();
         }
     }
 }
 
-async fn api_route(app: Arc<App>, request: Request<Body>) -> Result<Response<Body>, hyper::Error> {
+async fn api_route(app: Arc<App>, request: Request<Body>) -> Result<Response<Body>, AppError> {
     let buf = hyper::body::aggregate(request).await?;
     match serde_json::from_reader(buf.reader()) {
-        Ok(json_request) => {
-            let rpc_request: Value = json_request;
-            match rpc_request {
-                Value::Array(requests) => {
-                    info!("batch request");
-                    unimplemented!()
-                }
-                obj @ Value::Object(_) => {
-                    info!("single request");
-                    unimplemented!()
-                }
-                _ => {
-                    let err =
-                        serde_json::to_string_pretty(&JsonRpcError::invalid_request()).unwrap();
-                    let response = Response::builder()
-                        .status(200)
-                        .body(Body::from(err))
-                        .unwrap();
-                    Ok(response)
-                }
-            }
-        }
-        Err(serde_error) => {
-            let err = serde_json::to_string_pretty(&JsonRpcError::invalid_request()).unwrap();
-            let response = Response::builder()
-                .status(200)
-                .body(Body::from(err))
-                .unwrap();
-            Ok(response)
-        }
+        Ok(json) => api_json(app, json).await,
+        Err(e) => Err(AppError::from(JsonRpcError::invalid_request()).with_context(&e)),
     }
 }
 
-/// Parse an environment variable as some type
-pub fn from_env_var<T: FromStr + Any>(var: &str) -> Result<T, String>
-where
-    <T as FromStr>::Err: Debug,
-{
-    std::env::var(var)
-        .map_err(|_| format!("could not find env var '{}'", var))?
-        .parse::<T>()
-        .map_err(|_| {
-            format!(
-                "could not parse env var '{}' as '{}'",
-                var,
-                std::any::type_name::<T>()
-            )
-        })
+async fn api_json(app: Arc<App>, json: Value) -> Result<Response<Body>, AppError> {
+    match json {
+        Value::Array(requests) => {
+            let rpc_requests = requests
+                .into_iter()
+                .map(|v| serde_json::from_value(v))
+                .collect::<Result<Vec<JsonRpcRequest>, serde_json::Error>>()
+                .map_err(|e| AppError::from(JsonRpcError::invalid_request()).with_context(&e))?;
+
+            let response = app.handle_batch(rpc_requests).await;
+            let str = serde_json::to_string(&response).unwrap();
+            let body = Body::from(str);
+            Ok(Response::builder()
+                .status(200)
+                .header("Content-Type", "application/json")
+                .body(body)
+                .unwrap())
+        }
+        obj @ Value::Object(_) => {
+            let rpc_request: JsonRpcRequest = serde_json::from_value(obj)
+                .map_err(|e| AppError::from(JsonRpcError::invalid_request()).with_context(&e))?;
+
+            let response = app.handle_single(rpc_request).await;
+            let str = serde_json::to_string(&response).unwrap();
+            let body = Body::from(str);
+            Ok(Response::builder()
+                .status(200)
+                .header("Content-Type", "application/json")
+                .body(body)
+                .unwrap())
+        }
+        _ => {
+            let response =
+                JsonRpcResponse::error(JsonRpcVersion::Two, JsonRpcError::invalid_request(), None);
+
+            let str = serde_json::to_string(&response).unwrap();
+            let body = Body::from(str);
+            Ok(Response::builder()
+                .status(200)
+                .header("Content-Type", "application/json")
+                .body(body)
+                .unwrap())
+        }
+    }
 }
