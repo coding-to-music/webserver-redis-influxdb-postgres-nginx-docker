@@ -346,24 +346,27 @@ async fn api_route(app: Arc<App>, request: Request<Body>) -> Result<Response<Bod
 }
 
 async fn api_json(app: Arc<App>, json: Value) -> Result<Response<Body>, AppError> {
+    trace!("handling json in api route: '{}'", json);
     match json {
         Value::Array(requests) => {
+            trace!("batch request");
             let rpc_requests = requests
-                .into_iter()
-                .map(|v| serde_json::from_value(v))
-                .collect::<Result<Vec<JsonRpcRequest>, serde_json::Error>>()
-                .map_err(|e| AppError::from(JsonRpcError::invalid_request()).with_context(&e))?;
-
+            .into_iter()
+            .map(|v| serde_json::from_value(v))
+            .collect::<Result<Vec<JsonRpcRequest>, serde_json::Error>>()
+            .map_err(|e| AppError::from(JsonRpcError::invalid_request()).with_context(&e))?;
+            
             let response = app.handle_batch(rpc_requests).await;
             let str = serde_json::to_string(&response).unwrap();
             let body = Body::from(str);
             Ok(Response::builder()
-                .status(200)
-                .header("Content-Type", "application/json")
-                .body(body)
-                .unwrap())
+            .status(200)
+            .header("Content-Type", "application/json")
+            .body(body)
+            .unwrap())
         }
         obj @ Value::Object(_) => {
+            trace!("object request");
             let rpc_request: JsonRpcRequest = serde_json::from_value(obj)
                 .map_err(|e| AppError::from(JsonRpcError::invalid_request()).with_context(&e))?;
 
