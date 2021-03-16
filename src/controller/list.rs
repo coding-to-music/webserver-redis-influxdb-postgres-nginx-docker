@@ -258,7 +258,7 @@ impl ListItemController {
         &self,
         request: JsonRpcRequest,
     ) -> Result<GetListTypesResult, AppError> {
-        let params = GetListTypesParams::try_from(request)?;
+        let _params = GetListTypesParams::try_from(request)?;
 
         let list_types = self.db.get_list_types()?;
 

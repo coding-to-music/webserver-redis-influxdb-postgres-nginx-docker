@@ -2,14 +2,17 @@
 
 use controller::*;
 use futures::future;
+use hyper::{
+    service::{make_service_fn, service_fn},
+    Body, Request, Response, Server,
+};
 use influx::{InfluxClient, Measurement};
-use serde_json::{json, Value};
-use std::{any::Any, convert::Infallible, fmt::Debug, str::FromStr, sync::Arc};
+use serde_json::Value;
+use std::{any::Any, fmt::Debug, str::FromStr, sync::Arc};
 use structopt::StructOpt;
 use token::TokenHandler;
-use warp::{Filter, Rejection, Reply, http::StatusCode};
 use webserver_contracts::{
-    Error as JsonRpcError, GetTokenRequest, JsonRpcRequest, JsonRpcResponse, JsonRpcVersion, Method,
+    Error as JsonRpcError, GetTokenRequest, JsonRpcRequest, JsonRpcResponse, Method,
 };
 use webserver_database::{Database, DatabaseError, ListItem as DbListItem};
 
@@ -65,20 +68,21 @@ async fn main() {
 
     let app = Arc::new(App::new(opts.clone()));
 
-    let log = warp::log("api");
+    let addr = ([0, 0, 0, 0], opts.port).into();
 
-    let rpc = warp::post()
-        .and(warp::path("api"))
-        .and(warp::body::json())
-        .and_then(move |body| handle_request(app.clone(), body))
-        .with(log);
+    let service = make_service_fn(|_| {
+        let app = app.clone();
+        async {
+            Ok::<_, hyper::Error>(service_fn(move |request| {
+                let app = app.clone();
+                handle_request(app, request)
+            }))
+        }
+    });
 
-    warp::serve(rpc)
-        .tls()
-        .cert_path(&opts.cert_path)
-        .key_path(&opts.key_path)
-        .run(([0, 0, 0, 0], opts.port))
-        .await;
+    let server = Server::bind(&addr).serve(service);
+
+    server.await.unwrap();
 }
 
 fn get_token(app: Arc<App>, body: Value) -> Result<String, ()> {
@@ -292,34 +296,12 @@ impl From<redis::RedisError> for AppError {
 
 /// Process the raw JSON body of a request
 /// If the request is a JSON array, handle it as a batch request
-pub async fn handle_request(app: Arc<App>, body: Value) -> Result<impl Reply, Infallible> {
-    if body.is_object() {
-        match serde_json::from_value::<JsonRpcRequest>(body) {
-            Ok(request) => Ok(warp::reply::json(&app.handle_single(request).await)),
-            Err(serde_error) => {
-                error!("received invalid JSONRPC Request: '{}'", serde_error);
-                Ok(warp::reply::json(
-                    &serde_json::to_value(JsonRpcError::invalid_request()).unwrap(),
-                ))
-            }
-        }
-    } else if let Value::Array(values) = body {
-        Ok(warp::reply::json(
-            &app.handle_batch(
-                values
-                    .into_iter()
-                    .map(|value| serde_json::from_value(value).unwrap())
-                    .collect(),
-            )
-            .await,
-        ))
-    } else {
-        Ok(warp::reply::json(&JsonRpcResponse::error(
-            JsonRpcVersion::Two,
-            JsonRpcError::invalid_request(),
-            None,
-        )))
-    }
+pub async fn handle_request(
+    app: Arc<App>,
+    request: Request<Body>,
+) -> Result<Response<Body>, hyper::Error> {
+    info!("handling request: '{:?}'", request);
+    unimplemented!()
 }
 
 /// Parse an environment variable as some type
