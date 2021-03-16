@@ -2,7 +2,6 @@
 
 use controller::*;
 use futures::future;
-<<<<<<< HEAD
 use hyper::{
     body::Buf,
     service::{make_service_fn, service_fn},
@@ -13,13 +12,6 @@ use serde_json::{json, Value};
 use std::{fmt::Debug, str::FromStr, sync::Arc};
 use structopt::StructOpt;
 use token::TokenHandler;
-=======
-use serde_json::Value;
-use std::{any::Any, convert::Infallible, fmt::Debug, str::FromStr, sync::Arc};
-use structopt::StructOpt;
-use token::TokenHandler;
-use warp::{Filter, Reply};
->>>>>>> master
 use webserver_contracts::{
     GetTokenRequest, JsonRpcError, JsonRpcRequest, JsonRpcResponse, JsonRpcVersion, Method,
 };
@@ -37,7 +29,6 @@ pub struct Opts {
     port: u16,
     #[structopt(long, env = "WEBSERVER_SQLITE_PATH")]
     database_path: String,
-<<<<<<< HEAD
     #[structopt(long, env = "WEBSERVER_SHOULD_LOG_METRICS")]
     log_metrics: bool,
     #[structopt(long, env = "WEBSERVER_INFLUX_URL")]
@@ -50,8 +41,6 @@ pub struct Opts {
     cert_path: String,
     #[structopt(long, env = "WEBSERVER_CERT_KEY_PATH")]
     key_path: String,
-=======
->>>>>>> master
     #[structopt(long, env = "WEBSERVER_REDIS_ADDR")]
     redis_addr: String,
     #[structopt(long, env = "WEBSERVER_JWT_SECRET")]
@@ -96,11 +85,7 @@ async fn main() {
 
     let server = Server::bind(&addr).serve(service);
 
-<<<<<<< HEAD
     let _ = server.await;
-=======
-    warp::serve(rpc).run(([0, 0, 0, 0], opts.port)).await;
->>>>>>> master
 }
 
 fn get_token(app: Arc<App>, body: Value) -> Result<String, ()> {
@@ -216,7 +201,6 @@ impl App {
             }
         };
 
-<<<<<<< HEAD
         if self.opts.log_metrics {
             self.log_measurement(
                 Measurement::builder("handle_request")
@@ -229,8 +213,6 @@ impl App {
             .await;
         }
 
-=======
->>>>>>> master
         response
     }
 
