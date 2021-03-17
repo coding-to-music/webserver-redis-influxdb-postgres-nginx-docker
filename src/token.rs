@@ -18,8 +18,9 @@ impl TokenHandler {
         }
     }
 
-    pub fn get_token(&self, key_name: &str, key_value: &str) -> Result<String, ()> {
-        let mut redis_client = redis::Client::open(self.redis_addr.clone()).map_err(|_| ())?;
+    pub fn get_token(&self, key_name: &str, key_value: &str) -> Result<String, String> {
+        let mut redis_client =
+            redis::Client::open(self.redis_addr.clone()).map_err(|_| "redis error".to_string())?;
 
         let redis_key = format!("{}-{}", key_name, key_value);
 
@@ -27,13 +28,13 @@ impl TokenHandler {
 
         let exists: bool = redis_client
             .exists(redis_key)
-            .map_err(|_| ())?;
+            .map_err(|_| "redis error".to_string())?;
 
         if exists {
             let token = self.generate_token();
             Ok(token)
         } else {
-            Err(())
+            Err("invalid key_name or key_value".to_string())
         }
     }
 

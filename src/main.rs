@@ -13,7 +13,8 @@ use std::{fmt::Debug, str::FromStr, sync::Arc};
 use structopt::StructOpt;
 use token::TokenHandler;
 use webserver_contracts::{
-    GetTokenRequest, JsonRpcError, JsonRpcRequest, JsonRpcResponse, JsonRpcVersion, Method,
+    GetTokenRequest, GetTokenResponse, JsonRpcError, JsonRpcRequest, JsonRpcResponse,
+    JsonRpcVersion, Method,
 };
 use webserver_database::{Database, DatabaseError, ListItem as DbListItem};
 
@@ -92,13 +93,6 @@ async fn main() {
     let server = Server::bind(&addr).serve(service);
 
     let _ = server.await;
-}
-
-fn get_token(app: Arc<App>, body: Value) -> Result<String, ()> {
-    match serde_json::from_value::<GetTokenRequest>(body) {
-        Ok(req) => app.token_handler.get_token(&req.key_name, &req.key_value),
-        Err(_serde_error) => Err(()),
-    }
 }
 
 fn log_opts_at_startup(opts: &Opts) {
@@ -330,16 +324,14 @@ async fn token_route(app: Arc<App>, request: Request<Body>) -> Response<Body> {
                 let token = app.token_handler.get_token(&req.key_name, &req.key_value);
                 match token {
                     Ok(tok) => {
-                        let obj = json!({ "access_token": tok }).to_string();
-                        generic_json_response(obj, 200)
+                        let response = GetTokenResponse::success(tok);
+                        let body = serde_json::to_string(&response).unwrap();
+                        generic_json_response(body, 200)
                     }
-                    Err(_) => {
-                        let err = json!({
-                            "message": "not authorized"
-                        })
-                        .to_string();
-
-                        generic_json_response(err, 401)
+                    Err(e) => {
+                        let response = GetTokenResponse::error(e);
+                        let body = serde_json::to_string(&response).unwrap();
+                        generic_json_response(body, 400)
                     }
                 }
             }
