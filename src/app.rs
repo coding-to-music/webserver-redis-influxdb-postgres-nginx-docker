@@ -9,7 +9,10 @@ use futures::future;
 use hyper::{body::Buf, Body, Request, Response};
 use serde_json::Value;
 use std::{fmt::Debug, str::FromStr, sync::Arc};
-use webserver_contracts::{JsonRpcError, JsonRpcRequest, JsonRpcResponse, JsonRpcVersion, Method};
+use webserver_contracts::{
+    GetTokenRequest, GetTokenResponse, JsonRpcError, JsonRpcRequest, JsonRpcResponse,
+    JsonRpcVersion, Method,
+};
 use webserver_database::{self as db, Database};
 
 pub struct App {
@@ -139,27 +142,67 @@ impl App {
     }
 
     pub async fn handle_http_request(&self, request: Request<Body>) -> Response<Body> {
-        if request.method() != hyper::Method::POST {
-            error!("invalid http method for request: '{:?}'", request);
-            return crate::generic_json_response(invalid_http_method(), 200);
-        }
-
         let route = request.uri().to_string();
 
-        match route.as_str() {
-            "/api" => {
+        match (request.method(), route.as_str()) {
+            (&hyper::Method::POST, "/api") => {
                 let response_body = self.api_route(request).await;
                 let response_body = serde_json::to_string(&response_body).unwrap();
                 return crate::generic_json_response(response_body, 200);
             }
-            invalid => {
-                error!("invalid route '{}' for request: '{:?}'", invalid, request);
+            (&hyper::Method::POST, "api/token") => {
+                let response_body = self.token_route(request).await;
+                match response_body {
+                    Ok(resp) | Err(resp) => {
+                        return crate::generic_json_response(resp, 200);
+                    }
+                }
+            }
+            _invalid => {
+                error!("invalid http method or route request: '{:?}'", request);
                 return crate::generic_json_response(not_found(), 200);
             }
         }
     }
 
+    fn authenticate(&self, request: &Request<Body>) -> Result<(), AppError> {
+        match request.headers().get("Authorization") {
+            Some(value) => {
+                let token = value
+                    .to_str()
+                    .ok()
+                    .map(|tok| tok.strip_prefix("Bearer "))
+                    .flatten()
+                    .ok_or(AppError::from(
+                        JsonRpcError::invalid_request()
+                            .with_message("invalid 'Authorization' header"),
+                    ))?;
+
+                self.token_handler.validate_token(token).map_err(|_| {
+                    AppError::from(JsonRpcError::not_permitted().with_message("invalid token"))
+                })?;
+
+                Ok(())
+            }
+            None => Err(AppError::from(
+                JsonRpcError::invalid_request().with_message("missing 'Authorization' header"),
+            )),
+        }
+    }
+
     async fn api_route(&self, request: Request<Body>) -> Vec<JsonRpcResponse> {
+        if let Err(auth_error) = self.authenticate(&request) {
+            error!(
+                "error during authentication: '{}'",
+                auth_error.rpc_error.message
+            );
+            return vec![JsonRpcResponse::error(
+                JsonRpcVersion::Two,
+                auth_error.rpc_error,
+                None,
+            )];
+        }
+
         match get_body_as_json(request).await {
             Ok(Value::Array(values)) => {
                 let results: Vec<_> = values
@@ -201,6 +244,25 @@ impl App {
                 )]
             }
         }
+    }
+
+    async fn token_route(
+        &self,
+        request: Request<Body>,
+    ) -> Result<GetTokenResponse, GetTokenResponse> {
+        let json = get_body_as_json(request)
+            .await
+            .map_err(|e| GetTokenResponse::error(e.rpc_error.message))?;
+
+        let request: GetTokenRequest = serde_json::from_value(json)
+            .map_err(|serde_error| GetTokenResponse::error(serde_error.to_string()))?;
+
+        let token = self
+            .token_handler
+            .get_token(&request.key_name, &request.key_value)
+            .map_err(|e| GetTokenResponse::error(e))?;
+
+        Ok(GetTokenResponse::success(token))
     }
 
     async fn parse_and_handle_single(
