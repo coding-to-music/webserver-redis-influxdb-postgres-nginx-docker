@@ -147,7 +147,6 @@ impl App {
         match (request.method(), route.as_str()) {
             (&hyper::Method::POST, "/api") => {
                 let response_body = self.api_route(request).await;
-                let response_body = serde_json::to_string(&response_body).unwrap();
                 return crate::generic_json_response(response_body, 200);
             }
             (&hyper::Method::POST, "api/token") => {
