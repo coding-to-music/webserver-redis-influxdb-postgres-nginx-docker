@@ -100,11 +100,11 @@ fn generic_json_response<T>(body: T, status: u16) -> Response<Body>
 where
     T: Serialize,
 {
-    let s = serde_json::to_string(&body).unwrap();
+    let b = serde_json::to_vec(&body).unwrap();
 
     Response::builder()
         .status(status)
         .header("Content-Type", "application/json")
-        .body(Body::from(s))
+        .body(Body::from(b))
         .unwrap()
 }
