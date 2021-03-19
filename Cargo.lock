@@ -1299,7 +1299,6 @@ dependencies = [
  "hyper",
  "jsonwebtoken",
  "log",
- "num-traits",
  "pretty_env_logger",
  "redis",
  "serde",

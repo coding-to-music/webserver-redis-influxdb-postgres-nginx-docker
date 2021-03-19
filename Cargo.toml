@@ -14,7 +14,6 @@ pretty_env_logger = "0.3"
 futures = "0.3.4"
 chrono = "0.4.11"
 structopt = "0.3.14"
-num-traits = "0.2.11"
 webserver_database = { git = "https://github.com/ijagberg/webserver_database", branch = "main" }
 webserver_contracts = { git = "https://github.com/ijagberg/webserver_contracts", branch = "main" }
 uuid = "0.8.2"
