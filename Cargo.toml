@@ -15,10 +15,9 @@ futures = "0.3.4"
 chrono = "0.4.11"
 structopt = "0.3.14"
 num-traits = "0.2.11"
-influx = { git = "https://github.com/ijagberg/influx", branch = "main" }
 webserver_database = { git = "https://github.com/ijagberg/webserver_database", branch = "main" }
 webserver_contracts = { git = "https://github.com/ijagberg/webserver_contracts", branch = "main" }
 uuid = "0.8.2"
 jsonwebtoken = "7.2.0"
-redis = "0.20.0"
+redis = { version = "0.20.0", features = ["tokio-comp"] }
 hyper = { version = "0.14", features = ["full"] }
