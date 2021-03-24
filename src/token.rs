@@ -1,5 +1,8 @@
 use jsonwebtoken::{Algorithm, DecodingKey, EncodingKey, Header, Validation};
 use redis::Commands;
+use webserver_contracts::JsonRpcError;
+
+use crate::app::AppError;
 
 #[derive(Debug, Clone)]
 pub struct TokenHandler {
@@ -18,23 +21,20 @@ impl TokenHandler {
         }
     }
 
-    pub fn get_token(&self, key_name: &str, key_value: &str) -> Result<String, String> {
-        let mut redis_client =
-            redis::Client::open(self.redis_addr.clone()).map_err(|_| "redis error".to_string())?;
+    pub fn get_token(&self, key_name: &str, key_value: &str) -> Result<String, AppError> {
+        let mut redis_client = redis::Client::open(self.redis_addr.clone())?;
 
         let redis_key = format!("{}-{}", key_name, key_value);
 
         trace!("retrieving key: '{}'", redis_key);
 
-        let exists: bool = redis_client
-            .exists(redis_key)
-            .map_err(|_| "redis error".to_string())?;
+        let exists: bool = redis_client.exists(redis_key)?;
 
         if exists {
             let token = self.generate_token();
             Ok(token)
         } else {
-            Err("invalid key_name or key_value".to_string())
+            Err(AppError::from(JsonRpcError::internal_error().with_message("invalid key name or key value")))
         }
     }
 

@@ -1,6 +1,5 @@
-use std::{convert::TryFrom, time};
-
 use crate::AppError;
+use std::{convert::TryFrom, time};
 use webserver_contracts::{
     server::{SleepParams, SleepParamsInvalid, SleepResult},
     JsonRpcError, JsonRpcRequest,

@@ -16,7 +16,6 @@ use webserver_contracts::{
 use webserver_database::{self as db, Database};
 
 pub struct App {
-    opts: Opts,
     list_controller: ListItemController,
     server_controller: ServerController,
     token_handler: Arc<TokenHandler>,
@@ -39,7 +38,6 @@ impl App {
         let server_controller = ServerController::new();
 
         Self {
-            opts,
             list_controller,
             server_controller,
             token_handler,
@@ -256,12 +254,16 @@ impl App {
         let request: GetTokenRequest = serde_json::from_value(json)
             .map_err(|serde_error| GetTokenResponse::error(serde_error.to_string()))?;
 
-        let token = self
+        match self
             .token_handler
             .get_token(&request.key_name, &request.key_value)
-            .map_err(|e| GetTokenResponse::error(e))?;
-
-        Ok(GetTokenResponse::success(token))
+        {
+            Ok(token) => Ok(GetTokenResponse::success(token)),
+            Err(error) => {
+                error!("error retrieving token: '{:?}'", error);
+                Err(GetTokenResponse::error(error.rpc_error.message))
+            }
+        }
     }
 
     async fn parse_and_handle_single(
@@ -278,13 +280,6 @@ impl App {
             }
         }
     }
-}
-
-fn invalid_http_method() -> Vec<JsonRpcResponse> {
-    let error = JsonRpcError::invalid_request().with_message("invalid http method");
-    let response = JsonRpcResponse::error(JsonRpcVersion::Two, error, None);
-
-    vec![response]
 }
 
 fn not_found() -> Vec<JsonRpcResponse> {
@@ -321,11 +316,6 @@ impl AppError {
     {
         self.context = Some(format!("{:?}", value));
         self
-    }
-
-    /// Get a reference to the app error's rpc error.
-    pub fn rpc_error(&self) -> &JsonRpcError {
-        &self.rpc_error
     }
 }
 

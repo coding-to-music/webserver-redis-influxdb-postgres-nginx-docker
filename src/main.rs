@@ -1,5 +1,3 @@
-#![allow(dead_code)]
-
 use app::{App, AppError};
 use hyper::{
     service::{make_service_fn, service_fn},

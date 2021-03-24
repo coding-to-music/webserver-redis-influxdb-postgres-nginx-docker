@@ -1,7 +1,6 @@
+use crate::app::AppError;
 use redis::AsyncCommands;
 use webserver_contracts::JsonRpcRequest;
-
-use crate::app::AppError;
 
 pub struct NotificationHandler {
     redis: redis::Client,
