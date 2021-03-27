@@ -1,5 +1,5 @@
 use crate::{
-    controller::{ListItemController, ServerController},
+    controller::{ListItemController, ServerController, ShapeController},
     notification::NotificationHandler,
     token::TokenHandler,
     Opts,
@@ -17,6 +17,7 @@ use webserver_database::{self as db, Database};
 
 pub struct App {
     list_controller: ListItemController,
+    shape_controller: ShapeController,
     server_controller: ServerController,
     token_handler: Arc<TokenHandler>,
     notification_handler: Arc<NotificationHandler>,
@@ -27,18 +28,25 @@ impl App {
         let list_item_db: Arc<Database<db::ListItem>> =
             Arc::new(Database::new(opts.database_path.clone()));
 
+        let shape_db: Arc<Database<db::Shape>> =
+            Arc::new(Database::new(opts.database_path.clone()));
+
         let token_handler = Arc::new(TokenHandler::new(
-            opts.redis_addr.clone(),
+            opts.notification_redis_addr.clone(),
             opts.jwt_secret.clone(),
         ));
 
-        let notification_handler = Arc::new(NotificationHandler::new(opts.redis_addr.clone()));
+        let notification_handler = Arc::new(NotificationHandler::new(
+            opts.notification_redis_addr.clone(),
+        ));
 
         let list_controller = ListItemController::new(list_item_db);
+        let shape_controller = ShapeController::new(opts.shape_redis_addr, shape_db.clone());
         let server_controller = ServerController::new();
 
         Self {
             list_controller,
+            shape_controller,
             server_controller,
             token_handler,
             notification_handler,
@@ -108,14 +116,24 @@ impl App {
                         .rename_list_type(request)
                         .await
                         .map(|result| JsonRpcResponse::success(jsonrpc, result, id)),
-                    Method::UpdateListItem => {
-                        unimplemented!()
-                    }
                     Method::Sleep => self
                         .server_controller
                         .sleep(request)
                         .await
                         .map(|result| JsonRpcResponse::success(jsonrpc, result, id)),
+                    Method::AddShape => self
+                        .shape_controller
+                        .add_shape(request)
+                        .await
+                        .map(|result| JsonRpcResponse::success(jsonrpc, result, id)),
+                    unimplemented => Ok(JsonRpcResponse::error(
+                        JsonRpcVersion::Two,
+                        JsonRpcError::not_implemented().with_message(format!(
+                            "method '{}' is not implemented yet",
+                            unimplemented.to_string()
+                        )),
+                        id,
+                    )),
                 }
             }
         };
@@ -316,6 +334,10 @@ impl AppError {
     {
         self.context = Some(format!("{:?}", value));
         self
+    }
+
+    pub fn invalid_params(message: &str) -> Self {
+        Self::from(JsonRpcError::invalid_params().with_message(message))
     }
 }
 

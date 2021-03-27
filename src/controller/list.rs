@@ -1,6 +1,6 @@
 use crate::AppError;
 use chrono::Utc;
-use std::{collections::HashSet, convert::TryFrom, sync::Arc};
+use std::{collections::HashSet, convert::TryFrom, str::FromStr, sync::Arc};
 use uuid::Uuid;
 use webserver_contracts::{list::*, JsonRpcError, JsonRpcRequest};
 use webserver_database::{Database, ListItem as DbListItem};
@@ -20,15 +20,18 @@ impl ListItemController {
     ) -> Result<AddListItemResult, AppError> {
         let params = AddListItemParams::try_from(request)?;
 
-        let created_s = Utc::now().timestamp() as u32;
+        let created_s = Utc::now().timestamp();
 
         let new_item_id = params.id.unwrap_or_else(|| Uuid::new_v4());
         let list_type = params.list_type;
         let item_name = params.item_name;
 
-        let result = self
-            .db
-            .insert_list_item(new_item_id, &list_type, &item_name, created_s)?;
+        let result = self.db.insert_list_item(
+            &new_item_id.to_string(),
+            &list_type,
+            &item_name,
+            created_s,
+        )?;
 
         if result > 0 {
             Ok(AddListItemResult::new(true, Some(new_item_id)))
@@ -45,10 +48,10 @@ impl ListItemController {
 
         let list_items = self.db.get_list_items(&params.list_type)?;
 
-        let list_items = list_items
+        let list_items: Vec<ListItem> = list_items
             .into_iter()
-            .map(|li| ListItemWrapper::from(li).0)
-            .collect();
+            .map(|li| ListItemWrapper::try_from(li).and_then(|w| Ok(w.0)))
+            .collect::<Result<_, _>>()?;
 
         Ok(GetListItemsResult::new(list_items))
     }
@@ -59,11 +62,11 @@ impl ListItemController {
     ) -> Result<DeleteListItemResult, AppError> {
         let params = DeleteListItemParams::try_from(request)?;
 
-        let id = params.id;
+        let id = params.id.to_string();
 
         info!("deleting list item with id '{}'", id);
 
-        let result = self.db.delete_list_item(id)?;
+        let result = self.db.delete_list_item(&id)?;
 
         Ok(DeleteListItemResult::new(result))
     }
@@ -103,7 +106,7 @@ impl From<AddListItemParamsInvalid> for AppError {
     fn from(error: AddListItemParamsInvalid) -> Self {
         match error {
             AddListItemParamsInvalid::InvalidFormat(e) => {
-                AppError::from(JsonRpcError::invalid_format(e))
+                AppError::from(JsonRpcError::invalid_params().with_message(format!("{}", e)))
             }
         }
     }
@@ -161,12 +164,17 @@ impl From<RenameListTypeParamsInvalid> for AppError {
 
 struct ListItemWrapper(ListItem);
 
-impl From<DbListItem> for ListItemWrapper {
-    fn from(db_list_item: DbListItem) -> Self {
-        ListItemWrapper(ListItem::new(
-            db_list_item.id,
+impl TryFrom<DbListItem> for ListItemWrapper {
+    type Error = AppError;
+
+    fn try_from(db_list_item: DbListItem) -> Result<Self, Self::Error> {
+        let id = Uuid::from_str(&db_list_item.id)
+            .map_err(|e| AppError::from(JsonRpcError::internal_error()).with_context(&e))?;
+
+        Ok(ListItemWrapper(ListItem::new(
+            id,
             db_list_item.list_type,
             db_list_item.item_name,
-        ))
+        )))
     }
 }

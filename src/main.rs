@@ -25,8 +25,10 @@ pub struct Opts {
     cert_path: String,
     #[structopt(long, env = "WEBSERVER_CERT_KEY_PATH")]
     key_path: String,
-    #[structopt(long, env = "WEBSERVER_REDIS_ADDR")]
-    redis_addr: String,
+    #[structopt(long, env = "WEBSERVER_NOTIFICATION_REDIS_ADDR")]
+    notification_redis_addr: String,
+    #[structopt(long, env = "WEBSERVER_SHAPE_REDIS_ADDR")]
+    shape_redis_addr: String,
     #[structopt(long, env = "WEBSERVER_JWT_SECRET")]
     jwt_secret: String,
 }
@@ -82,7 +84,7 @@ fn log_opts_at_startup(opts: &Opts) {
     info!("starting webserver with opts: ");
     info!("WEBSERVER_LISTEN_PORT        = {}", opts.port);
     info!("WEBSERVER_SQLITE_PATH        = {}", opts.database_path);
-    info!("WEBSERVER_REDIS_ADDR         = {}", opts.redis_addr);
+    info!("WEBSERVER_REDIS_ADDR         = {}", opts.notification_redis_addr);
 }
 
 /// Process the raw JSON body of a request
