@@ -1342,7 +1342,7 @@ dependencies = [
 [[package]]
 name = "webserver_contracts"
 version = "0.1.1"
-source = "git+https://github.com/ijagberg/webserver_contracts?branch=main#b4b95dbf2500b87a3f454062fbc0cce1407b5573"
+source = "git+https://github.com/ijagberg/webserver_contracts?branch=main#4610ec8a642190c3513e0a9f86fb6f370745cf4e"
 dependencies = [
  "chrono",
  "geojson",
@@ -1355,7 +1355,7 @@ dependencies = [
 [[package]]
 name = "webserver_database"
 version = "0.1.0"
-source = "git+https://github.com/ijagberg/webserver_database?branch=main#6b9622566d43548c9d4e5d7701f1a51bfd9a1e53"
+source = "git+https://github.com/ijagberg/webserver_database?branch=main#3ec23dab6fa24ba10564dcbf75c129a832b8b1c0"
 dependencies = [
  "chrono",
  "log",

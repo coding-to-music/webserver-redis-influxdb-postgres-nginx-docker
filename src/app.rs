@@ -126,6 +126,11 @@ impl App {
                         .add_shape(request)
                         .await
                         .map(|result| JsonRpcResponse::success(jsonrpc, result, id)),
+                    Method::GetShape => self
+                        .shape_controller
+                        .get_shape(request)
+                        .await
+                        .map(|result| JsonRpcResponse::success(jsonrpc, result, id)),
                     unimplemented => Ok(JsonRpcResponse::error(
                         JsonRpcVersion::Two,
                         JsonRpcError::not_implemented().with_message(format!(
@@ -336,8 +341,17 @@ impl AppError {
         self
     }
 
-    pub fn invalid_params(message: &str) -> Self {
-        Self::from(JsonRpcError::invalid_params().with_message(message))
+    pub fn with_message(mut self, message: &str) -> Self {
+        self.rpc_error.message = message.to_owned();
+        self
+    }
+
+    pub fn invalid_params() -> Self {
+        Self::from(JsonRpcError::invalid_params())
+    }
+
+    pub fn internal_error() -> Self {
+        Self::from(JsonRpcError::internal_error())
     }
 }
 
