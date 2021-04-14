@@ -1355,7 +1355,7 @@ dependencies = [
 [[package]]
 name = "webserver_database"
 version = "0.1.0"
-source = "git+https://github.com/ijagberg/webserver_database?branch=main#3ec23dab6fa24ba10564dcbf75c129a832b8b1c0"
+source = "git+https://github.com/ijagberg/webserver_database?branch=main#5b3d746a72eb064b4ee03e4c1441c7f8e0d0283e"
 dependencies = [
  "chrono",
  "log",

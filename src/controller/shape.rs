@@ -70,10 +70,10 @@ impl ShapeController {
         let id = uuid::Uuid::new_v4().to_string();
 
         let result = self.shape_tag_db.insert_shape_tag(
-            id.clone(),
-            params.shape_id.to_string(),
-            params.name,
-            params.value,
+            &id,
+            &params.shape_id.to_string(),
+            &params.name,
+            &params.value,
             created_s,
         )?;
 
