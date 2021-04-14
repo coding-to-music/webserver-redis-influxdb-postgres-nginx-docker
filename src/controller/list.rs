@@ -104,61 +104,41 @@ impl ListItemController {
 
 impl From<AddListItemParamsInvalid> for AppError {
     fn from(error: AddListItemParamsInvalid) -> Self {
-        match error {
-            AddListItemParamsInvalid::InvalidFormat(e) => {
-                AppError::from(JsonRpcError::invalid_params().with_message(format!("{}", e)))
-            }
-        }
+        AppError::invalid_params()
+            .with_message(&error.to_string())
+            .with_context(&error)
     }
 }
 
 impl From<GetListItemsParamsInvalid> for AppError {
     fn from(error: GetListItemsParamsInvalid) -> Self {
-        match error {
-            GetListItemsParamsInvalid::InvalidFormat(e) => {
-                AppError::from(JsonRpcError::invalid_format(e))
-            }
-            GetListItemsParamsInvalid::EmptyOrWhitespace => AppError::from(
-                JsonRpcError::invalid_params()
-                    .with_message("list_type must not be empty or whitespace"),
-            ),
-        }
+        AppError::invalid_params()
+            .with_message(&error.to_string())
+            .with_context(&error)
     }
 }
 
 impl From<DeleteListItemParamsInvalid> for AppError {
     fn from(error: DeleteListItemParamsInvalid) -> Self {
-        match error {
-            DeleteListItemParamsInvalid::InvalidFormat(e) => {
-                AppError::from(JsonRpcError::invalid_format(e))
-            }
-        }
+        AppError::invalid_params()
+            .with_message(&error.to_string())
+            .with_context(&error)
     }
 }
 
 impl From<GetListTypesParamsInvalid> for AppError {
     fn from(error: GetListTypesParamsInvalid) -> Self {
-        match error {
-            GetListTypesParamsInvalid::InvalidFormat(e) => {
-                AppError::from(JsonRpcError::invalid_format(e))
-            }
-        }
+        AppError::invalid_params()
+            .with_message(&error.to_string())
+            .with_context(&error)
     }
 }
 
 impl From<RenameListTypeParamsInvalid> for AppError {
     fn from(error: RenameListTypeParamsInvalid) -> Self {
-        match error {
-            RenameListTypeParamsInvalid::InvalidFormat(e) => {
-                AppError::from(JsonRpcError::invalid_format(e))
-            }
-            RenameListTypeParamsInvalid::EmptyOldName => JsonRpcError::invalid_params()
-                .with_message("'old_name' cannot be empty or whitespace")
-                .into(),
-            RenameListTypeParamsInvalid::EmptyNewName => JsonRpcError::invalid_params()
-                .with_message("'new_name' cannot be empty or whitespace")
-                .into(),
-        }
+        AppError::invalid_params()
+            .with_message(&error.to_string())
+            .with_context(&error)
     }
 }
 
