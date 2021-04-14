@@ -2,24 +2,27 @@ use crate::app::AppError;
 use chrono::Utc;
 use std::{convert::TryFrom, sync::Arc};
 use uuid::Uuid;
-use webserver_contracts::shape::{
-    geojson::Geometry, GetShapeParams, GetShapeParamsInvalid, GetShapeResult, Shape,
-};
-use webserver_contracts::{
-    shape::{AddShapeParams, AddShapeParamsInvalid, AddShapeResult},
-    JsonRpcError, JsonRpcRequest,
-};
-use webserver_database::{Database, Shape as DbShape};
+use webserver_contracts::{shape::geojson::*, shape::*, *};
+use webserver_database::{Database, Shape as DbShape, ShapeTag as DbShapeTag};
 
 pub struct ShapeController {
     _redis: redis::Client,
     shape_db: Arc<Database<DbShape>>,
+    shape_tag_db: Arc<Database<DbShapeTag>>,
 }
 
 impl ShapeController {
-    pub fn new(addr: String, shape_db: Arc<Database<DbShape>>) -> Self {
+    pub fn new(
+        addr: String,
+        shape_db: Arc<Database<DbShape>>,
+        shape_tag_db: Arc<Database<DbShapeTag>>,
+    ) -> Self {
         let _redis = redis::Client::open(addr).unwrap();
-        Self { _redis, shape_db }
+        Self {
+            _redis,
+            shape_db,
+            shape_tag_db,
+        }
     }
 
     pub async fn add_shape(&self, request: JsonRpcRequest) -> Result<AddShapeResult, AppError> {
@@ -56,25 +59,53 @@ impl ShapeController {
             None => Ok(GetShapeResult::new(None)),
         }
     }
+
+    pub async fn add_shape_tag(
+        &self,
+        request: JsonRpcRequest,
+    ) -> Result<AddShapeTagResult, AppError> {
+        let params = AddShapeTagParams::try_from(request)?;
+        let created_s = Utc::now().timestamp();
+
+        let id = uuid::Uuid::new_v4().to_string();
+
+        let result = self.shape_tag_db.insert_shape_tag(
+            id.clone(),
+            params.shape_id.to_string(),
+            params.name,
+            params.value,
+            created_s,
+        )?;
+
+        if result {
+            Ok(AddShapeTagResult::success(id))
+        } else {
+            Ok(AddShapeTagResult::failure())
+        }
+    }
 }
 
 impl From<AddShapeParamsInvalid> for AppError {
     fn from(err: AddShapeParamsInvalid) -> Self {
-        match err {
-            AddShapeParamsInvalid::InvalidFormat(e) => {
-                AppError::from(JsonRpcError::invalid_params().with_message(format!("{}", e)))
-            }
-        }
+        AppError::invalid_params()
+            .with_message(&err.to_string())
+            .with_context(&err)
     }
 }
 
 impl From<GetShapeParamsInvalid> for AppError {
     fn from(err: GetShapeParamsInvalid) -> Self {
-        match &err {
-            GetShapeParamsInvalid::InvalidFormat(e) => AppError::invalid_params()
-                .with_message(&format!("{}", err))
-                .with_context(&e),
-        }
+        AppError::invalid_params()
+            .with_message(&err.to_string())
+            .with_context(&err)
+    }
+}
+
+impl From<AddShapeTagParamsInvalid> for AppError {
+    fn from(err: AddShapeTagParamsInvalid) -> Self {
+        AppError::invalid_params()
+            .with_message(&err.to_string())
+            .with_context(&err)
     }
 }
 

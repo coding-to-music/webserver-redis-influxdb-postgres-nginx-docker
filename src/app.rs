@@ -30,6 +30,8 @@ impl App {
 
         let shape_db: Arc<Database<db::Shape>> =
             Arc::new(Database::new(opts.database_path.clone()));
+        let shape_tag_db: Arc<Database<db::ShapeTag>> =
+            Arc::new(Database::new(opts.database_path.clone()));
 
         let token_handler = Arc::new(TokenHandler::new(
             opts.notification_redis_addr.clone(),
@@ -41,7 +43,11 @@ impl App {
         ));
 
         let list_controller = ListItemController::new(list_item_db);
-        let shape_controller = ShapeController::new(opts.shape_redis_addr, shape_db.clone());
+        let shape_controller = ShapeController::new(
+            opts.shape_redis_addr,
+            shape_db.clone(),
+            shape_tag_db.clone(),
+        );
         let server_controller = ServerController::new();
 
         Self {
@@ -129,6 +135,11 @@ impl App {
                     Method::GetShape => self
                         .shape_controller
                         .get_shape(request)
+                        .await
+                        .map(|result| JsonRpcResponse::success(jsonrpc, result, id)),
+                    Method::AddShapeTag => self
+                        .shape_controller
+                        .add_shape_tag(request)
                         .await
                         .map(|result| JsonRpcResponse::success(jsonrpc, result, id)),
                     unimplemented => Ok(JsonRpcResponse::error(
