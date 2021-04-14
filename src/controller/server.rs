@@ -1,8 +1,8 @@
-use crate::AppError;
+use crate::{app::ParamsError, AppError};
 use std::{convert::TryFrom, time};
 use webserver_contracts::{
     server::{SleepParams, SleepParamsInvalid, SleepResult},
-    JsonRpcError, JsonRpcRequest,
+    JsonRpcRequest,
 };
 
 pub struct ServerController {}
@@ -23,13 +23,4 @@ impl ServerController {
     }
 }
 
-impl From<SleepParamsInvalid> for AppError {
-    fn from(error: SleepParamsInvalid) -> Self {
-        match error {
-            SleepParamsInvalid::InvalidFormat(e) => JsonRpcError::invalid_format(e).into(),
-            SleepParamsInvalid::InvalidDuration => JsonRpcError::invalid_params()
-                .with_message("invalid duration, should be less than or equal to 10000")
-                .into(),
-        }
-    }
-}
+impl ParamsError for SleepParamsInvalid {}

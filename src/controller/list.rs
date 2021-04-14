@@ -1,4 +1,4 @@
-use crate::AppError;
+use crate::{app::ParamsError, AppError};
 use chrono::Utc;
 use std::{collections::HashSet, convert::TryFrom, str::FromStr, sync::Arc};
 use uuid::Uuid;
@@ -102,47 +102,13 @@ impl ListItemController {
     }
 }
 
-impl From<AddListItemParamsInvalid> for AppError {
-    fn from(error: AddListItemParamsInvalid) -> Self {
-        AppError::invalid_params()
-            .with_message(&error.to_string())
-            .with_context(&error)
-    }
-}
-
-impl From<GetListItemsParamsInvalid> for AppError {
-    fn from(error: GetListItemsParamsInvalid) -> Self {
-        AppError::invalid_params()
-            .with_message(&error.to_string())
-            .with_context(&error)
-    }
-}
-
-impl From<DeleteListItemParamsInvalid> for AppError {
-    fn from(error: DeleteListItemParamsInvalid) -> Self {
-        AppError::invalid_params()
-            .with_message(&error.to_string())
-            .with_context(&error)
-    }
-}
-
-impl From<GetListTypesParamsInvalid> for AppError {
-    fn from(error: GetListTypesParamsInvalid) -> Self {
-        AppError::invalid_params()
-            .with_message(&error.to_string())
-            .with_context(&error)
-    }
-}
-
-impl From<RenameListTypeParamsInvalid> for AppError {
-    fn from(error: RenameListTypeParamsInvalid) -> Self {
-        AppError::invalid_params()
-            .with_message(&error.to_string())
-            .with_context(&error)
-    }
-}
-
 struct ListItemWrapper(ListItem);
+
+impl ParamsError for AddListItemParamsInvalid {}
+impl ParamsError for GetListItemsParamsInvalid {}
+impl ParamsError for DeleteListItemParamsInvalid {}
+impl ParamsError for GetListTypesParamsInvalid {}
+impl ParamsError for RenameListTypeParamsInvalid {}
 
 impl TryFrom<DbListItem> for ListItemWrapper {
     type Error = AppError;

@@ -1,6 +1,6 @@
-use crate::app::AppError;
+use crate::app::{AppError, ParamsError};
 use chrono::Utc;
-use std::{convert::TryFrom, sync::Arc};
+use std::{collections::HashSet, convert::TryFrom, sync::Arc};
 use uuid::Uuid;
 use webserver_contracts::{shape::geojson::*, shape::*, *};
 use webserver_database::{Database, Shape as DbShape, ShapeTag as DbShapeTag};
@@ -83,29 +83,32 @@ impl ShapeController {
             Ok(AddShapeTagResult::failure())
         }
     }
-}
 
-impl From<AddShapeParamsInvalid> for AppError {
-    fn from(err: AddShapeParamsInvalid) -> Self {
-        AppError::invalid_params()
-            .with_message(&err.to_string())
-            .with_context(&err)
-    }
-}
+    pub async fn get_shapes_by_tag(
+        &self,
+        request: JsonRpcRequest,
+    ) -> Result<GetShapesByTagResult, AppError> {
+        let params = GetShapesByTagParams::try_from(request)?;
 
-impl From<GetShapeParamsInvalid> for AppError {
-    fn from(err: GetShapeParamsInvalid) -> Self {
-        AppError::invalid_params()
-            .with_message(&err.to_string())
-            .with_context(&err)
-    }
-}
+        let tags = self
+            .shape_tag_db
+            .get_tags_by_name_and_value(&params.name, &params.value)?;
 
-impl From<AddShapeTagParamsInvalid> for AppError {
-    fn from(err: AddShapeTagParamsInvalid) -> Self {
-        AppError::invalid_params()
-            .with_message(&err.to_string())
-            .with_context(&err)
+        let shape_ids: Vec<String> = tags
+            .into_iter()
+            .map(|tag| tag.shape_id)
+            .collect::<HashSet<_>>()
+            .into_iter()
+            .collect();
+
+        let db_shapes = self.shape_db.get_shapes_by_ids(&shape_ids)?;
+
+        let shapes: Vec<Shape> = db_shapes
+            .into_iter()
+            .map(|db_shape| ShapeWrapper::try_from(db_shape).map(|w| w.0))
+            .collect::<Result<_, _>>()?;
+
+        Ok(GetShapesByTagResult::new(shapes))
     }
 }
 
@@ -127,3 +130,8 @@ impl TryFrom<DbShape> for ShapeWrapper {
         Ok(Self(shape))
     }
 }
+
+impl ParamsError for AddShapeParamsInvalid {}
+impl ParamsError for GetShapeParamsInvalid {}
+impl ParamsError for AddShapeTagParamsInvalid {}
+impl ParamsError for GetShapesByTagParamsInvalid {}

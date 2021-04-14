@@ -8,7 +8,7 @@ use db::DatabaseError;
 use futures::future;
 use hyper::{body::Buf, Body, Request, Response};
 use serde_json::Value;
-use std::{fmt::Debug, str::FromStr, sync::Arc};
+use std::{error::Error, fmt::Debug, str::FromStr, sync::Arc};
 use webserver_contracts::{
     GetTokenRequest, GetTokenResponse, JsonRpcError, JsonRpcRequest, JsonRpcResponse,
     JsonRpcVersion, Method,
@@ -140,6 +140,11 @@ impl App {
                     Method::AddShapeTag => self
                         .shape_controller
                         .add_shape_tag(request)
+                        .await
+                        .map(|result| JsonRpcResponse::success(jsonrpc, result, id)),
+                    Method::GetShapesByTag => self
+                        .shape_controller
+                        .get_shapes_by_tag(request)
                         .await
                         .map(|result| JsonRpcResponse::success(jsonrpc, result, id)),
                     unimplemented => Ok(JsonRpcResponse::error(
@@ -384,5 +389,18 @@ impl From<DatabaseError> for AppError {
 impl From<redis::RedisError> for AppError {
     fn from(redis_error: redis::RedisError) -> Self {
         AppError::from(JsonRpcError::internal_error()).with_context(&redis_error)
+    }
+}
+
+pub trait ParamsError: Error {}
+
+impl<T> From<T> for AppError
+where
+    T: ParamsError,
+{
+    fn from(err: T) -> Self {
+        AppError::invalid_params()
+            .with_message(&err.to_string())
+            .with_context(&err)
     }
 }
