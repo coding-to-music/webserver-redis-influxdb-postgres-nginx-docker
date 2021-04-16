@@ -9,11 +9,10 @@ use futures::future;
 use hyper::{body::Buf, Body, Request, Response};
 use serde_json::Value;
 use std::{error::Error, fmt::Debug, str::FromStr, sync::Arc};
-use webserver_contracts::{
-    GetTokenRequest, GetTokenResponse, JsonRpcError, JsonRpcRequest, JsonRpcResponse,
-    JsonRpcVersion, Method,
-};
+use webserver_contracts::*;
 use webserver_database::{self as db, Database};
+
+pub type AppResult<T> = Result<T, AppError>;
 
 pub struct App {
     list_controller: ListItemController,

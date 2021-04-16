@@ -3,7 +3,7 @@ use chrono::Utc;
 use std::{collections::HashSet, convert::TryFrom, str::FromStr, sync::Arc};
 use uuid::Uuid;
 use webserver_contracts::{list::*, JsonRpcError, JsonRpcRequest};
-use webserver_database::{Database, ListItem as DbListItem};
+use webserver_database::{Database, InsertionResult, ListItem as DbListItem};
 
 pub struct ListItemController {
     db: Arc<Database<DbListItem>>,
@@ -33,10 +33,9 @@ impl ListItemController {
             created_s,
         )?;
 
-        if result > 0 {
-            Ok(AddListItemResult::new(true, Some(new_item_id)))
-        } else {
-            Ok(AddListItemResult::new(false, None))
+        match result {
+            InsertionResult::Inserted => Ok(AddListItemResult::new(true, Some(new_item_id))),
+            InsertionResult::AlreadyExists => Ok(AddListItemResult::new(false, None)),
         }
     }
 

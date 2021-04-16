@@ -1,9 +1,13 @@
-use crate::app::{AppError, ParamsError};
+use crate::app::{AppError, AppResult, ParamsError};
 use chrono::Utc;
-use std::{collections::HashSet, convert::TryFrom, sync::Arc};
+use std::{
+    collections::{HashMap, HashSet},
+    convert::TryFrom,
+    sync::Arc,
+};
 use uuid::Uuid;
 use webserver_contracts::{shape::geojson::*, shape::*, *};
-use webserver_database::{Database, Shape as DbShape, ShapeTag as DbShapeTag};
+use webserver_database::{Database, InsertionResult, Shape as DbShape, ShapeTag as DbShapeTag};
 
 pub struct ShapeController {
     _redis: redis::Client,
@@ -39,10 +43,9 @@ impl ShapeController {
             created_s,
         )?;
 
-        if result {
-            Ok(AddShapeResult::success(id))
-        } else {
-            Ok(AddShapeResult::failure())
+        match result {
+            InsertionResult::Inserted => Ok(AddShapeResult::success(id)),
+            InsertionResult::AlreadyExists => Ok(AddShapeResult::failure()),
         }
     }
 
@@ -51,13 +54,15 @@ impl ShapeController {
 
         let shape = self.shape_db.get_shape(&params.id.to_string())?;
 
-        match shape {
-            Some(db_shape) => {
-                let shape = ShapeWrapper::try_from(db_shape)?.0;
-                Ok(GetShapeResult::new(Some(shape)))
-            }
-            None => Ok(GetShapeResult::new(None)),
-        }
+        let shape = match shape {
+            Some(db_shape) => db_shape,
+            None => return Ok(GetShapeResult::new(None)),
+        };
+
+        let tags = self.get_tags_for_shape(&shape.id)?;
+
+        let shape_result = ShapeWrapper::try_from((shape, tags))?;
+        Ok(GetShapeResult::new(Some(shape_result.0)))
     }
 
     pub async fn add_shape_tag(
@@ -77,56 +82,80 @@ impl ShapeController {
             created_s,
         )?;
 
-        if result {
-            Ok(AddShapeTagResult::success(id))
-        } else {
-            Ok(AddShapeTagResult::failure())
+        match result {
+            InsertionResult::Inserted => Ok(AddShapeTagResult::success(id)),
+            InsertionResult::AlreadyExists => Ok(AddShapeTagResult::failure()),
         }
     }
 
     pub async fn get_shapes_by_tag(
         &self,
         request: JsonRpcRequest,
-    ) -> Result<GetShapesByTagResult, AppError> {
+    ) -> AppResult<GetShapesByTagResult> {
         let params = GetShapesByTagParams::try_from(request)?;
-
         let tags = self
             .shape_tag_db
             .get_tags_by_name_and_value(&params.name, &params.value)?;
 
-        let shape_ids: Vec<String> = tags
-            .into_iter()
-            .map(|tag| tag.shape_id)
+        let shape_ids: Vec<&str> = tags
+            .iter()
+            .map(|tag| tag.shape_id.as_str())
             .collect::<HashSet<_>>()
             .into_iter()
             .collect();
 
         let db_shapes = self.shape_db.get_shapes_by_ids(&shape_ids)?;
-
-        let shapes: Vec<Shape> = db_shapes
+        let mut db_shapes_and_tags: HashMap<String, (DbShape, Vec<DbShapeTag>)> = db_shapes
             .into_iter()
-            .map(|db_shape| ShapeWrapper::try_from(db_shape).map(|w| w.0))
+            .map(|db_shape| (db_shape.id.clone(), (db_shape, Vec::new())))
+            .collect();
+
+        let shape_tags = self.shape_tag_db.get_tags_for_shapes(&shape_ids)?;
+
+        for shape_tag in shape_tags {
+            match db_shapes_and_tags.get_mut(&shape_tag.shape_id) {
+                Some((_shape, tags)) => {
+                    tags.push(shape_tag);
+                }
+                None => {}
+            }
+        }
+
+        let shapes: Vec<Shape> = db_shapes_and_tags
+            .into_iter()
+            .map(|(_, v)| v)
+            .map(|(shape, tags)| ShapeWrapper::try_from((shape, tags)).map(|w| w.0))
             .collect::<Result<_, _>>()?;
 
         Ok(GetShapesByTagResult::new(shapes))
+    }
+
+    fn get_tags_for_shape(&self, shape_id: &str) -> AppResult<Vec<DbShapeTag>> {
+        let shapes = self.shape_tag_db.get_tags_for_shape(shape_id)?;
+        Ok(shapes)
     }
 }
 
 struct ShapeWrapper(Shape);
 
-impl TryFrom<DbShape> for ShapeWrapper {
+impl TryFrom<(DbShape, Vec<DbShapeTag>)> for ShapeWrapper {
     type Error = AppError;
 
-    fn try_from(value: DbShape) -> Result<Self, Self::Error> {
-        let id: Uuid = value
+    fn try_from((shape, tags): (DbShape, Vec<DbShapeTag>)) -> Result<Self, Self::Error> {
+        let id: Uuid = shape
             .id
             .parse()
             .map_err(|e| AppError::internal_error().with_context(&e))?;
-        let name = value.name;
-        let geometry: Geometry = serde_json::from_str(&value.geo)
+        let name = shape.name;
+        let geometry: Geometry = serde_json::from_str(&shape.geo)
             .map_err(|e| AppError::internal_error().with_context(&e))?;
 
-        let shape = Shape::new(id, name, geometry);
+        let tags = tags
+            .into_iter()
+            .map(|db_shape_tag| (db_shape_tag.tag_name, db_shape_tag.tag_value))
+            .collect();
+
+        let shape = Shape::new(id, name, geometry, tags);
         Ok(Self(shape))
     }
 }
