@@ -136,9 +136,19 @@ impl App {
                         .get_shape(request)
                         .await
                         .map(|result| JsonRpcResponse::success(jsonrpc, result, id)),
+                    Method::DeleteShape => self
+                        .shape_controller
+                        .delete_shape(request)
+                        .await
+                        .map(|result| JsonRpcResponse::success(jsonrpc, result, id)),
                     Method::AddShapeTag => self
                         .shape_controller
                         .add_shape_tag(request)
+                        .await
+                        .map(|result| JsonRpcResponse::success(jsonrpc, result, id)),
+                    Method::DeleteShapeTag => self
+                        .shape_controller
+                        .delete_shape_tag(request)
                         .await
                         .map(|result| JsonRpcResponse::success(jsonrpc, result, id)),
                     Method::GetShapesByTag => self

@@ -29,7 +29,7 @@ impl ShapeController {
         }
     }
 
-    pub async fn add_shape(&self, request: JsonRpcRequest) -> Result<AddShapeResult, AppError> {
+    pub async fn add_shape(&self, request: JsonRpcRequest) -> AppResult<AddShapeResult> {
         let params = AddShapeParams::try_from(request)?;
         let created_s = Utc::now().timestamp();
 
@@ -49,7 +49,15 @@ impl ShapeController {
         }
     }
 
-    pub async fn get_shape(&self, request: JsonRpcRequest) -> Result<GetShapeResult, AppError> {
+    pub async fn delete_shape(&self, request: JsonRpcRequest) -> AppResult<DeleteShapeResult> {
+        let params = DeleteShapeParams::try_from(request)?;
+
+        let success = self.shape_db.delete_shape(&params.id.to_string())?;
+
+        Ok(DeleteShapeResult::new(success))
+    }
+
+    pub async fn get_shape(&self, request: JsonRpcRequest) -> AppResult<GetShapeResult> {
         let params = GetShapeParams::try_from(request)?;
 
         let shape = self.shape_db.get_shape(&params.id.to_string())?;
@@ -65,10 +73,7 @@ impl ShapeController {
         Ok(GetShapeResult::new(Some(shape_result.0)))
     }
 
-    pub async fn add_shape_tag(
-        &self,
-        request: JsonRpcRequest,
-    ) -> Result<AddShapeTagResult, AppError> {
+    pub async fn add_shape_tag(&self, request: JsonRpcRequest) -> AppResult<AddShapeTagResult> {
         let params = AddShapeTagParams::try_from(request)?;
         let created_s = Utc::now().timestamp();
 
@@ -86,6 +91,17 @@ impl ShapeController {
             InsertionResult::Inserted => Ok(AddShapeTagResult::success(id)),
             InsertionResult::AlreadyExists => Ok(AddShapeTagResult::failure()),
         }
+    }
+
+    pub async fn delete_shape_tag(
+        &self,
+        request: JsonRpcRequest,
+    ) -> AppResult<DeleteShapeTagResult> {
+        let params = DeleteShapeTagParams::try_from(request)?;
+
+        let success = self.shape_tag_db.delete_tag(&params.id.to_string())?;
+
+        Ok(DeleteShapeTagResult::new(success))
     }
 
     pub async fn get_shapes_by_tag(
@@ -164,3 +180,5 @@ impl ParamsError for AddShapeParamsInvalid {}
 impl ParamsError for GetShapeParamsInvalid {}
 impl ParamsError for AddShapeTagParamsInvalid {}
 impl ParamsError for GetShapesByTagParamsInvalid {}
+impl ParamsError for DeleteShapeParamsInvalid {}
+impl ParamsError for DeleteShapeTagParamsInvalid {}
