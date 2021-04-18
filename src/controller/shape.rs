@@ -1,10 +1,6 @@
 use crate::app::{AppError, AppResult, ParamsError};
 use chrono::Utc;
-use std::{
-    collections::{HashMap, HashSet},
-    convert::TryFrom,
-    sync::Arc,
-};
+use std::{convert::TryFrom, sync::Arc};
 use uuid::Uuid;
 use webserver_contracts::{shape::geojson::*, shape::*, *};
 use webserver_database::{Database, InsertionResult, Shape as DbShape, ShapeTag as DbShapeTag};
@@ -104,46 +100,16 @@ impl ShapeController {
         Ok(DeleteShapeTagResult::new(success))
     }
 
-    pub async fn get_shapes_by_tag(
+    pub async fn search_shapes_by_tags(
         &self,
         request: JsonRpcRequest,
-    ) -> AppResult<GetShapesByTagResult> {
-        let params = GetShapesByTagParams::try_from(request)?;
-        let tags = self
+    ) -> AppResult<SearchShapesByTagsResult> {
+        let params = SearchShapesByTagsParams::try_from(request)?;
+        let _tags = self
             .shape_tag_db
-            .get_tags_by_name_and_value(&params.name, &params.value)?;
+            .get_tags_by_names_and_values(&params.or[0])?;
 
-        let shape_ids: Vec<&str> = tags
-            .iter()
-            .map(|tag| tag.shape_id.as_str())
-            .collect::<HashSet<_>>()
-            .into_iter()
-            .collect();
-
-        let db_shapes = self.shape_db.get_shapes_by_ids(&shape_ids)?;
-        let mut db_shapes_and_tags: HashMap<String, (DbShape, Vec<DbShapeTag>)> = db_shapes
-            .into_iter()
-            .map(|db_shape| (db_shape.id.clone(), (db_shape, Vec::new())))
-            .collect();
-
-        let shape_tags = self.shape_tag_db.get_tags_for_shapes(&shape_ids)?;
-
-        for shape_tag in shape_tags {
-            match db_shapes_and_tags.get_mut(&shape_tag.shape_id) {
-                Some((_shape, tags)) => {
-                    tags.push(shape_tag);
-                }
-                None => {}
-            }
-        }
-
-        let shapes: Vec<Shape> = db_shapes_and_tags
-            .into_iter()
-            .map(|(_, v)| v)
-            .map(|(shape, tags)| ShapeWrapper::try_from((shape, tags)).map(|w| w.0))
-            .collect::<Result<_, _>>()?;
-
-        Ok(GetShapesByTagResult::new(shapes))
+        Ok(SearchShapesByTagsResult::new(Vec::new()))
     }
 
     fn get_tags_for_shape(&self, shape_id: &str) -> AppResult<Vec<DbShapeTag>> {
@@ -179,6 +145,6 @@ impl TryFrom<(DbShape, Vec<DbShapeTag>)> for ShapeWrapper {
 impl ParamsError for AddShapeParamsInvalid {}
 impl ParamsError for GetShapeParamsInvalid {}
 impl ParamsError for AddShapeTagParamsInvalid {}
-impl ParamsError for GetShapesByTagParamsInvalid {}
+impl ParamsError for SearchShapesByTagsParamsInvalid {}
 impl ParamsError for DeleteShapeParamsInvalid {}
 impl ParamsError for DeleteShapeTagParamsInvalid {}

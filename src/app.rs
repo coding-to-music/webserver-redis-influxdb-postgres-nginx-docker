@@ -151,9 +151,9 @@ impl App {
                         .delete_shape_tag(request)
                         .await
                         .map(|result| JsonRpcResponse::success(jsonrpc, result, id)),
-                    Method::GetShapesByTag => self
+                    Method::SearchShapesByTags => self
                         .shape_controller
-                        .get_shapes_by_tag(request)
+                        .search_shapes_by_tags(request)
                         .await
                         .map(|result| JsonRpcResponse::success(jsonrpc, result, id)),
                     unimplemented => Ok(JsonRpcResponse::error(

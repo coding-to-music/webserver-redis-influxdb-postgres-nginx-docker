@@ -28,9 +28,9 @@ dependencies = [
 
 [[package]]
 name = "async-trait"
-version = "0.1.49"
+version = "0.1.50"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "589652ce7ccb335d1e7ecb3be145425702b290dbcb7029bbeaae263fc1d87b48"
+checksum = "0b98e84bbb4cbcdd97da190ba0c58a1bb0de2c1fdf67d159e192ed766aeca722"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -1342,7 +1342,7 @@ dependencies = [
 [[package]]
 name = "webserver_contracts"
 version = "0.1.1"
-source = "git+https://github.com/ijagberg/webserver_contracts?branch=main#04962c8d5cb5e96aca5e06c212ee72d60e27a393"
+source = "git+https://github.com/ijagberg/webserver_contracts?branch=main#6110e67a19091ce6a879883aeb0fe717ac51a871"
 dependencies = [
  "chrono",
  "geojson",
@@ -1355,7 +1355,7 @@ dependencies = [
 [[package]]
 name = "webserver_database"
 version = "0.1.0"
-source = "git+https://github.com/ijagberg/webserver_database?branch=main#c35505d340ab38965c89d5f3250e0478ddc8b941"
+source = "git+https://github.com/ijagberg/webserver_database?branch=main#eddb3a4a521f85c28f70c15985e958ebaeb28f31"
 dependencies = [
  "chrono",
  "log",
