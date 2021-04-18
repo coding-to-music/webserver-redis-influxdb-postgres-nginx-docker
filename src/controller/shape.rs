@@ -1,6 +1,6 @@
 use crate::app::{AppError, AppResult, ParamsError};
 use chrono::Utc;
-use std::{convert::TryFrom, sync::Arc};
+use std::{collections::HashMap, convert::TryFrom, sync::Arc};
 use uuid::Uuid;
 use webserver_contracts::{shape::geojson::*, shape::*, *};
 use webserver_database::{Database, InsertionResult, Shape as DbShape, ShapeTag as DbShapeTag};
@@ -105,11 +105,40 @@ impl ShapeController {
         request: JsonRpcRequest,
     ) -> AppResult<SearchShapesByTagsResult> {
         let params = SearchShapesByTagsParams::try_from(request)?;
-        let _tags = self
-            .shape_tag_db
-            .get_tags_by_names_and_values(&params.or[0])?;
 
-        Ok(SearchShapesByTagsResult::new(Vec::new()))
+        let mut shape_tags = Vec::new();
+        for tags_query in params.or {
+            let mut tags = self
+                .shape_tag_db
+                .get_tags_by_names_and_values(&tags_query)?;
+            shape_tags.append(&mut tags);
+        }
+
+        let mut shapes: HashMap<String, (DbShape, Vec<DbShapeTag>)> = self
+            .shape_db
+            .get_shapes_by_ids(
+                &shape_tags
+                    .iter()
+                    .map(|st| st.id.as_str())
+                    .collect::<Vec<_>>(),
+            )?
+            .into_iter()
+            .map(|shape| (shape.id.clone(), (shape, Vec::new())))
+            .collect();
+
+        for tag in shape_tags {
+            if let Some((_shape, tags)) = shapes.get_mut(&tag.shape_id) {
+                tags.push(tag);
+            }
+        }
+
+        let shapes_out: Vec<_> = shapes
+            .into_iter()
+            .map(|(_, v)| v)
+            .map(|(shape, tags)| ShapeWrapper::try_from((shape, tags)).map(|w| w.0))
+            .collect::<Result<_, _>>()?;
+
+        Ok(SearchShapesByTagsResult::new(shapes_out))
     }
 
     fn get_tags_for_shape(&self, shape_id: &str) -> AppResult<Vec<DbShapeTag>> {
