@@ -8,36 +8,23 @@ use webserver_database::{Database, InsertionResult, Shape as DbShape, ShapeTag a
 pub struct ShapeController {
     _redis: redis::Client,
     shape_db: Arc<Database<DbShape>>,
-    shape_tag_db: Arc<Database<DbShapeTag>>,
 }
 
 impl ShapeController {
-    pub fn new(
-        addr: String,
-        shape_db: Arc<Database<DbShape>>,
-        shape_tag_db: Arc<Database<DbShapeTag>>,
-    ) -> Self {
+    pub fn new(addr: String, shape_db: Arc<Database<DbShape>>) -> Self {
         let _redis = redis::Client::open(addr).unwrap();
-        Self {
-            _redis,
-            shape_db,
-            shape_tag_db,
-        }
+        Self { _redis, shape_db }
     }
 
     pub async fn add_shape(&self, request: JsonRpcRequest) -> AppResult<AddShapeResult> {
         let params = AddShapeParams::try_from(request)?;
-        let created_s = Utc::now().timestamp();
-
         let shape = params.shape;
         let id = shape.id.to_string();
 
-        let result = self.shape_db.insert_shape(
-            &id,
-            shape.name.as_ref().map(|s| s.as_str()),
-            &serde_json::to_string(&shape.geo).unwrap(),
-            created_s,
-        )?;
+        let (db_shape, db_shape_tags) = make_db_entities(shape);
+        let result = self
+            .shape_db
+            .insert_shape(&db_shape, &db_shape_tags.iter().collect::<Vec<_>>())?;
 
         match result {
             InsertionResult::Inserted => Ok(AddShapeResult::success(id)),
@@ -75,13 +62,13 @@ impl ShapeController {
 
         let id = uuid::Uuid::new_v4().to_string();
 
-        let result = self.shape_tag_db.insert_shape_tag(
-            &id,
-            &params.shape_id.to_string(),
-            &params.name,
-            &params.value,
+        let result = self.shape_db.insert_shape_tag(&DbShapeTag::new(
+            id.clone(),
+            params.shape_id.to_string(),
+            params.name,
+            params.value,
             created_s,
-        )?;
+        ))?;
 
         match result {
             InsertionResult::Inserted => Ok(AddShapeTagResult::success(id)),
@@ -95,7 +82,7 @@ impl ShapeController {
     ) -> AppResult<DeleteShapeTagResult> {
         let params = DeleteShapeTagParams::try_from(request)?;
 
-        let success = self.shape_tag_db.delete_tag(&params.id.to_string())?;
+        let success = self.shape_db.delete_tag(&params.id.to_string())?;
 
         Ok(DeleteShapeTagResult::new(success))
     }
@@ -130,7 +117,7 @@ impl ShapeController {
     }
 
     fn get_tags_for_shape(&self, shape_id: &str) -> AppResult<Vec<DbShapeTag>> {
-        let shapes = self.shape_tag_db.get_tags_for_shape(shape_id)?;
+        let shapes = self.shape_db.get_tags_for_shape(shape_id)?;
         Ok(shapes)
     }
 }
@@ -159,7 +146,33 @@ impl TryFrom<(DbShape, Vec<DbShapeTag>)> for ShapeWrapper {
     }
 }
 
+fn make_db_entities(shape: Shape) -> (DbShape, Vec<DbShapeTag>) {
+    let created_s = Utc::now().timestamp();
+    let shape_id = shape.id.to_string();
+    let db_shape = DbShape::new(
+        shape.id.to_string(),
+        shape.name,
+        serde_json::to_string(&shape.geo).unwrap(),
+        created_s,
+    );
+    let db_shape_tags = shape
+        .tags
+        .into_iter()
+        .map(|(name, value)| {
+            DbShapeTag::new(
+                Uuid::new_v4().to_string(),
+                shape_id.clone(),
+                name,
+                value,
+                created_s,
+            )
+        })
+        .collect();
+    (db_shape, db_shape_tags)
+}
+
 impl ParamsError for AddShapeParamsInvalid {}
+impl ParamsError for AddShapesParamsInvalid {}
 impl ParamsError for GetShapeParamsInvalid {}
 impl ParamsError for AddShapeTagParamsInvalid {}
 impl ParamsError for SearchShapesByTagsParamsInvalid {}

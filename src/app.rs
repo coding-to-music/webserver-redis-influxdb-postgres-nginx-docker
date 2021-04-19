@@ -29,8 +29,6 @@ impl App {
 
         let shape_db: Arc<Database<db::Shape>> =
             Arc::new(Database::new(opts.database_path.clone()));
-        let shape_tag_db: Arc<Database<db::ShapeTag>> =
-            Arc::new(Database::new(opts.database_path.clone()));
 
         let token_handler = Arc::new(TokenHandler::new(
             opts.notification_redis_addr.clone(),
@@ -45,7 +43,6 @@ impl App {
         let shape_controller = ShapeController::new(
             opts.shape_redis_addr,
             shape_db.clone(),
-            shape_tag_db.clone(),
         );
         let server_controller = ServerController::new();
 
@@ -74,7 +71,6 @@ impl App {
 
     /// Handle a single JSON RPC request
     async fn handle_single(&self, request: JsonRpcRequest) -> Option<JsonRpcResponse> {
-        let jsonrpc = request.jsonrpc;
         let id = request.id.clone();
 
         if id.is_none() {
@@ -93,71 +89,69 @@ impl App {
             Err(_) => Err(AppError::from(JsonRpcError::method_not_found())),
             Ok(method) => {
                 trace!("request: {:?}", request);
-                let jsonrpc = jsonrpc.clone();
                 let id = id.clone();
                 match method {
                     Method::AddListItem => self
                         .list_controller
                         .add_list_item(request)
                         .await
-                        .map(|result| JsonRpcResponse::success(jsonrpc, result, id)),
+                        .map(|result| JsonRpcResponse::success(result, id)),
                     Method::GetListItems => self
                         .list_controller
                         .get_list_items(request)
                         .await
-                        .map(|result| JsonRpcResponse::success(jsonrpc, result, id)),
+                        .map(|result| JsonRpcResponse::success(result, id)),
                     Method::DeleteListItem => self
                         .list_controller
                         .delete_list_item(request)
                         .await
-                        .map(|result| JsonRpcResponse::success(jsonrpc, result, id)),
+                        .map(|result| JsonRpcResponse::success(result, id)),
                     Method::GetListTypes => self
                         .list_controller
                         .get_list_types(request)
                         .await
-                        .map(|result| JsonRpcResponse::success(jsonrpc, result, id)),
+                        .map(|result| JsonRpcResponse::success(result, id)),
                     Method::RenameListType => self
                         .list_controller
                         .rename_list_type(request)
                         .await
-                        .map(|result| JsonRpcResponse::success(jsonrpc, result, id)),
+                        .map(|result| JsonRpcResponse::success(result, id)),
                     Method::Sleep => self
                         .server_controller
                         .sleep(request)
                         .await
-                        .map(|result| JsonRpcResponse::success(jsonrpc, result, id)),
+                        .map(|result| JsonRpcResponse::success(result, id)),
                     Method::AddShape => self
                         .shape_controller
                         .add_shape(request)
                         .await
-                        .map(|result| JsonRpcResponse::success(jsonrpc, result, id)),
+                        .map(|result| JsonRpcResponse::success(result, id)),
                     Method::GetShape => self
                         .shape_controller
                         .get_shape(request)
                         .await
-                        .map(|result| JsonRpcResponse::success(jsonrpc, result, id)),
+                        .map(|result| JsonRpcResponse::success(result, id)),
                     Method::DeleteShape => self
                         .shape_controller
                         .delete_shape(request)
                         .await
-                        .map(|result| JsonRpcResponse::success(jsonrpc, result, id)),
+                        .map(|result| JsonRpcResponse::success(result, id)),
                     Method::AddShapeTag => self
                         .shape_controller
                         .add_shape_tag(request)
                         .await
-                        .map(|result| JsonRpcResponse::success(jsonrpc, result, id)),
+                        .map(|result| JsonRpcResponse::success(result, id)),
                     Method::DeleteShapeTag => self
                         .shape_controller
                         .delete_shape_tag(request)
                         .await
-                        .map(|result| JsonRpcResponse::success(jsonrpc, result, id)),
+                        .map(|result| JsonRpcResponse::success(result, id)),
                     Method::SearchShapesByTags => self
                         .shape_controller
                         .search_shapes_by_tags(request)
                         .await
-                        .map(|result| JsonRpcResponse::success(jsonrpc, result, id)),
+                        .map(|result| JsonRpcResponse::success(result, id)),
                     unimplemented => Ok(JsonRpcResponse::error(
-                        JsonRpcVersion::Two,
                         JsonRpcError::not_implemented().with_message(format!(
                             "method '{}' is not implemented yet",
                             unimplemented.to_string()
@@ -180,7 +174,7 @@ impl App {
                 if err.context.is_some() {
                     error!("error with context: {:?}", err);
                 }
-                JsonRpcResponse::error(jsonrpc, err.rpc_error, id.clone())
+                JsonRpcResponse::error(err.rpc_error, id.clone())
             }
         };
 
@@ -241,11 +235,7 @@ impl App {
                 "error during authentication: '{}'",
                 auth_error.rpc_error.message
             );
-            return vec![JsonRpcResponse::error(
-                JsonRpcVersion::Two,
-                auth_error.rpc_error,
-                None,
-            )];
+            return vec![JsonRpcResponse::error(auth_error.rpc_error, None)];
         }
 
         match get_body_as_json(request).await {
@@ -262,11 +252,7 @@ impl App {
                         Ok(response) => response,
                         Err(error) => {
                             error!("error handling request: '{:?}'", error.context);
-                            Some(JsonRpcResponse::error(
-                                JsonRpcVersion::Two,
-                                error.rpc_error,
-                                None,
-                            ))
+                            Some(JsonRpcResponse::error(error.rpc_error, None))
                         }
                     })
                     .collect();
@@ -275,18 +261,13 @@ impl App {
             Ok(_) => {
                 error!("request contains non-array JSON");
                 vec![JsonRpcResponse::error(
-                    JsonRpcVersion::Two,
                     JsonRpcError::invalid_request().with_message("non-array json is not supported"),
                     None,
                 )]
             }
             Err(error) => {
                 error!("error parsing request as json: '{:?}'", error.context);
-                vec![JsonRpcResponse::error(
-                    JsonRpcVersion::Two,
-                    error.rpc_error,
-                    None,
-                )]
+                vec![JsonRpcResponse::error(error.rpc_error, None)]
             }
         }
     }
@@ -332,7 +313,7 @@ impl App {
 
 fn not_found() -> Vec<JsonRpcResponse> {
     let error = JsonRpcError::invalid_request().with_message("invalid route");
-    let response = JsonRpcResponse::error(JsonRpcVersion::Two, error, None);
+    let response = JsonRpcResponse::error(error, None);
 
     vec![response]
 }
