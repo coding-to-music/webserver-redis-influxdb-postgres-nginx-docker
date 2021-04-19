@@ -5,3 +5,5 @@
 /libs/mqtt/target
 **/*.rs.bk
 *.env
+.vscode
+/data
