@@ -1,19 +1,24 @@
-use crate::app::{AppError, AppResult, ParamsError};
+use crate::{
+    app::{AppError, AppResult, ParamsError},
+    RedisPool,
+};
 use chrono::Utc;
+use mobc_redis::{mobc::Connection, redis::AsyncCommands, RedisConnectionManager};
 use std::{convert::TryFrom, sync::Arc};
 use uuid::Uuid;
 use webserver_contracts::{shape::geojson::*, shape::*, *};
 use webserver_database::{Database, InsertionResult, Shape as DbShape, ShapeTag as DbShapeTag};
 
+const GEO_KEY: &str = "Shape:Geo";
+
 pub struct ShapeController {
-    _redis: redis::Client,
+    pool: Arc<RedisPool>,
     shape_db: Arc<Database<DbShape>>,
 }
 
 impl ShapeController {
-    pub fn new(addr: String, shape_db: Arc<Database<DbShape>>) -> Self {
-        let _redis = redis::Client::open(addr).unwrap();
-        Self { _redis, shape_db }
+    pub fn new(pool: Arc<RedisPool>, shape_db: Arc<Database<DbShape>>) -> Self {
+        Self { pool, shape_db }
     }
 
     pub async fn add_shape(&self, request: JsonRpcRequest) -> AppResult<AddShapeResult> {
@@ -21,13 +26,16 @@ impl ShapeController {
         let shape = params.shape;
         let id = shape.id.to_string();
 
-        let (db_shape, db_shape_tags) = make_db_entities(shape);
+        let (db_shape, db_shape_tags) = make_db_entities(shape.clone());
         let result = self
             .shape_db
             .insert_shape(&db_shape, &db_shape_tags.iter().collect::<Vec<_>>())?;
 
         match result {
-            InsertionResult::Inserted => Ok(AddShapeResult::success(id)),
+            InsertionResult::Inserted => {
+                self.add_points_to_redis(&shape).await?;
+                Ok(AddShapeResult::success(id))
+            }
             InsertionResult::AlreadyExists => Ok(AddShapeResult::failure()),
         }
     }
@@ -119,6 +127,34 @@ impl ShapeController {
     fn get_tags_for_shape(&self, shape_id: &str) -> AppResult<Vec<DbShapeTag>> {
         let shapes = self.shape_db.get_tags_for_shape(shape_id)?;
         Ok(shapes)
+    }
+
+    async fn add_points_to_redis(&self, shape: &Shape) -> AppResult<()> {
+        let mut conn = self.get_connection().await?;
+
+        let members: Vec<_> = shape
+            .coordinates()
+            .iter()
+            .enumerate()
+            .map(|(idx, coord)| {
+                (
+                    coord.lon.to_string(),
+                    coord.lat.to_string(),
+                    format!("{}_{}", shape.id, idx),
+                )
+            })
+            .collect();
+
+        conn.geo_add(GEO_KEY, members).await?;
+
+        Ok(())
+    }
+
+    async fn get_connection(&self) -> Result<Connection<RedisConnectionManager>, AppError> {
+        match self.pool.get().await {
+            Ok(conn) => Ok(conn),
+            Err(e) => Err(AppError::from(e)),
+        }
     }
 }
 

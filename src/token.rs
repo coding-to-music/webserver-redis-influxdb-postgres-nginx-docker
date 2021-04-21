@@ -1,40 +1,43 @@
 use jsonwebtoken::{Algorithm, DecodingKey, EncodingKey, Header, Validation};
-use redis::Commands;
+use mobc_redis::{mobc::Connection, redis::AsyncCommands, RedisConnectionManager};
+use std::sync::Arc;
 use webserver_contracts::JsonRpcError;
 
-use crate::app::AppError;
+use crate::{app::AppError, RedisPool};
 
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct TokenHandler {
-    redis_addr: String,
+    pool: Arc<RedisPool>,
     jwt_secret: String,
     encoding_key: EncodingKey,
 }
 
 impl TokenHandler {
-    pub fn new(redis_addr: String, jwt_secret: String) -> Self {
+    pub fn new(pool: Arc<RedisPool>, jwt_secret: String) -> Self {
         let encoding_key = EncodingKey::from_secret(jwt_secret.as_bytes());
         Self {
-            redis_addr,
+            pool,
             jwt_secret,
             encoding_key,
         }
     }
 
-    pub fn get_token(&self, key_name: &str, key_value: &str) -> Result<String, AppError> {
-        let mut redis_client = redis::Client::open(self.redis_addr.clone())?;
+    pub async fn get_token(&self, key_name: &str, key_value: &str) -> Result<String, AppError> {
+        let mut conn = self.get_connection().await?;
 
         let redis_key = format!("{}-{}", key_name, key_value);
 
         trace!("retrieving key: '{}'", redis_key);
 
-        let exists: bool = redis_client.exists(redis_key)?;
+        let exists: bool = conn.exists(redis_key).await?;
 
         if exists {
             let token = self.generate_token();
             Ok(token)
         } else {
-            Err(AppError::from(JsonRpcError::internal_error().with_message("invalid key name or key value")))
+            Err(AppError::from(
+                JsonRpcError::internal_error().with_message("invalid key name or key value"),
+            ))
         }
     }
 
@@ -55,6 +58,13 @@ impl TokenHandler {
             .unwrap()
             .timestamp();
         jsonwebtoken::encode(&Header::default(), &Claims::new(exp), &self.encoding_key).unwrap()
+    }
+
+    async fn get_connection(&self) -> Result<Connection<RedisConnectionManager>, AppError> {
+        match self.pool.get().await {
+            Ok(conn) => Ok(conn),
+            Err(e) => Err(AppError::from(e)),
+        }
     }
 }
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]

@@ -3,6 +3,7 @@ use hyper::{
     service::{make_service_fn, service_fn},
     Body, Request, Response, Server,
 };
+use mobc_redis::{mobc::Pool, RedisConnectionManager};
 use serde::Serialize;
 use std::{fmt::Debug, sync::Arc};
 use structopt::StructOpt;
@@ -14,6 +15,8 @@ pub mod token;
 
 #[macro_use]
 extern crate log;
+
+pub type RedisPool = Pool<RedisConnectionManager>;
 
 #[derive(StructOpt, Debug, Clone)]
 pub struct Opts {
@@ -84,7 +87,10 @@ fn log_opts_at_startup(opts: &Opts) {
     info!("starting webserver with opts: ");
     info!("WEBSERVER_LISTEN_PORT        = {}", opts.port);
     info!("WEBSERVER_SQLITE_PATH        = {}", opts.database_path);
-    info!("WEBSERVER_REDIS_ADDR         = {}", opts.notification_redis_addr);
+    info!(
+        "WEBSERVER_REDIS_ADDR         = {}",
+        opts.notification_redis_addr
+    );
 }
 
 /// Process the raw JSON body of a request

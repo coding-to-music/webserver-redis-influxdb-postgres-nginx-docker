@@ -7,6 +7,11 @@ use crate::{
 use db::DatabaseError;
 use futures::future;
 use hyper::{body::Buf, Body, Request, Response};
+use mobc_redis::{
+    mobc::Pool,
+    redis::{Client, RedisError},
+    RedisConnectionManager,
+};
 use serde_json::Value;
 use std::{error::Error, fmt::Debug, str::FromStr, sync::Arc};
 use webserver_contracts::*;
@@ -30,20 +35,24 @@ impl App {
         let shape_db: Arc<Database<db::Shape>> =
             Arc::new(Database::new(opts.database_path.clone()));
 
+        let notification_redis_pool = Arc::new(Pool::builder().max_open(20).build(
+            RedisConnectionManager::new(Client::open(opts.notification_redis_addr).unwrap()),
+        ));
+
         let token_handler = Arc::new(TokenHandler::new(
-            opts.notification_redis_addr.clone(),
+            notification_redis_pool.clone(),
             opts.jwt_secret.clone(),
         ));
 
-        let notification_handler = Arc::new(NotificationHandler::new(
-            opts.notification_redis_addr.clone(),
+        let shape_redis_pool = Arc::new(Pool::builder().max_open(20).build(
+            RedisConnectionManager::new(Client::open(opts.shape_redis_addr).unwrap()),
         ));
 
+        let notification_handler =
+            Arc::new(NotificationHandler::new(notification_redis_pool.clone()));
+
         let list_controller = ListItemController::new(list_item_db);
-        let shape_controller = ShapeController::new(
-            opts.shape_redis_addr,
-            shape_db.clone(),
-        );
+        let shape_controller = ShapeController::new(shape_redis_pool.clone(), shape_db.clone());
         let server_controller = ServerController::new();
 
         Self {
@@ -286,6 +295,7 @@ impl App {
         match self
             .token_handler
             .get_token(&request.key_name, &request.key_value)
+            .await
         {
             Ok(token) => Ok(GetTokenResponse::success(token)),
             Err(error) => {
@@ -359,6 +369,10 @@ impl AppError {
     pub fn internal_error() -> Self {
         Self::from(JsonRpcError::internal_error())
     }
+
+    pub fn database_error() -> Self {
+        Self::from(JsonRpcError::database_error())
+    }
 }
 
 impl From<JsonRpcError> for AppError {
@@ -372,13 +386,19 @@ impl From<JsonRpcError> for AppError {
 
 impl From<DatabaseError> for AppError {
     fn from(db_error: DatabaseError) -> Self {
-        AppError::from(JsonRpcError::database_error()).with_context(&db_error)
+        AppError::database_error().with_context(&db_error)
     }
 }
 
-impl From<redis::RedisError> for AppError {
-    fn from(redis_error: redis::RedisError) -> Self {
-        AppError::from(JsonRpcError::internal_error()).with_context(&redis_error)
+impl From<RedisError> for AppError {
+    fn from(redis_error: RedisError) -> Self {
+        AppError::internal_error().with_context(&redis_error)
+    }
+}
+
+impl From<mobc_redis::mobc::Error<RedisError>> for AppError {
+    fn from(e: mobc_redis::mobc::Error<RedisError>) -> Self {
+        AppError::internal_error().with_context(&e)
     }
 }
 
