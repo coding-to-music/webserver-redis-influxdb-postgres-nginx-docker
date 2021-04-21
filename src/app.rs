@@ -140,6 +140,11 @@ impl App {
                         .get_shape(request)
                         .await
                         .map(|result| JsonRpcResponse::success(result, id)),
+                    Method::GetNearbyShapes => self
+                        .shape_controller
+                        .get_nearby_shapes(request)
+                        .await
+                        .map(|result| JsonRpcResponse::success(result, id)),
                     Method::DeleteShape => self
                         .shape_controller
                         .delete_shape(request)

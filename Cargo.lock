@@ -1373,7 +1373,7 @@ dependencies = [
 [[package]]
 name = "webserver_contracts"
 version = "0.1.1"
-source = "git+https://github.com/ijagberg/webserver_contracts?branch=main#4d2fc73ac6dbf52c18acb497b206027189b9e8a5"
+source = "git+https://github.com/ijagberg/webserver_contracts?branch=main#d3424a77bd3bef264f26c6cc395c243d7eaf8dec"
 dependencies = [
  "chrono",
  "geojson",

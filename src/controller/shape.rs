@@ -3,8 +3,15 @@ use crate::{
     RedisPool,
 };
 use chrono::Utc;
-use mobc_redis::{mobc::Connection, redis::AsyncCommands, RedisConnectionManager};
-use std::{convert::TryFrom, sync::Arc};
+use mobc_redis::{
+    mobc::Connection,
+    redis::{
+        geo::{RadiusOptions, RadiusSearchResult, Unit},
+        AsyncCommands,
+    },
+    RedisConnectionManager,
+};
+use std::{collections::HashSet, convert::TryFrom, sync::Arc};
 use uuid::Uuid;
 use webserver_contracts::{shape::geojson::*, shape::*, *};
 use webserver_database::{Database, InsertionResult, Shape as DbShape, ShapeTag as DbShapeTag};
@@ -62,6 +69,58 @@ impl ShapeController {
 
         let shape_result = ShapeWrapper::try_from((shape, tags))?;
         Ok(GetShapeResult::new(Some(shape_result.0)))
+    }
+
+    pub async fn get_nearby_shapes(
+        &self,
+        request: JsonRpcRequest,
+    ) -> AppResult<GetNearbyShapesResult> {
+        let params = GetNearbyShapesParams::try_from(request)?;
+
+        let mut conn = self.get_connection().await?;
+
+        let opts = RadiusOptions::default().limit(params.count);
+        let results: Vec<RadiusSearchResult> = conn
+            .geo_radius(
+                GEO_KEY,
+                params.lon,
+                params.lat,
+                params.distance_m as f64,
+                Unit::Meters,
+                opts,
+            )
+            .await?;
+
+        let ids: HashSet<_> = results
+            .into_iter()
+            .filter_map(|r| {
+                let parts: Vec<_> = r.name.split("_").collect();
+                if parts.len() != 2 {
+                    error!(
+                        "failed to retrieve shape id from geo set member: '{}'",
+                        r.name
+                    );
+                    None
+                } else {
+                    match Uuid::parse_str(parts[0]) {
+                        Ok(id) => Some(id),
+                        Err(_) => {
+                            error!("failed to parse '{}' as uuid", parts[0]);
+                            None
+                        }
+                    }
+                }
+            })
+            .collect();
+
+        let with_tags = self.get_shapes_with_tags(&ids)?;
+
+        let out: Vec<_> = with_tags
+            .into_iter()
+            .map(|(shape, tags)| ShapeWrapper::try_from((shape, tags)).map(|w| w.0))
+            .collect::<Result<_, _>>()?;
+
+        Ok(GetNearbyShapesResult::new(out))
     }
 
     pub async fn add_shape_tag(&self, request: JsonRpcRequest) -> AppResult<AddShapeTagResult> {
@@ -122,6 +181,23 @@ impl ShapeController {
             .collect::<Result<_, _>>()?;
 
         Ok(SearchShapesByTagsResult::new(shapes_out))
+    }
+
+    fn get_shapes_with_tags(
+        &self,
+        shape_ids: &HashSet<Uuid>,
+    ) -> AppResult<Vec<(DbShape, Vec<DbShapeTag>)>> {
+        let ids: Vec<String> = shape_ids.iter().map(|s| s.to_string()).collect();
+        let ids: Vec<_> = ids.iter().map(|id| id.as_str()).collect();
+        let db_shapes = self.shape_db.get_shapes_by_ids(&ids)?;
+
+        let mut with_tags = Vec::new();
+        for db_shape in db_shapes {
+            let tags = self.get_tags_for_shape(&db_shape.id)?;
+            with_tags.push((db_shape, tags));
+        }
+
+        Ok(with_tags)
     }
 
     fn get_tags_for_shape(&self, shape_id: &str) -> AppResult<Vec<DbShapeTag>> {
@@ -210,6 +286,7 @@ fn make_db_entities(shape: Shape) -> (DbShape, Vec<DbShapeTag>) {
 impl ParamsError for AddShapeParamsInvalid {}
 impl ParamsError for AddShapesParamsInvalid {}
 impl ParamsError for GetShapeParamsInvalid {}
+impl ParamsError for GetNearbyShapesParamsInvalid {}
 impl ParamsError for AddShapeTagParamsInvalid {}
 impl ParamsError for SearchShapesByTagsParamsInvalid {}
 impl ParamsError for DeleteShapeParamsInvalid {}
