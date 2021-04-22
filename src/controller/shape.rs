@@ -1,15 +1,11 @@
 use crate::{
     app::{AppError, AppResult, ParamsError},
-    RedisPool,
+    redis::RedisPool,
 };
 use chrono::Utc;
-use mobc_redis::{
-    mobc::Connection,
-    redis::{
-        geo::{RadiusOptions, RadiusSearchResult, Unit},
-        AsyncCommands,
-    },
-    RedisConnectionManager,
+use mobc_redis::redis::{
+    geo::{RadiusOptions, RadiusSearchResult, Unit},
+    AsyncCommands,
 };
 use std::{collections::HashSet, convert::TryFrom, sync::Arc};
 use uuid::Uuid;
@@ -77,7 +73,7 @@ impl ShapeController {
     ) -> AppResult<GetNearbyShapesResult> {
         let params = GetNearbyShapesParams::try_from(request)?;
 
-        let mut conn = self.get_connection().await?;
+        let mut conn = self.pool.get_connection().await?;
 
         let opts = RadiusOptions::default().limit(params.count);
         let results: Vec<RadiusSearchResult> = conn
@@ -206,7 +202,7 @@ impl ShapeController {
     }
 
     async fn add_points_to_redis(&self, shape: &Shape) -> AppResult<()> {
-        let mut conn = self.get_connection().await?;
+        let mut conn = self.pool.get_connection().await?;
 
         let members: Vec<_> = shape
             .coordinates()
@@ -224,13 +220,6 @@ impl ShapeController {
         conn.geo_add(GEO_KEY, members).await?;
 
         Ok(())
-    }
-
-    async fn get_connection(&self) -> Result<Connection<RedisConnectionManager>, AppError> {
-        match self.pool.get().await {
-            Ok(conn) => Ok(conn),
-            Err(e) => Err(AppError::from(e)),
-        }
     }
 }
 

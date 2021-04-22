@@ -1,5 +1,5 @@
-use crate::{app::AppError, RedisPool};
-use mobc_redis::{mobc::Connection, redis::AsyncCommands, RedisConnectionManager};
+use crate::{app::AppError, redis::RedisPool};
+use mobc_redis::redis::AsyncCommands;
 use std::sync::Arc;
 use webserver_contracts::JsonRpcRequest;
 
@@ -18,18 +18,11 @@ impl NotificationHandler {
 
         trace!("publishing notification on channel: '{}'", channel);
 
-        let mut conn = self.get_connection().await?;
+        let mut conn = self.pool.get_connection().await?;
 
         conn.publish(channel, message).await?;
 
         Ok(())
-    }
-
-    async fn get_connection(&self) -> Result<Connection<RedisConnectionManager>, AppError> {
-        match self.pool.get().await {
-            Ok(conn) => Ok(conn),
-            Err(e) => Err(AppError::from(e)),
-        }
     }
 }
 

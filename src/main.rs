@@ -3,20 +3,18 @@ use hyper::{
     service::{make_service_fn, service_fn},
     Body, Request, Response, Server,
 };
-use mobc_redis::{mobc::Pool, RedisConnectionManager};
 use serde::Serialize;
 use std::{fmt::Debug, sync::Arc};
 use structopt::StructOpt;
 
 pub mod app;
 mod controller;
+pub mod redis;
 pub mod notification;
 pub mod token;
 
 #[macro_use]
 extern crate log;
-
-pub type RedisPool = Pool<RedisConnectionManager>;
 
 #[derive(StructOpt, Debug, Clone)]
 pub struct Opts {

@@ -1,9 +1,9 @@
 use jsonwebtoken::{Algorithm, DecodingKey, EncodingKey, Header, Validation};
-use mobc_redis::{mobc::Connection, redis::AsyncCommands, RedisConnectionManager};
+use mobc_redis::redis::AsyncCommands;
 use std::sync::Arc;
 use webserver_contracts::JsonRpcError;
 
-use crate::{app::AppError, RedisPool};
+use crate::{app::AppError, redis::RedisPool};
 
 #[derive(Clone)]
 pub struct TokenHandler {
@@ -23,7 +23,7 @@ impl TokenHandler {
     }
 
     pub async fn get_token(&self, key_name: &str, key_value: &str) -> Result<String, AppError> {
-        let mut conn = self.get_connection().await?;
+        let mut conn = self.pool.get_connection().await?;
 
         let redis_key = format!("{}-{}", key_name, key_value);
 
@@ -58,13 +58,6 @@ impl TokenHandler {
             .unwrap()
             .timestamp();
         jsonwebtoken::encode(&Header::default(), &Claims::new(exp), &self.encoding_key).unwrap()
-    }
-
-    async fn get_connection(&self) -> Result<Connection<RedisConnectionManager>, AppError> {
-        match self.pool.get().await {
-            Ok(conn) => Ok(conn),
-            Err(e) => Err(AppError::from(e)),
-        }
     }
 }
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]

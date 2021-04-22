@@ -1,17 +1,14 @@
 use crate::{
     controller::{ListItemController, ServerController, ShapeController},
     notification::NotificationHandler,
+    redis::RedisPool,
     token::TokenHandler,
     Opts,
 };
 use db::DatabaseError;
 use futures::future;
 use hyper::{body::Buf, Body, Request, Response};
-use mobc_redis::{
-    mobc::Pool,
-    redis::{Client, RedisError},
-    RedisConnectionManager,
-};
+use mobc_redis::redis::RedisError;
 use serde_json::Value;
 use std::{error::Error, fmt::Debug, str::FromStr, sync::Arc};
 use webserver_contracts::*;
@@ -35,18 +32,14 @@ impl App {
         let shape_db: Arc<Database<db::Shape>> =
             Arc::new(Database::new(opts.database_path.clone()));
 
-        let notification_redis_pool = Arc::new(Pool::builder().max_open(20).build(
-            RedisConnectionManager::new(Client::open(opts.notification_redis_addr).unwrap()),
-        ));
+        let notification_redis_pool = Arc::new(RedisPool::new(&opts.notification_redis_addr));
 
         let token_handler = Arc::new(TokenHandler::new(
             notification_redis_pool.clone(),
             opts.jwt_secret.clone(),
         ));
 
-        let shape_redis_pool = Arc::new(Pool::builder().max_open(20).build(
-            RedisConnectionManager::new(Client::open(opts.shape_redis_addr).unwrap()),
-        ));
+        let shape_redis_pool = Arc::new(RedisPool::new(&opts.shape_redis_addr));
 
         let notification_handler =
             Arc::new(NotificationHandler::new(notification_redis_pool.clone()));
