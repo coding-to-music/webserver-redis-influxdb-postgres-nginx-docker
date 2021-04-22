@@ -8,9 +8,9 @@ use std::{fmt::Debug, sync::Arc};
 use structopt::StructOpt;
 
 pub mod app;
-mod controller;
-pub mod redis;
+pub mod controller;
 pub mod notification;
+pub mod redis;
 pub mod token;
 
 #[macro_use]
@@ -26,6 +26,8 @@ pub struct Opts {
     cert_path: String,
     #[structopt(long, env = "WEBSERVER_CERT_KEY_PATH")]
     key_path: String,
+    #[structopt(long, env = "WEBSERVER_TOKEN_REDIS_ADDR")]
+    token_redis_addr: String,
     #[structopt(long, env = "WEBSERVER_NOTIFICATION_REDIS_ADDR")]
     notification_redis_addr: String,
     #[structopt(long, env = "WEBSERVER_SHAPE_REDIS_ADDR")]
@@ -60,8 +62,6 @@ async fn main() {
 
     let opts = Opts::from_args();
 
-    log_opts_at_startup(&opts);
-
     let app = Arc::new(App::new(opts.clone()));
 
     let addr = ([0, 0, 0, 0], opts.port).into();
@@ -79,16 +79,6 @@ async fn main() {
     let server = Server::bind(&addr).serve(service);
 
     let _ = server.await;
-}
-
-fn log_opts_at_startup(opts: &Opts) {
-    info!("starting webserver with opts: ");
-    info!("WEBSERVER_LISTEN_PORT        = {}", opts.port);
-    info!("WEBSERVER_SQLITE_PATH        = {}", opts.database_path);
-    info!(
-        "WEBSERVER_REDIS_ADDR         = {}",
-        opts.notification_redis_addr
-    );
 }
 
 /// Process the raw JSON body of a request

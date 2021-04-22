@@ -32,14 +32,15 @@ impl App {
         let shape_db: Arc<Database<db::Shape>> =
             Arc::new(Database::new(opts.database_path.clone()));
 
-        let notification_redis_pool = Arc::new(RedisPool::new(&opts.notification_redis_addr));
+        let notification_redis_pool =
+            Arc::new(RedisPool::new(opts.notification_redis_addr.clone()));
+        let shape_redis_pool = Arc::new(RedisPool::new(opts.shape_redis_addr.clone()));
+        let token_redis_pool = Arc::new(RedisPool::new(opts.token_redis_addr.clone()));
 
         let token_handler = Arc::new(TokenHandler::new(
-            notification_redis_pool.clone(),
+            token_redis_pool.clone(),
             opts.jwt_secret.clone(),
         ));
-
-        let shape_redis_pool = Arc::new(RedisPool::new(&opts.shape_redis_addr));
 
         let notification_handler =
             Arc::new(NotificationHandler::new(notification_redis_pool.clone()));
