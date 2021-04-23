@@ -75,7 +75,6 @@ impl ShapeController {
 
         let mut conn = self.pool.get_connection().await?;
 
-        let opts = RadiusOptions::default().limit(params.count);
         let results: Vec<RadiusSearchResult> = conn
             .geo_radius(
                 GEO_KEY,
@@ -83,7 +82,7 @@ impl ShapeController {
                 params.lat,
                 params.distance_m as f64,
                 Unit::Meters,
-                opts,
+                RadiusOptions::default().limit(params.count),
             )
             .await?;
 
@@ -204,7 +203,14 @@ impl ShapeController {
     async fn add_points_to_redis(&self, shape: &Shape) -> AppResult<()> {
         let mut conn = self.pool.get_connection().await?;
 
-        let members: Vec<_> = shape
+        let members: Vec<_> = Self::get_geo_members_from_shape(shape);
+        conn.geo_add(GEO_KEY, members).await?;
+
+        Ok(())
+    }
+
+    fn get_geo_members_from_shape(shape: &Shape) -> Vec<(String, String, String)> {
+        shape
             .coordinates()
             .iter()
             .enumerate()
@@ -215,11 +221,7 @@ impl ShapeController {
                     format!("{}_{}", shape.id, idx),
                 )
             })
-            .collect();
-
-        conn.geo_add(GEO_KEY, members).await?;
-
-        Ok(())
+            .collect()
     }
 }
 
