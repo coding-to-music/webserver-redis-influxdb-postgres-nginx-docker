@@ -1,9 +1,8 @@
+use crate::{app::AppError, redis::RedisPool};
 use jsonwebtoken::{Algorithm, DecodingKey, EncodingKey, Header, Validation};
 use mobc_redis::redis::AsyncCommands;
 use std::sync::Arc;
-use webserver_contracts::JsonRpcError;
-
-use crate::{app::AppError, redis::RedisPool};
+use contracts::JsonRpcError;
 
 #[derive(Clone)]
 pub struct TokenHandler {

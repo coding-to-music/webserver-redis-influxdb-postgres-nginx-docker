@@ -3,14 +3,14 @@ use crate::{
     redis::RedisPool,
 };
 use chrono::Utc;
+use contracts::{shape::geojson::*, shape::*, *};
+use database::{Database, InsertionResult, Shape as DbShape, ShapeTag as DbShapeTag};
 use mobc_redis::redis::{
     geo::{RadiusOptions, RadiusSearchResult, Unit},
     AsyncCommands,
 };
 use std::{collections::HashSet, convert::TryFrom, sync::Arc};
 use uuid::Uuid;
-use webserver_contracts::{shape::geojson::*, shape::*, *};
-use webserver_database::{Database, InsertionResult, Shape as DbShape, ShapeTag as DbShapeTag};
 
 const GEO_KEY: &str = "Shape:Geo";
 
@@ -49,8 +49,23 @@ impl ShapeController {
 
         let shape = self.shape_db.get_shape(&shape_id)?;
 
+        if let Some(db_shape) = shape {
+            let success = self.shape_db.delete_shape(&shape_id)?;
+            if success {
+                // delete points from redis
+                let geo: Geometry = serde_json::from_str(&db_shape.geo)
+                    .map_err(|e| AppError::internal_error().with_context(&e))?;
+                let geo_members: Vec<usize> = contracts::shape::coordinates_in_geo(&geo)
+                    .iter()
+                    .enumerate()
+                    .map(|(idx, _)| idx)
+                    .collect();
+                self.delete_points_from_redis(&geo_members).await?;
+                return Ok(DeleteShapeResult::new(success));
+            }
+        }
 
-        todo!()
+        Ok(DeleteShapeResult::new(false))
     }
 
     pub async fn get_shape(&self, request: JsonRpcRequest) -> AppResult<GetShapeResult> {
@@ -212,6 +227,14 @@ impl ShapeController {
         conn.geo_add(GEO_KEY, members).await?;
 
         Ok(())
+    }
+
+    async fn delete_points_from_redis(&self, members: &[usize]) -> AppResult<usize> {
+        let mut conn = self.pool.get_connection().await?;
+
+        let result: usize = conn.zrem(GEO_KEY, members).await?;
+
+        Ok(result)
     }
 
     fn get_geo_members_from_shape(shape: &Shape) -> Vec<(String, String, String)> {

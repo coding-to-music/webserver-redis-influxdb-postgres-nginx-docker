@@ -22,10 +22,6 @@ pub struct Opts {
     port: u16,
     #[structopt(long, env = "WEBSERVER_SQLITE_PATH")]
     database_path: String,
-    #[structopt(long, env = "WEBSERVER_CERT_PATH")]
-    cert_path: String,
-    #[structopt(long, env = "WEBSERVER_CERT_KEY_PATH")]
-    key_path: String,
     #[structopt(long, env = "WEBSERVER_TOKEN_REDIS_ADDR")]
     token_redis_addr: String,
     #[structopt(long, env = "WEBSERVER_NOTIFICATION_REDIS_ADDR")]
@@ -78,6 +74,7 @@ async fn main() {
 
     let server = Server::bind(&addr).serve(service);
 
+    info!("starting server on {:?}", addr);
     let _ = server.await;
 }
 

@@ -1,7 +1,7 @@
 use crate::{app::AppError, redis::RedisPool};
+use contracts::JsonRpcRequest;
 use mobc_redis::redis::AsyncCommands;
 use std::sync::Arc;
-use webserver_contracts::JsonRpcRequest;
 
 pub struct NotificationHandler {
     pool: Arc<RedisPool>,

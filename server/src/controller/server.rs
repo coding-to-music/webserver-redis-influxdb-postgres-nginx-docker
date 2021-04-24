@@ -1,9 +1,9 @@
 use crate::{app::ParamsError, AppError};
-use std::{convert::TryFrom, time};
-use webserver_contracts::{
+use contracts::{
     server::{SleepParams, SleepParamsInvalid, SleepResult},
     JsonRpcRequest,
 };
+use std::{convert::TryFrom, time};
 
 pub struct ServerController {}
 
