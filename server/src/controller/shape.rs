@@ -24,8 +24,9 @@ impl ShapeController {
         Self { pool, shape_db }
     }
 
-    pub async fn add_shape(&self, request: JsonRpcRequest) -> AppResult<AddShapeResult> {
-        let params = AddShapeParams::try_from(request)?;
+    pub async fn add_shape(&self, request: JsonRpcRequest) -> AppResult<add_shape::MethodResult> {
+        use add_shape::{MethodResult, Params};
+        let params = Params::try_from(request)?;
         let shape = params.shape;
         let id = shape.id.to_string();
 
@@ -37,14 +38,18 @@ impl ShapeController {
         match result {
             InsertionResult::Inserted => {
                 self.add_points_to_redis(&shape).await?;
-                Ok(AddShapeResult::success(id))
+                Ok(MethodResult::success(id))
             }
-            InsertionResult::AlreadyExists => Ok(AddShapeResult::failure()),
+            InsertionResult::AlreadyExists => Ok(MethodResult::failure()),
         }
     }
 
-    pub async fn delete_shape(&self, request: JsonRpcRequest) -> AppResult<DeleteShapeResult> {
-        let params = DeleteShapeParams::try_from(request)?;
+    pub async fn delete_shape(
+        &self,
+        request: JsonRpcRequest,
+    ) -> AppResult<delete_shape::MethodResult> {
+        use delete_shape::{MethodResult, Params};
+        let params = Params::try_from(request)?;
         let shape_id = params.id.to_string();
 
         let shape = self.shape_db.get_shape(&shape_id)?;
@@ -61,34 +66,36 @@ impl ShapeController {
                     .map(|(idx, _)| idx)
                     .collect();
                 self.delete_points_from_redis(&geo_members).await?;
-                return Ok(DeleteShapeResult::new(success));
+                return Ok(MethodResult::new(success));
             }
         }
 
-        Ok(DeleteShapeResult::new(false))
+        Ok(MethodResult::new(false))
     }
 
-    pub async fn get_shape(&self, request: JsonRpcRequest) -> AppResult<GetShapeResult> {
-        let params = GetShapeParams::try_from(request)?;
+    pub async fn get_shape(&self, request: JsonRpcRequest) -> AppResult<get_shape::MethodResult> {
+        use get_shape::{MethodResult, Params};
+        let params = Params::try_from(request)?;
 
         let shape = self.shape_db.get_shape(&params.id.to_string())?;
 
         let shape = match shape {
             Some(db_shape) => db_shape,
-            None => return Ok(GetShapeResult::new(None)),
+            None => return Ok(MethodResult::new(None)),
         };
 
         let tags = self.get_tags_for_shape(&shape.id)?;
 
         let shape_result = ShapeWrapper::try_from((shape, tags))?;
-        Ok(GetShapeResult::new(Some(shape_result.0)))
+        Ok(MethodResult::new(Some(shape_result.0)))
     }
 
     pub async fn get_nearby_shapes(
         &self,
         request: JsonRpcRequest,
-    ) -> AppResult<GetNearbyShapesResult> {
-        let params = GetNearbyShapesParams::try_from(request)?;
+    ) -> AppResult<get_nearby_shapes::MethodResult> {
+        use get_nearby_shapes::{MethodResult, Params};
+        let params = Params::try_from(request)?;
 
         let mut conn = self.pool.get_connection().await?;
 
@@ -132,7 +139,7 @@ impl ShapeController {
             .map(|(shape, tags)| ShapeWrapper::try_from((shape, tags)).map(|w| w.0))
             .collect::<Result<_, _>>()?;
 
-        Ok(GetNearbyShapesResult::new(out))
+        Ok(MethodResult::new(out))
     }
 
     pub async fn add_shape_tag(
@@ -161,19 +168,21 @@ impl ShapeController {
     pub async fn delete_shape_tag(
         &self,
         request: JsonRpcRequest,
-    ) -> AppResult<DeleteShapeTagResult> {
-        let params = DeleteShapeTagParams::try_from(request)?;
+    ) -> AppResult<delete_shape_tag::MethodResult> {
+        use delete_shape_tag::{MethodResult, Params};
+        let params = Params::try_from(request)?;
 
         let success = self.shape_db.delete_tag(&params.id.to_string())?;
 
-        Ok(DeleteShapeTagResult::new(success))
+        Ok(MethodResult::new(success))
     }
 
     pub async fn search_shapes_by_tags(
         &self,
         request: JsonRpcRequest,
-    ) -> AppResult<SearchShapesByTagsResult> {
-        let params = SearchShapesByTagsParams::try_from(request)?;
+    ) -> AppResult<search_shapes_by_tags::MethodResult> {
+        use search_shapes_by_tags::{MethodResult, Params};
+        let params = Params::try_from(request)?;
 
         let mut shapes = Vec::new();
         for tags_query in params.or {
@@ -195,7 +204,7 @@ impl ShapeController {
             .map(|(shape, tags)| ShapeWrapper::try_from((shape, tags)).map(|w| w.0))
             .collect::<Result<_, _>>()?;
 
-        Ok(SearchShapesByTagsResult::new(shapes_out))
+        Ok(MethodResult::new(shapes_out))
     }
 
     fn get_shapes_with_tags(
@@ -302,11 +311,10 @@ fn make_db_entities(shape: Shape) -> (DbShape, Vec<DbShapeTag>) {
     (db_shape, db_shape_tags)
 }
 
-impl ParamsError for AddShapeParamsInvalid {}
-impl ParamsError for AddShapesParamsInvalid {}
-impl ParamsError for GetShapeParamsInvalid {}
-impl ParamsError for GetNearbyShapesParamsInvalid {}
+impl ParamsError for add_shape::InvalidParams {}
+impl ParamsError for get_shape::InvalidParams {}
+impl ParamsError for get_nearby_shapes::InvalidParams {}
 impl ParamsError for add_shape_tag::InvalidParams {}
-impl ParamsError for SearchShapesByTagsParamsInvalid {}
-impl ParamsError for DeleteShapeParamsInvalid {}
-impl ParamsError for DeleteShapeTagParamsInvalid {}
+impl ParamsError for search_shapes_by_tags::InvalidParams {}
+impl ParamsError for delete_shape::InvalidParams {}
+impl ParamsError for delete_shape_tag::InvalidParams {}

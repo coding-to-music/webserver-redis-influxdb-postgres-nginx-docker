@@ -11,32 +11,32 @@ const DEFAULT_DISTANCE_M: u32 = 100;
 #[derive(Clone, Debug, serde::Serialize)]
 #[serde(try_from = "GetNearbyShapesParamsBuilder")]
 #[non_exhaustive]
-pub struct GetNearbyShapesParams {
+pub struct Params {
     pub lat: f64,
     pub lon: f64,
     pub count: usize,
     pub distance_m: u32,
 }
 
-impl GetNearbyShapesParams {
+impl Params {
     pub fn new(
         lat: f64,
         lon: f64,
         count: Option<usize>,
         distance_m: Option<u32>,
-    ) -> Result<Self, GetNearbyShapesParamsInvalid> {
+    ) -> Result<Self, InvalidParams> {
         if lat < -90.0 || lat > 90.0 {
-            Err(GetNearbyShapesParamsInvalid::InvalidLatitude)?;
+            Err(InvalidParams::InvalidLatitude)?;
         }
 
         if lon < -180.0 || lon > 180.0 {
-            Err(GetNearbyShapesParamsInvalid::InvalidLongitude)?;
+            Err(InvalidParams::InvalidLongitude)?;
         }
 
         let count = match count {
             Some(count) if count >= MIN_COUNT && count <= MAX_COUNT => count,
             None => DEFAULT_COUNT,
-            Some(_invalid) => Err(GetNearbyShapesParamsInvalid::InvalidCount)?,
+            Some(_invalid) => Err(InvalidParams::InvalidCount)?,
         };
 
         let distance_m = match distance_m {
@@ -44,7 +44,7 @@ impl GetNearbyShapesParams {
                 distance_m
             }
             None => DEFAULT_DISTANCE_M,
-            Some(_invalid) => Err(GetNearbyShapesParamsInvalid::InvalidDistance)?,
+            Some(_invalid) => Err(InvalidParams::InvalidDistance)?,
         };
 
         Ok(Self {
@@ -57,7 +57,7 @@ impl GetNearbyShapesParams {
 }
 
 #[derive(Debug)]
-pub enum GetNearbyShapesParamsInvalid {
+pub enum InvalidParams {
     InvalidFormat(serde_json::Error),
     InvalidCount,
     InvalidDistance,
@@ -65,26 +65,26 @@ pub enum GetNearbyShapesParamsInvalid {
     InvalidLongitude,
 }
 
-impl Error for GetNearbyShapesParamsInvalid {}
+impl Error for InvalidParams {}
 
-impl Display for GetNearbyShapesParamsInvalid {
+impl Display for InvalidParams {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let output = match self {
-            GetNearbyShapesParamsInvalid::InvalidFormat(serde_error) => {
+            InvalidParams::InvalidFormat(serde_error) => {
                 crate::invalid_params_serde_message(&serde_error)
             }
-            GetNearbyShapesParamsInvalid::InvalidCount => format!(
+            InvalidParams::InvalidCount => format!(
                 "invalid count, should be integer in [{}, {}]",
                 MIN_COUNT, MAX_COUNT
             ),
-            GetNearbyShapesParamsInvalid::InvalidDistance => format!(
+            InvalidParams::InvalidDistance => format!(
                 "invalid distance_m, should be integer in [{}, {}]",
                 MIN_DISTANCE_M, MAX_DISTANCE_M
             ),
-            GetNearbyShapesParamsInvalid::InvalidLatitude => {
+            InvalidParams::InvalidLatitude => {
                 format!("invalid lat, should be float in [-90, 90]")
             }
-            GetNearbyShapesParamsInvalid::InvalidLongitude => {
+            InvalidParams::InvalidLongitude => {
                 format!("invalid lon, should be float in [-180, 180]")
             }
         };
@@ -94,24 +94,24 @@ impl Display for GetNearbyShapesParamsInvalid {
 }
 
 #[derive(serde::Deserialize)]
-struct GetNearbyShapesParamsBuilder {
+struct ParamsBuilder {
     lat: f64,
     lon: f64,
     count: Option<usize>,
     distance_m: Option<u32>,
 }
 
-impl GetNearbyShapesParamsBuilder {
-    fn build(self) -> Result<GetNearbyShapesParams, GetNearbyShapesParamsInvalid> {
-        GetNearbyShapesParams::new(self.lat, self.lon, self.count, self.distance_m)
+impl ParamsBuilder {
+    fn build(self) -> Result<Params, InvalidParams> {
+        Params::new(self.lat, self.lon, self.count, self.distance_m)
     }
 }
 
-impl TryFrom<crate::JsonRpcRequest> for GetNearbyShapesParams {
-    type Error = GetNearbyShapesParamsInvalid;
+impl TryFrom<crate::JsonRpcRequest> for Params {
+    type Error = InvalidParams;
     fn try_from(request: crate::JsonRpcRequest) -> Result<Self, Self::Error> {
-        let builder: GetNearbyShapesParamsBuilder = serde_json::from_value(request.params)
-            .map_err(GetNearbyShapesParamsInvalid::InvalidFormat)?;
+        let builder: ParamsBuilder = serde_json::from_value(request.params)
+            .map_err(InvalidParams::InvalidFormat)?;
 
         builder.build()
     }
@@ -119,11 +119,11 @@ impl TryFrom<crate::JsonRpcRequest> for GetNearbyShapesParams {
 
 #[derive(serde::Serialize, serde::Deserialize, Debug, Clone)]
 #[non_exhaustive]
-pub struct GetNearbyShapesResult {
+pub struct MethodResult {
     pub shape: Vec<Shape>,
 }
 
-impl GetNearbyShapesResult {
+impl MethodResult {
     pub fn new(shape: Vec<Shape>) -> Self {
         Self { shape }
     }

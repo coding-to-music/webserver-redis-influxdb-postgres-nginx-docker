@@ -3,48 +3,48 @@ use std::{convert::TryFrom, error::Error, fmt::Display};
 
 #[derive(Clone, Debug, serde::Serialize)]
 #[non_exhaustive]
-pub struct AddShapeParams {
+pub struct Params {
     pub shape: Shape,
 }
 
-impl AddShapeParams {
+impl Params {
     pub fn new(shape: Shape) -> Self {
         Self { shape }
     }
 }
 
 #[derive(serde::Deserialize)]
-struct AddShapeParamsBuilder {
+struct ParamsBuilder {
     shape: Shape,
 }
 
-impl AddShapeParamsBuilder {
-    fn build(self) -> Result<AddShapeParams, AddShapeParamsInvalid> {
-        Ok(AddShapeParams::new(self.shape))
+impl ParamsBuilder {
+    fn build(self) -> Result<Params, InvalidParams> {
+        Ok(Params::new(self.shape))
     }
 }
 
-impl TryFrom<crate::JsonRpcRequest> for AddShapeParams {
-    type Error = AddShapeParamsInvalid;
+impl TryFrom<crate::JsonRpcRequest> for Params {
+    type Error = InvalidParams;
     fn try_from(request: crate::JsonRpcRequest) -> Result<Self, Self::Error> {
-        let builder: AddShapeParamsBuilder =
-            serde_json::from_value(request.params).map_err(AddShapeParamsInvalid::InvalidFormat)?;
+        let builder: ParamsBuilder =
+            serde_json::from_value(request.params).map_err(InvalidParams::InvalidFormat)?;
 
         builder.build()
     }
 }
 
 #[derive(Debug)]
-pub enum AddShapeParamsInvalid {
+pub enum InvalidParams {
     InvalidFormat(serde_json::Error),
 }
 
-impl Error for AddShapeParamsInvalid {}
+impl Error for InvalidParams {}
 
-impl Display for AddShapeParamsInvalid {
+impl Display for InvalidParams {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let output = match self {
-            AddShapeParamsInvalid::InvalidFormat(serde_error) => {
+            InvalidParams::InvalidFormat(serde_error) => {
                 crate::invalid_params_serde_message(&serde_error)
             }
         };
@@ -55,12 +55,12 @@ impl Display for AddShapeParamsInvalid {
 
 #[derive(serde::Serialize, serde::Deserialize, Debug, Clone)]
 #[non_exhaustive]
-pub struct AddShapeResult {
+pub struct MethodResult {
     pub success: bool,
     pub id: Option<String>,
 }
 
-impl AddShapeResult {
+impl MethodResult {
     pub fn success(id: String) -> Self {
         Self {
             success: true,

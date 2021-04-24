@@ -3,13 +3,13 @@ use uuid::Uuid;
 
 #[derive(Clone, Debug, serde::Serialize)]
 #[non_exhaustive]
-pub struct AddListItemParams {
+pub struct Params {
     pub id: Option<Uuid>,
     pub list_type: String,
     pub item_name: String,
 }
 
-impl AddListItemParams {
+impl Params {
     pub fn new(id: Option<Uuid>, list_type: String, item_name: String) -> Self {
         Self {
             id,
@@ -20,43 +20,39 @@ impl AddListItemParams {
 }
 
 #[derive(serde::Deserialize)]
-struct AddListItemParamsBuilder {
+struct ParamsBuilder {
     id: Option<Uuid>,
     list_type: String,
     item_name: String,
 }
 
-impl AddListItemParamsBuilder {
-    fn build(self) -> Result<AddListItemParams, AddListItemParamsInvalid> {
-        Ok(AddListItemParams::new(
-            self.id,
-            self.list_type,
-            self.item_name,
-        ))
+impl ParamsBuilder {
+    fn build(self) -> Result<Params, InvalidParams> {
+        Ok(Params::new(self.id, self.list_type, self.item_name))
     }
 }
 
-impl TryFrom<crate::JsonRpcRequest> for AddListItemParams {
-    type Error = AddListItemParamsInvalid;
+impl TryFrom<crate::JsonRpcRequest> for Params {
+    type Error = InvalidParams;
     fn try_from(request: crate::JsonRpcRequest) -> Result<Self, Self::Error> {
-        let builder: AddListItemParamsBuilder = serde_json::from_value(request.params)
-            .map_err(AddListItemParamsInvalid::InvalidFormat)?;
+        let builder: ParamsBuilder =
+            serde_json::from_value(request.params).map_err(InvalidParams::InvalidFormat)?;
 
         builder.build()
     }
 }
 
 #[derive(Debug)]
-pub enum AddListItemParamsInvalid {
+pub enum InvalidParams {
     InvalidFormat(serde_json::Error),
 }
 
-impl Error for AddListItemParamsInvalid {}
+impl Error for InvalidParams {}
 
-impl Display for AddListItemParamsInvalid {
+impl Display for InvalidParams {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let output = match self {
-            AddListItemParamsInvalid::InvalidFormat(serde_error) => {
+            InvalidParams::InvalidFormat(serde_error) => {
                 crate::invalid_params_serde_message(&serde_error)
             }
         };
@@ -67,12 +63,12 @@ impl Display for AddListItemParamsInvalid {
 
 #[derive(serde::Serialize, serde::Deserialize, Debug, Clone)]
 #[non_exhaustive]
-pub struct AddListItemResult {
+pub struct MethodResult {
     pub success: bool,
     pub id: Option<Uuid>,
 }
 
-impl AddListItemResult {
+impl MethodResult {
     pub fn new(success: bool, id: Option<Uuid>) -> Self {
         Self { success, id }
     }

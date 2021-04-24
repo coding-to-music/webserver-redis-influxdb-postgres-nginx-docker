@@ -3,45 +3,45 @@ use std::{convert::TryFrom, error::Error, fmt::Display};
 
 #[derive(Debug, Clone, serde::Serialize)]
 #[non_exhaustive]
-pub struct GetListTypesParams {}
+pub struct Params {}
 
-impl GetListTypesParams {
+impl Params {
     pub fn new() -> Self {
         Self {}
     }
 }
 
 #[derive(serde::Deserialize)]
-struct GetListTypesParamsBuilder {}
+struct ParamsBuilder {}
 
-impl GetListTypesParamsBuilder {
-    fn build(self) -> Result<GetListTypesParams, GetListTypesParamsInvalid> {
-        Ok(GetListTypesParams::new())
+impl ParamsBuilder {
+    fn build(self) -> Result<Params, InvalidParams> {
+        Ok(Params::new())
     }
 }
 
-impl TryFrom<JsonRpcRequest> for GetListTypesParams {
-    type Error = GetListTypesParamsInvalid;
+impl TryFrom<JsonRpcRequest> for Params {
+    type Error = InvalidParams;
 
     fn try_from(request: JsonRpcRequest) -> Result<Self, Self::Error> {
-        let builder: GetListTypesParamsBuilder = serde_json::from_value(request.params)
-            .map_err(GetListTypesParamsInvalid::InvalidFormat)?;
+        let builder: ParamsBuilder = serde_json::from_value(request.params)
+            .map_err(InvalidParams::InvalidFormat)?;
 
         builder.build()
     }
 }
 
 #[derive(Debug)]
-pub enum GetListTypesParamsInvalid {
+pub enum InvalidParams {
     InvalidFormat(serde_json::Error),
 }
 
-impl Error for GetListTypesParamsInvalid {}
+impl Error for InvalidParams {}
 
-impl Display for GetListTypesParamsInvalid {
+impl Display for InvalidParams {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let output = match self {
-            GetListTypesParamsInvalid::InvalidFormat(serde_error) => {
+            InvalidParams::InvalidFormat(serde_error) => {
                 crate::invalid_params_serde_message(&serde_error)
             }
         };
@@ -52,11 +52,11 @@ impl Display for GetListTypesParamsInvalid {
 
 #[derive(serde::Serialize, serde::Deserialize, Debug, Clone)]
 #[non_exhaustive]
-pub struct GetListTypesResult {
+pub struct MethodResult {
     pub list_types: Vec<String>,
 }
 
-impl GetListTypesResult {
+impl MethodResult {
     pub fn new(list_types: Vec<String>) -> Self {
         Self { list_types }
     }

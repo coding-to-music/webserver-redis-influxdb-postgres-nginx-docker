@@ -1,3 +1,1 @@
-pub use sleep::*;
-
-mod sleep;
+pub mod sleep;

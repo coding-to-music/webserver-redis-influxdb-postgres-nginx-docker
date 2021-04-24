@@ -1,5 +1,5 @@
 use client::WebserverClient;
-use contracts::{server::SleepParams, JsonRpcRequest, Method};
+use contracts::{server::sleep, JsonRpcRequest, Method};
 
 #[tokio::main]
 async fn main() {
@@ -15,7 +15,7 @@ async fn main() {
 
     let request = JsonRpcRequest::new(
         Method::Sleep.to_string(),
-        SleepParams::new(1000).unwrap(),
+        sleep::Params::new(1000).unwrap(),
         Some("test".to_string()),
     );
 

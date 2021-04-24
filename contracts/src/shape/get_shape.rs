@@ -4,27 +4,27 @@ use uuid::Uuid;
 
 #[derive(Clone, Debug, serde::Serialize)]
 #[non_exhaustive]
-pub struct GetShapeParams {
+pub struct Params {
     pub id: Uuid,
 }
 
-impl GetShapeParams {
-    pub fn new(id: Uuid) -> Result<Self, GetShapeParamsInvalid> {
+impl Params {
+    pub fn new(id: Uuid) -> Result<Self, InvalidParams> {
         Ok(Self { id })
     }
 }
 
 #[derive(Debug)]
-pub enum GetShapeParamsInvalid {
+pub enum InvalidParams {
     InvalidFormat(serde_json::Error),
 }
 
-impl Error for GetShapeParamsInvalid {}
+impl Error for InvalidParams {}
 
-impl Display for GetShapeParamsInvalid {
+impl Display for InvalidParams {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let output = match self {
-            GetShapeParamsInvalid::InvalidFormat(serde_error) => {
+            InvalidParams::InvalidFormat(serde_error) => {
                 crate::invalid_params_serde_message(&serde_error)
             }
         };
@@ -34,21 +34,21 @@ impl Display for GetShapeParamsInvalid {
 }
 
 #[derive(serde::Deserialize)]
-struct GetShapeParamsBuilder {
+struct ParamsBuilder {
     id: Uuid,
 }
 
-impl GetShapeParamsBuilder {
-    fn build(self) -> Result<GetShapeParams, GetShapeParamsInvalid> {
-        GetShapeParams::new(self.id)
+impl ParamsBuilder {
+    fn build(self) -> Result<Params, InvalidParams> {
+        Params::new(self.id)
     }
 }
 
-impl TryFrom<crate::JsonRpcRequest> for GetShapeParams {
-    type Error = GetShapeParamsInvalid;
+impl TryFrom<crate::JsonRpcRequest> for Params {
+    type Error = InvalidParams;
     fn try_from(request: crate::JsonRpcRequest) -> Result<Self, Self::Error> {
-        let builder: GetShapeParamsBuilder =
-            serde_json::from_value(request.params).map_err(GetShapeParamsInvalid::InvalidFormat)?;
+        let builder: ParamsBuilder =
+            serde_json::from_value(request.params).map_err(InvalidParams::InvalidFormat)?;
 
         builder.build()
     }
@@ -56,11 +56,11 @@ impl TryFrom<crate::JsonRpcRequest> for GetShapeParams {
 
 #[derive(serde::Serialize, serde::Deserialize, Debug, Clone)]
 #[non_exhaustive]
-pub struct GetShapeResult {
+pub struct MethodResult {
     pub shape: Option<Shape>,
 }
 
-impl GetShapeResult {
+impl MethodResult {
     pub fn new(shape: Option<Shape>) -> Self {
         Self { shape }
     }

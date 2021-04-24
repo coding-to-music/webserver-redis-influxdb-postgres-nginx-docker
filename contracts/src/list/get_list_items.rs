@@ -3,15 +3,15 @@ use std::{convert::TryFrom, error::Error, fmt::Display};
 
 #[derive(Clone, Debug, serde::Serialize)]
 #[non_exhaustive]
-pub struct GetListItemsParams {
+pub struct Params {
     pub list_type: String,
 }
 
-impl GetListItemsParams {
-    pub fn new(list_type: String) -> Result<Self, GetListItemsParamsInvalid> {
+impl Params {
+    pub fn new(list_type: String) -> Result<Self, InvalidParams> {
         let trimmed = list_type.trim();
         if trimmed.is_empty() {
-            Err(GetListItemsParamsInvalid::ListTypeEmptyOrWhitespace)
+            Err(InvalidParams::ListTypeEmptyOrWhitespace)
         } else {
             Ok(Self {
                 list_type: trimmed.to_owned(),
@@ -21,41 +21,41 @@ impl GetListItemsParams {
 }
 
 #[derive(serde::Deserialize)]
-struct GetListItemsParamsBuilder {
+struct ParamsBuilder {
     list_type: String,
 }
 
-impl GetListItemsParamsBuilder {
-    fn build(self) -> Result<GetListItemsParams, GetListItemsParamsInvalid> {
-        GetListItemsParams::new(self.list_type)
+impl ParamsBuilder {
+    fn build(self) -> Result<Params, InvalidParams> {
+        Params::new(self.list_type)
     }
 }
 
-impl TryFrom<crate::JsonRpcRequest> for GetListItemsParams {
-    type Error = GetListItemsParamsInvalid;
+impl TryFrom<crate::JsonRpcRequest> for Params {
+    type Error = InvalidParams;
     fn try_from(request: crate::JsonRpcRequest) -> Result<Self, Self::Error> {
-        let builder: GetListItemsParamsBuilder = serde_json::from_value(request.params)
-            .map_err(GetListItemsParamsInvalid::InvalidFormat)?;
+        let builder: ParamsBuilder = serde_json::from_value(request.params)
+            .map_err(InvalidParams::InvalidFormat)?;
 
         builder.build()
     }
 }
 
 #[derive(Debug)]
-pub enum GetListItemsParamsInvalid {
+pub enum InvalidParams {
     InvalidFormat(serde_json::Error),
     ListTypeEmptyOrWhitespace,
 }
 
-impl Error for GetListItemsParamsInvalid {}
+impl Error for InvalidParams {}
 
-impl Display for GetListItemsParamsInvalid {
+impl Display for InvalidParams {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let output = match self {
-            GetListItemsParamsInvalid::InvalidFormat(serde_error) => {
+            InvalidParams::InvalidFormat(serde_error) => {
                 crate::invalid_params_serde_message(&serde_error)
             }
-            GetListItemsParamsInvalid::ListTypeEmptyOrWhitespace => {
+            InvalidParams::ListTypeEmptyOrWhitespace => {
                 format!("'list_type' can not be empty or whitespace")
             }
         };
@@ -66,11 +66,11 @@ impl Display for GetListItemsParamsInvalid {
 
 #[derive(serde::Serialize, serde::Deserialize, Debug, Clone)]
 #[non_exhaustive]
-pub struct GetListItemsResult {
+pub struct MethodResult {
     pub list_items: Vec<ListItem>,
 }
 
-impl GetListItemsResult {
+impl MethodResult {
     pub fn new(list_items: Vec<ListItem>) -> Self {
         Self { list_items }
     }

@@ -1,4 +1,7 @@
-use crate::{app::ParamsError, AppError};
+use crate::{
+    app::{AppResult, ParamsError},
+    AppError,
+};
 use chrono::Utc;
 use contracts::{list::*, JsonRpcError, JsonRpcRequest};
 use database::{Database, InsertionResult, ListItem as DbListItem};
@@ -17,8 +20,9 @@ impl ListItemController {
     pub async fn add_list_item(
         &self,
         request: JsonRpcRequest,
-    ) -> Result<AddListItemResult, AppError> {
-        let params = AddListItemParams::try_from(request)?;
+    ) -> AppResult<add_list_item::MethodResult> {
+        use add_list_item::{MethodResult, Params};
+        let params = Params::try_from(request)?;
 
         let created_s = Utc::now().timestamp();
 
@@ -34,16 +38,17 @@ impl ListItemController {
         )?;
 
         match result {
-            InsertionResult::Inserted => Ok(AddListItemResult::new(true, Some(new_item_id))),
-            InsertionResult::AlreadyExists => Ok(AddListItemResult::new(false, None)),
+            InsertionResult::Inserted => Ok(MethodResult::new(true, Some(new_item_id))),
+            InsertionResult::AlreadyExists => Ok(MethodResult::new(false, None)),
         }
     }
 
     pub async fn get_list_items(
         &self,
         request: JsonRpcRequest,
-    ) -> Result<GetListItemsResult, AppError> {
-        let params = GetListItemsParams::try_from(request)?;
+    ) -> AppResult<get_list_items::MethodResult> {
+        use get_list_items::{MethodResult, Params};
+        let params = Params::try_from(request)?;
 
         let list_items = self.db.get_list_items(&params.list_type)?;
 
@@ -52,14 +57,15 @@ impl ListItemController {
             .map(|li| ListItemWrapper::try_from(li).and_then(|w| Ok(w.0)))
             .collect::<Result<_, _>>()?;
 
-        Ok(GetListItemsResult::new(list_items))
+        Ok(MethodResult::new(list_items))
     }
 
     pub async fn delete_list_item(
         &self,
         request: JsonRpcRequest,
-    ) -> Result<DeleteListItemResult, AppError> {
-        let params = DeleteListItemParams::try_from(request)?;
+    ) -> AppResult<delete_list_item::MethodResult> {
+        use delete_list_item::{MethodResult, Params};
+        let params = Params::try_from(request)?;
 
         let id = params.id.to_string();
 
@@ -67,47 +73,43 @@ impl ListItemController {
 
         let result = self.db.delete_list_item(&id)?;
 
-        Ok(DeleteListItemResult::new(result))
+        Ok(MethodResult::new(result))
     }
 
     pub async fn get_list_types(
         &self,
         request: JsonRpcRequest,
-    ) -> Result<GetListTypesResult, AppError> {
-        let _params = GetListTypesParams::try_from(request)?;
+    ) -> AppResult<get_list_types::MethodResult> {
+        use get_list_types::{MethodResult, Params};
+        let _params = Params::try_from(request)?;
 
         let list_types = self.db.get_list_types()?;
 
-        Ok(GetListTypesResult::new(list_types))
+        Ok(MethodResult::new(list_types))
     }
 
     pub async fn rename_list_type(
         &self,
         request: JsonRpcRequest,
-    ) -> Result<RenameListTypeResult, AppError> {
-        let params = RenameListTypeParams::try_from(request)?;
+    ) -> AppResult<rename_list_type::MethodResult> {
+        use rename_list_type::{MethodResult, Params};
+        let params = Params::try_from(request)?;
 
         let existing_list_types: HashSet<_> = self.db.get_list_types()?.into_iter().collect();
 
         if !existing_list_types.contains(&params.old_name) {
-            return Ok(RenameListTypeResult::new(false));
+            return Ok(MethodResult::new(false));
         }
 
         let updated_rows = self
             .db
             .rename_list_type(&params.old_name, &params.new_name)?;
 
-        Ok(RenameListTypeResult::new(updated_rows > 0))
+        Ok(MethodResult::new(updated_rows > 0))
     }
 }
 
 struct ListItemWrapper(ListItem);
-
-impl ParamsError for AddListItemParamsInvalid {}
-impl ParamsError for GetListItemsParamsInvalid {}
-impl ParamsError for DeleteListItemParamsInvalid {}
-impl ParamsError for GetListTypesParamsInvalid {}
-impl ParamsError for RenameListTypeParamsInvalid {}
 
 impl TryFrom<DbListItem> for ListItemWrapper {
     type Error = AppError;
@@ -123,3 +125,9 @@ impl TryFrom<DbListItem> for ListItemWrapper {
         )))
     }
 }
+
+impl ParamsError for add_list_item::InvalidParams {}
+impl ParamsError for get_list_items::InvalidParams {}
+impl ParamsError for delete_list_item::InvalidParams {}
+impl ParamsError for get_list_types::InvalidParams {}
+impl ParamsError for rename_list_type::InvalidParams {}

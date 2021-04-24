@@ -3,48 +3,48 @@ use uuid::Uuid;
 
 #[derive(Debug, Clone, serde::Serialize)]
 #[non_exhaustive]
-pub struct DeleteListItemParams {
+pub struct Params {
     pub id: Uuid,
 }
 
-impl DeleteListItemParams {
+impl Params {
     pub fn new(id: Uuid) -> Self {
         Self { id }
     }
 }
 
 #[derive(serde::Deserialize)]
-struct DeleteListItemParamsBuilder {
+struct ParamsBuilder {
     id: Uuid,
 }
 
-impl DeleteListItemParamsBuilder {
-    fn build(self) -> Result<DeleteListItemParams, DeleteListItemParamsInvalid> {
-        Ok(DeleteListItemParams::new(self.id))
+impl ParamsBuilder {
+    fn build(self) -> Result<Params, InvalidParams> {
+        Ok(Params::new(self.id))
     }
 }
 
-impl TryFrom<crate::JsonRpcRequest> for DeleteListItemParams {
-    type Error = DeleteListItemParamsInvalid;
+impl TryFrom<crate::JsonRpcRequest> for Params {
+    type Error = InvalidParams;
     fn try_from(request: crate::JsonRpcRequest) -> Result<Self, Self::Error> {
-        let builder: DeleteListItemParamsBuilder = serde_json::from_value(request.params)
-            .map_err(DeleteListItemParamsInvalid::InvalidFormat)?;
+        let builder: ParamsBuilder = serde_json::from_value(request.params)
+            .map_err(InvalidParams::InvalidFormat)?;
 
         builder.build()
     }
 }
 
 #[derive(Debug)]
-pub enum DeleteListItemParamsInvalid {
+pub enum InvalidParams {
     InvalidFormat(serde_json::Error),
 }
 
-impl Error for DeleteListItemParamsInvalid {}
+impl Error for InvalidParams {}
 
-impl Display for DeleteListItemParamsInvalid {
+impl Display for InvalidParams {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let output = match self {
-            DeleteListItemParamsInvalid::InvalidFormat(serde_error) => {
+            InvalidParams::InvalidFormat(serde_error) => {
                 crate::invalid_params_serde_message(&serde_error)
             }
         };
@@ -55,11 +55,11 @@ impl Display for DeleteListItemParamsInvalid {
 
 #[derive(serde::Serialize, serde::Deserialize, Debug, Clone)]
 #[non_exhaustive]
-pub struct DeleteListItemResult {
+pub struct MethodResult {
     pub deleted: bool,
 }
 
-impl DeleteListItemResult {
+impl MethodResult {
     pub fn new(deleted: bool) -> Self {
         Self { deleted }
     }

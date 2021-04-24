@@ -3,14 +3,14 @@ use crate::JsonRpcRequest;
 use std::{collections::HashMap, convert::TryFrom, error::Error, fmt::Display};
 
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
-#[serde(try_from = "SearchShapesByTagsParamsBuilder")]
+#[serde(try_from = "ParamsBuilder")]
 #[non_exhaustive]
-pub struct SearchShapesByTagsParams {
+pub struct Params {
     pub or: Vec<HashMap<String, String>>,
 }
 
-impl SearchShapesByTagsParams {
-    pub fn new(or: Vec<HashMap<String, String>>) -> Result<Self, SearchShapesByTagsParamsInvalid> {
+impl Params {
+    pub fn new(or: Vec<HashMap<String, String>>) -> Result<Self, InvalidParams> {
         let o = Self { or };
 
         o.validate()?;
@@ -18,49 +18,49 @@ impl SearchShapesByTagsParams {
         Ok(o)
     }
 
-    fn validate(&self) -> Result<(), SearchShapesByTagsParamsInvalid> {
+    fn validate(&self) -> Result<(), InvalidParams> {
         Ok(())
     }
 }
 
 #[derive(Debug, serde::Deserialize)]
-struct SearchShapesByTagsParamsBuilder {
+struct ParamsBuilder {
     or: Vec<HashMap<String, String>>,
 }
 
-impl TryFrom<SearchShapesByTagsParamsBuilder> for SearchShapesByTagsParams {
-    type Error = SearchShapesByTagsParamsInvalid;
+impl TryFrom<ParamsBuilder> for Params {
+    type Error = InvalidParams;
 
-    fn try_from(builder: SearchShapesByTagsParamsBuilder) -> Result<Self, Self::Error> {
+    fn try_from(builder: ParamsBuilder) -> Result<Self, Self::Error> {
         Self::new(builder.or)
     }
 }
 
 #[derive(Debug)]
-pub enum SearchShapesByTagsParamsInvalid {
+pub enum InvalidParams {
     InvalidFormat(serde_json::Error),
     InvalidName,
     InvalidValue,
 }
 
-impl Error for SearchShapesByTagsParamsInvalid {}
+impl Error for InvalidParams {}
 
-impl Display for SearchShapesByTagsParamsInvalid {
+impl Display for InvalidParams {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let output = match self {
-            SearchShapesByTagsParamsInvalid::InvalidFormat(e) => {
+            InvalidParams::InvalidFormat(e) => {
                 crate::invalid_params_serde_message(e)
             }
-            SearchShapesByTagsParamsInvalid::InvalidName => "invalid tag name".to_string(),
-            SearchShapesByTagsParamsInvalid::InvalidValue => "invalid tag value".to_string(),
+            InvalidParams::InvalidName => "invalid tag name".to_string(),
+            InvalidParams::InvalidValue => "invalid tag value".to_string(),
         };
 
         write!(f, "{}", output)
     }
 }
 
-impl TryFrom<JsonRpcRequest> for SearchShapesByTagsParams {
-    type Error = SearchShapesByTagsParamsInvalid;
+impl TryFrom<JsonRpcRequest> for Params {
+    type Error = InvalidParams;
 
     fn try_from(request: JsonRpcRequest) -> Result<Self, Self::Error> {
         serde_json::from_value(request.params).map_err(Self::Error::InvalidFormat)
@@ -69,11 +69,11 @@ impl TryFrom<JsonRpcRequest> for SearchShapesByTagsParams {
 
 #[derive(serde::Serialize, serde::Deserialize, Debug, Clone)]
 #[non_exhaustive]
-pub struct SearchShapesByTagsResult {
+pub struct MethodResult {
     pub shapes: Vec<Shape>,
 }
 
-impl SearchShapesByTagsResult {
+impl MethodResult {
     pub fn new(shapes: Vec<Shape>) -> Self {
         Self { shapes }
     }

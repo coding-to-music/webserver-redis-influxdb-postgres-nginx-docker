@@ -1,24 +1,16 @@
-pub use add_shape::*;
-pub use add_shapes::*;
-pub use delete_shape::*;
-pub use delete_shape_tag::*;
-pub use geojson;
-pub use get_nearby_shapes::*;
-pub use get_shape::*;
-pub use search_shapes_by_tags::*;
-
 use geojson::Geometry;
 use std::collections::HashMap;
 use uuid::Uuid;
 
-mod add_shape;
+pub use geojson;
+pub mod add_shape;
 pub mod add_shape_tag;
-mod add_shapes;
-mod delete_shape;
-mod delete_shape_tag;
-mod get_nearby_shapes;
-mod get_shape;
-mod search_shapes_by_tags;
+pub mod add_shapes;
+pub mod delete_shape;
+pub mod delete_shape_tag;
+pub mod get_nearby_shapes;
+pub mod get_shape;
+pub mod search_shapes_by_tags;
 
 #[derive(serde::Serialize, Clone, Debug, serde::Deserialize)]
 #[non_exhaustive]
