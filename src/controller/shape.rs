@@ -45,10 +45,12 @@ impl ShapeController {
 
     pub async fn delete_shape(&self, request: JsonRpcRequest) -> AppResult<DeleteShapeResult> {
         let params = DeleteShapeParams::try_from(request)?;
+        let shape_id = params.id.to_string();
 
-        let success = self.shape_db.delete_shape(&params.id.to_string())?;
+        let shape = self.shape_db.get_shape(&shape_id)?;
 
-        Ok(DeleteShapeResult::new(success))
+
+        todo!()
     }
 
     pub async fn get_shape(&self, request: JsonRpcRequest) -> AppResult<GetShapeResult> {
@@ -118,8 +120,11 @@ impl ShapeController {
         Ok(GetNearbyShapesResult::new(out))
     }
 
-    pub async fn add_shape_tag(&self, request: JsonRpcRequest) -> AppResult<AddShapeTagResult> {
-        let params = AddShapeTagParams::try_from(request)?;
+    pub async fn add_shape_tag(
+        &self,
+        request: JsonRpcRequest,
+    ) -> AppResult<add_shape_tag::MethodResult> {
+        let params = add_shape_tag::Params::try_from(request)?;
         let created_s = Utc::now().timestamp();
 
         let id = uuid::Uuid::new_v4().to_string();
@@ -133,8 +138,8 @@ impl ShapeController {
         ))?;
 
         match result {
-            InsertionResult::Inserted => Ok(AddShapeTagResult::success(id)),
-            InsertionResult::AlreadyExists => Ok(AddShapeTagResult::failure()),
+            InsertionResult::Inserted => Ok(add_shape_tag::MethodResult::success(id)),
+            InsertionResult::AlreadyExists => Ok(add_shape_tag::MethodResult::failure()),
         }
     }
 
@@ -278,7 +283,7 @@ impl ParamsError for AddShapeParamsInvalid {}
 impl ParamsError for AddShapesParamsInvalid {}
 impl ParamsError for GetShapeParamsInvalid {}
 impl ParamsError for GetNearbyShapesParamsInvalid {}
-impl ParamsError for AddShapeTagParamsInvalid {}
+impl ParamsError for add_shape_tag::InvalidParams {}
 impl ParamsError for SearchShapesByTagsParamsInvalid {}
 impl ParamsError for DeleteShapeParamsInvalid {}
 impl ParamsError for DeleteShapeTagParamsInvalid {}
