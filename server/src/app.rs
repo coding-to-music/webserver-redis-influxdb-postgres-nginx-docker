@@ -93,6 +93,7 @@ impl App {
                 request,
                 request_ts_s,
                 None,
+                None,
                 timer.elapsed().as_millis() as i64,
             )
             .await;
@@ -195,20 +196,25 @@ impl App {
             id, method, elapsed
         );
 
-        let response = match result {
-            Ok(ok) => ok,
-            Err(err) => {
-                if err.context.is_some() {
+        let (response, context) = match result {
+            Ok(ok) => (ok, None),
+            Err(err) => match &err.context {
+                Some(context) => {
                     error!("error with context: {:?}", err);
+                    (
+                        JsonRpcResponse::error(err.rpc_error, id.clone()),
+                        Some(context.clone()),
+                    )
                 }
-                JsonRpcResponse::error(err.rpc_error, id.clone())
-            }
+                None => (JsonRpcResponse::error(err.rpc_error, id.clone()), None),
+            },
         };
 
         self.publish_request_log(
             request_log_clone,
             request_ts_s,
             Some(response.clone()),
+            context,
             elapsed.as_millis() as i64,
         )
         .await;
@@ -351,12 +357,14 @@ impl App {
         request: JsonRpcRequest,
         request_ts_s: i64,
         response: Option<JsonRpcResponse>,
+        error_context: Option<String>,
         duration_ms: i64,
     ) {
         if !self.opts.publish_request_log {
             return;
         }
-        let request_log = QueueMessage::request_log(request, request_ts_s, response, duration_ms);
+        let request_log =
+            QueueMessage::request_log(request, request_ts_s, response, error_context, duration_ms);
         match self
             .notification_handler
             .publish_queue_message(request_log)
@@ -381,12 +389,9 @@ fn not_found() -> Vec<JsonRpcResponse> {
 async fn get_body_as_json(request: Request<Body>) -> Result<Value, AppError> {
     let buf = hyper::body::aggregate(request)
         .await
-        .map_err(|hyper_error| {
-            AppError::from(JsonRpcError::invalid_request()).with_context(&hyper_error)
-        })?;
-    let json: Value = serde_json::from_reader(buf.reader()).map_err(|serde_error| {
-        AppError::from(JsonRpcError::invalid_request()).with_context(&serde_error)
-    })?;
+        .map_err(|hyper_error| AppError::invalid_request().with_context(&hyper_error))?;
+    let json: Value = serde_json::from_reader(buf.reader())
+        .map_err(|serde_error| AppError::invalid_request().with_context(&serde_error))?;
 
     Ok(json)
 }
@@ -409,6 +414,10 @@ impl AppError {
     pub fn with_message(mut self, message: &str) -> Self {
         self.rpc_error.message = message.to_owned();
         self
+    }
+
+    pub fn invalid_request() -> Self {
+        Self::from(JsonRpcError::invalid_request())
     }
 
     pub fn invalid_params() -> Self {

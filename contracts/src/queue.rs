@@ -7,6 +7,7 @@ pub enum QueueMessage {
         request: JsonRpcRequest,
         request_ts_s: i64,
         response: Option<JsonRpcResponse>,
+        error_context: Option<String>,
         duration_ms: i64,
     },
 }
@@ -16,12 +17,14 @@ impl QueueMessage {
         request: JsonRpcRequest,
         request_ts_s: i64,
         response: Option<JsonRpcResponse>,
+        error_context: Option<String>,
         duration_ms: i64,
     ) -> Self {
         QueueMessage::RequestLog {
             request,
             request_ts_s,
             response,
+            error_context,
             duration_ms,
         }
     }

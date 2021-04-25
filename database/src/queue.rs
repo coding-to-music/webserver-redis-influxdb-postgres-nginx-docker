@@ -8,6 +8,7 @@ pub struct RequestLog {
     id: String,
     request: Request,
     response: Response,
+    error_context: Option<String>,
     duration_ms: i64,
     created_s: i64,
 }
@@ -17,6 +18,7 @@ impl RequestLog {
         id: String,
         request: Request,
         response: Response,
+        error_context: Option<String>,
         duration_ms: i64,
         created_s: i64,
     ) -> Self {
@@ -24,6 +26,7 @@ impl RequestLog {
             id,
             request,
             response,
+            error_context,
             duration_ms,
             created_s,
         }
@@ -91,6 +94,7 @@ impl Database<RequestLog> {
             id,
             request,
             response,
+            error_context,
             duration_ms,
             created_s,
         }: &RequestLog,
@@ -112,6 +116,7 @@ impl Database<RequestLog> {
                 request_ts_s, 
                 response_result, 
                 response_error, 
+                response_error_context,
                 duration_ms, 
                 created_s) 
             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
@@ -123,6 +128,7 @@ impl Database<RequestLog> {
                 request.ts_s,
                 result,
                 error,
+                error_context,
                 duration_ms,
                 created_s
             ],

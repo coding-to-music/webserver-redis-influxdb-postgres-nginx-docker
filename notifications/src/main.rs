@@ -159,14 +159,7 @@ async fn handle_queue(runner: Arc<Runner>, msg: Msg) -> Result<(), String> {
     let queue_msg: QueueMessage = get_payload(&msg)?;
 
     match queue_msg {
-        r
-        @
-        QueueMessage::RequestLog {
-            request: _,
-            request_ts_s: _,
-            response: _,
-            duration_ms: _,
-        } => {
+        r @ QueueMessage::RequestLog { .. } => {
             let request_log = DbRequestLogWrapper::try_from(r)?.0;
             info!("saving request log: {:?}", request_log);
             runner
@@ -210,6 +203,7 @@ impl TryFrom<QueueMessage> for DbRequestLogWrapper {
                 request,
                 request_ts_s,
                 response,
+                error_context,
                 duration_ms,
             } => {
                 let created_s = chrono::Utc::now().timestamp();
@@ -230,6 +224,7 @@ impl TryFrom<QueueMessage> for DbRequestLogWrapper {
                     Uuid::new_v4().to_string(),
                     request,
                     response,
+                    error_context,
                     duration_ms,
                     created_s,
                 );

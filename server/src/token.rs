@@ -1,8 +1,11 @@
-use crate::{app::AppError, redis::RedisPool};
+use crate::{
+    app::{AppError, AppResult},
+    redis::RedisPool,
+};
+use contracts::JsonRpcError;
 use jsonwebtoken::{Algorithm, DecodingKey, EncodingKey, Header, Validation};
 use mobc_redis::redis::AsyncCommands;
 use std::sync::Arc;
-use contracts::JsonRpcError;
 
 #[derive(Clone)]
 pub struct TokenHandler {
@@ -21,7 +24,7 @@ impl TokenHandler {
         }
     }
 
-    pub async fn get_token(&self, key_name: &str, key_value: &str) -> Result<String, AppError> {
+    pub async fn get_token(&self, key_name: &str, key_value: &str) -> AppResult<String> {
         let mut conn = self.pool.get_connection().await?;
 
         let redis_key = format!("{}-{}", key_name, key_value);
