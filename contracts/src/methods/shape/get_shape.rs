@@ -1,4 +1,5 @@
 use super::Shape;
+use geojson::Feature;
 use std::{convert::TryFrom, error::Error, fmt::Display};
 use uuid::Uuid;
 
@@ -6,11 +7,12 @@ use uuid::Uuid;
 #[non_exhaustive]
 pub struct Params {
     pub id: Uuid,
+    pub geojson: bool,
 }
 
 impl Params {
-    pub fn new(id: Uuid) -> Result<Self, InvalidParams> {
-        Ok(Self { id })
+    pub fn new(id: Uuid, geojson: bool) -> Result<Self, InvalidParams> {
+        Ok(Self { id, geojson })
     }
 }
 
@@ -36,11 +38,12 @@ impl Display for InvalidParams {
 #[derive(serde::Deserialize)]
 struct ParamsBuilder {
     id: Uuid,
+    geojson: bool,
 }
 
 impl ParamsBuilder {
     fn build(self) -> Result<Params, InvalidParams> {
-        Params::new(self.id)
+        Params::new(self.id, self.geojson)
     }
 }
 
@@ -56,12 +59,17 @@ impl TryFrom<crate::JsonRpcRequest> for Params {
 
 #[derive(serde::Serialize, serde::Deserialize, Debug, Clone)]
 #[non_exhaustive]
-pub struct MethodResult {
-    pub shape: Option<Shape>,
+pub enum MethodResult {
+    Shape(Option<Shape>),
+    Geojson(Option<Feature>),
 }
 
 impl MethodResult {
-    pub fn new(shape: Option<Shape>) -> Self {
-        Self { shape }
+    pub fn shape(shape: Option<Shape>) -> Self {
+        Self::Shape(shape)
+    }
+
+    pub fn geojson(geojson: Option<Feature>) -> Self {
+        Self::Geojson(geojson)
     }
 }

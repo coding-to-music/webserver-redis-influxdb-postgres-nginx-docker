@@ -1,4 +1,5 @@
-use geojson::Geometry;
+use geojson::{Feature, Geometry};
+use serde_json::{Map, Value};
 use std::collections::HashMap;
 use uuid::Uuid;
 
@@ -93,5 +94,29 @@ pub fn coordinates_in_geo(geom: &Geometry) -> Vec<Coord> {
         geojson::Value::GeometryCollection(g) => {
             g.into_iter().flat_map(|g| coordinates_in_geo(&g)).collect()
         }
+    }
+}
+
+impl From<Shape> for Feature {
+    fn from(s: Shape) -> Self {
+        let mut properties = Map::new();
+        properties.insert(
+            "name".to_string(),
+            match s.name {
+                Some(name) => Value::String(name),
+                None => Value::Null,
+            },
+        );
+        for (name, value) in s.tags {
+            properties.insert(name, Value::String(value));
+        }
+        let feature = Feature {
+            bbox: None,
+            geometry: Some(s.geo),
+            id: None,
+            properties: Some(properties),
+            foreign_members: None,
+        };
+        feature
     }
 }

@@ -81,13 +81,18 @@ impl ShapeController {
 
         let shape = match shape {
             Some(db_shape) => db_shape,
-            None => return Ok(MethodResult::new(None)),
+            None => return Ok(MethodResult::shape(None)),
         };
 
         let tags = self.get_tags_for_shape(&shape.id)?;
 
-        let shape_result = ShapeWrapper::try_from((shape, tags))?;
-        Ok(MethodResult::new(Some(shape_result.0)))
+        let shape_result = ShapeWrapper::try_from((shape, tags))?.0;
+
+        if params.geojson {
+            Ok(MethodResult::geojson(Some(Feature::from(shape_result))))
+        } else {
+            Ok(MethodResult::shape(Some(shape_result)))
+        }
     }
 
     pub async fn get_nearby_shapes(
