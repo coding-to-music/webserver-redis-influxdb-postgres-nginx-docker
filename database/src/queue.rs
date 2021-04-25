@@ -119,7 +119,7 @@ impl Database<RequestLog> {
                 response_error_context,
                 duration_ms, 
                 created_s) 
-            VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
+            VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
             params![
                 id,
                 request.id,
