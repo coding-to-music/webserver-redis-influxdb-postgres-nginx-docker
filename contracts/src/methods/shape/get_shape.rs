@@ -7,11 +7,11 @@ use uuid::Uuid;
 #[non_exhaustive]
 pub struct Params {
     pub id: Uuid,
-    pub geojson: bool,
+    pub geojson: Option<bool>,
 }
 
 impl Params {
-    pub fn new(id: Uuid, geojson: bool) -> Result<Self, InvalidParams> {
+    pub fn new(id: Uuid, geojson: Option<bool>) -> Result<Self, InvalidParams> {
         Ok(Self { id, geojson })
     }
 }
@@ -38,7 +38,7 @@ impl Display for InvalidParams {
 #[derive(serde::Deserialize)]
 struct ParamsBuilder {
     id: Uuid,
-    geojson: bool,
+    geojson: Option<bool>,
 }
 
 impl ParamsBuilder {

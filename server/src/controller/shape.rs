@@ -88,7 +88,7 @@ impl ShapeController {
 
         let shape_result = ShapeWrapper::try_from((shape, tags))?.0;
 
-        if params.geojson {
+        if params.geojson.unwrap_or(false) {
             Ok(MethodResult::geojson(Some(Feature::from(shape_result))))
         } else {
             Ok(MethodResult::shape(Some(shape_result)))
