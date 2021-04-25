@@ -1,18 +1,20 @@
 use rusqlite::{Connection, Error, Row};
-use std::marker::PhantomData;
 use std::time;
 use std::{
     convert::{From, TryFrom},
     fmt::Debug,
 };
+use std::{fmt::Display, marker::PhantomData};
 
 #[macro_use]
 extern crate log;
 
 mod list;
+mod queue;
 mod shape;
 
 pub use list::*;
+pub use queue::*;
 pub use shape::*;
 
 pub type DatabaseResult<T> = Result<T, DatabaseError>;
@@ -20,18 +22,6 @@ pub type DatabaseResult<T> = Result<T, DatabaseError>;
 pub struct Database<T> {
     path: String,
     _phantom: PhantomData<T>,
-}
-
-#[derive(Debug)]
-pub enum DatabaseError {
-    RusqliteError(rusqlite::Error),
-    NotAuthorized,
-}
-
-impl From<rusqlite::Error> for DatabaseError {
-    fn from(rusqlite_error: rusqlite::Error) -> Self {
-        DatabaseError::RusqliteError(rusqlite_error)
-    }
 }
 
 impl<T> Database<T> {
@@ -54,6 +44,33 @@ impl<T> Database<T> {
         Ok(conn)
     }
 }
+
+#[derive(Debug)]
+pub enum DatabaseError {
+    RusqliteError(rusqlite::Error),
+    NotAuthorized,
+}
+
+impl From<rusqlite::Error> for DatabaseError {
+    fn from(rusqlite_error: rusqlite::Error) -> Self {
+        DatabaseError::RusqliteError(rusqlite_error)
+    }
+}
+
+impl Display for DatabaseError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let output = match self {
+            DatabaseError::RusqliteError(e) => e.to_string(),
+            DatabaseError::NotAuthorized => {
+                format!("not authorized")
+            }
+        };
+
+        write!(f, "{}", output)
+    }
+}
+
+impl std::error::Error for DatabaseError {}
 
 #[derive(Clone, Copy, Debug)]
 pub enum InsertionResult {

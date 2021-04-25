@@ -28,7 +28,7 @@ impl WebserverClient {
             return Err(WebserverBuilderError::InvalidUrl);
         }
 
-        let client = isahc::HttpClient::new().unwrap();
+        let client = isahc::HttpClient::new()?;
 
         let key_name = builder.key_name.trim();
         if key_name.is_empty() {
@@ -68,16 +68,25 @@ impl WebserverClient {
 
     pub async fn send_request(
         &self,
-        request: JsonRpcRequest,
+        request: &JsonRpcRequest,
     ) -> Result<JsonRpcResponse, WebserverClientError> {
-        let requests = vec![request];
-        let mut responses = self.send_batch(requests).await?;
+        let mut responses = self._send_batch(&[request]).await?;
         Ok(responses.remove(0))
     }
 
     pub async fn send_batch(
         &self,
-        requests: Vec<JsonRpcRequest>,
+        requests: &[JsonRpcRequest],
+    ) -> Result<Vec<JsonRpcResponse>, WebserverClientError> {
+        let requests: Vec<&JsonRpcRequest> = requests.iter().map(|r| r).collect();
+        let responses = self._send_batch(&requests).await?;
+
+        Ok(responses)
+    }
+
+    async fn _send_batch(
+        &self,
+        requests: &[&JsonRpcRequest],
     ) -> Result<Vec<JsonRpcResponse>, WebserverClientError> {
         let token;
         {
@@ -90,10 +99,10 @@ impl WebserverClient {
             .header("Authorization", format!("Bearer {}", token))
             .body(serde_json::to_vec(&requests)?)?;
 
-        let response: Vec<JsonRpcResponse> =
+        let responses: Vec<JsonRpcResponse> =
             self.client.send_async(http_request).await?.json().await?;
 
-        Ok(response)
+        Ok(responses)
     }
 
     async fn get_token(
@@ -136,17 +145,27 @@ pub enum WebserverBuilderError {
     InvalidUrl,
     InvalidKeyName,
     InvalidKeyValue,
+    IsahcError(isahc::Error),
 }
 
 impl Display for WebserverBuilderError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let output = match self {
-            WebserverBuilderError::InvalidUrl => "invalid url",
-            WebserverBuilderError::InvalidKeyName => "invalid key name",
-            WebserverBuilderError::InvalidKeyValue => "invalid key value",
+            WebserverBuilderError::InvalidUrl => "invalid url".to_string(),
+            WebserverBuilderError::InvalidKeyName => "invalid key name".to_string(),
+            WebserverBuilderError::InvalidKeyValue => "invalid key value".to_string(),
+            WebserverBuilderError::IsahcError(e) => format!("isahc error: '{}'", e),
         };
 
         write!(f, "{}", output)
+    }
+}
+
+impl Error for WebserverBuilderError {}
+
+impl From<isahc::Error> for WebserverBuilderError {
+    fn from(e: isahc::Error) -> Self {
+        Self::IsahcError(e)
     }
 }
 

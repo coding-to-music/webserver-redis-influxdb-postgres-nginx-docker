@@ -19,7 +19,7 @@ async fn main() {
         Some("test".to_string()),
     );
 
-    let response = client.send_request(request).await.unwrap();
+    let response = client.send_request(&request).await.unwrap();
 
     println!("response: '{:?}'", response);
 }
