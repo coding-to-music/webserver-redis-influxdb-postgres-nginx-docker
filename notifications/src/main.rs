@@ -93,16 +93,20 @@ async fn handle_message(runner: Arc<Runner>, msg: Msg) {
     let channel = msg.get_channel_name();
     if channel.starts_with("ijagberg.notifications") {
         match handle_notification(runner, msg).await {
-            Ok(_) => {}
+            Ok(_) => {
+                info!("handled notification")
+            }
             Err(e) => {
                 error!("failed to handle notification: {}", e);
             }
         }
     } else if channel.starts_with("ijagberg.queue") {
         match handle_queue(runner, msg).await {
-            Ok(_) => {}
+            Ok(_) => {
+                info!("handled queue message");
+            }
             Err(e) => {
-                error!("failed to handle queue: {}", e)
+                error!("failed to handle queue message: {}", e)
             }
         }
     } else {
@@ -163,10 +167,11 @@ async fn handle_queue(runner: Arc<Runner>, msg: Msg) -> Result<(), String> {
             response: _,
             duration_ms: _,
         } => {
-            let request_log = DbRequestLogWrapper::try_from(r).unwrap();
+            let request_log = DbRequestLogWrapper::try_from(r)?.0;
+            info!("saving request log: {:?}", request_log);
             runner
                 .request_log_db
-                .insert_log(&request_log.0)
+                .insert_log(&request_log)
                 .map_err(|e| e.to_string())?;
         }
     }
@@ -197,7 +202,7 @@ where
 struct DbRequestLogWrapper(DbRequestLog);
 
 impl TryFrom<QueueMessage> for DbRequestLogWrapper {
-    type Error = ();
+    type Error = String;
 
     fn try_from(value: QueueMessage) -> Result<Self, Self::Error> {
         match value {
@@ -208,7 +213,7 @@ impl TryFrom<QueueMessage> for DbRequestLogWrapper {
                 duration_ms,
             } => {
                 let created_s = chrono::Utc::now().timestamp();
-                let params = serde_json::to_string(&request.params).unwrap();
+                let params = serde_json::to_string(&request.params).map_err(|e| e.to_string())?;
                 let request = DbRequest::new(request.id, request.method, params, request_ts_s);
                 let (result, error) = response
                     .map(|r| match r.kind() {
