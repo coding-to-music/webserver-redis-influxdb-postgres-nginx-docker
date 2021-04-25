@@ -30,6 +30,8 @@ pub struct Opts {
     shape_redis_addr: String,
     #[structopt(long, env = "WEBSERVER_JWT_SECRET")]
     jwt_secret: String,
+    #[structopt(long, env = "WEBSERVER_PUBLISH_REQUEST_LOG")]
+    publish_request_log: bool,
 }
 
 #[tokio::main]

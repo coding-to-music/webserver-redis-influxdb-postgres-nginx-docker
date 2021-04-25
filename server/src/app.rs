@@ -5,18 +5,26 @@ use crate::{
     token::TokenHandler,
     Opts,
 };
+use chrono::Utc;
 use contracts::*;
 use database::{self as db, Database};
 use db::DatabaseError;
 use futures::future;
 use hyper::{body::Buf, Body, Request, Response};
 use mobc_redis::redis::RedisError;
+use queue::QueueMessage;
 use serde_json::Value;
-use std::{error::Error, fmt::Debug, str::FromStr, sync::Arc};
+use std::{
+    error::Error,
+    fmt::{Debug, Display},
+    str::FromStr,
+    sync::Arc,
+};
 
 pub type AppResult<T> = Result<T, AppError>;
 
 pub struct App {
+    opts: Opts,
     list_controller: ListItemController,
     shape_controller: ShapeController,
     server_controller: ServerController,
@@ -50,6 +58,7 @@ impl App {
         let server_controller = ServerController::new();
 
         Self {
+            opts,
             list_controller,
             shape_controller,
             server_controller,
@@ -74,15 +83,25 @@ impl App {
 
     /// Handle a single JSON RPC request
     async fn handle_single(&self, request: JsonRpcRequest) -> Option<JsonRpcResponse> {
+        let timer = std::time::Instant::now();
+        let request_ts_s = Utc::now().timestamp();
         let id = request.id.clone();
 
         if id.is_none() {
-            let _ = self.handle_notification(request).await;
+            let _ = self.handle_notification(request.clone()).await;
+            self.publish_request_log(
+                request,
+                request_ts_s,
+                None,
+                timer.elapsed().as_millis() as i64,
+            )
+            .await;
             return None;
         }
 
+        let request_log_clone = request.clone();
+
         let method = request.method.to_owned();
-        let timer = std::time::Instant::now();
         info!(
             "handling request with id {:?} with method: '{}'",
             id, request.method
@@ -185,6 +204,14 @@ impl App {
                 JsonRpcResponse::error(err.rpc_error, id.clone())
             }
         };
+
+        self.publish_request_log(
+            request_log_clone,
+            request_ts_s,
+            Some(response.clone()),
+            elapsed.as_millis() as i64,
+        )
+        .await;
 
         Some(response)
     }
@@ -318,6 +345,29 @@ impl App {
             }
         }
     }
+
+    async fn publish_request_log(
+        &self,
+        request: JsonRpcRequest,
+        request_ts_s: i64,
+        response: Option<JsonRpcResponse>,
+        duration_ms: i64,
+    ) {
+        if !self.opts.publish_request_log {
+            return;
+        }
+        let request_log = QueueMessage::request_log(request, request_ts_s, response, duration_ms);
+        match self
+            .notification_handler
+            .publish_queue_message(request_log)
+            .await
+        {
+            Ok(_) => {}
+            Err(e) => {
+                error!("failed to publish queue message: '{}'", e)
+            }
+        }
+    }
 }
 
 fn not_found() -> Vec<JsonRpcResponse> {
@@ -373,6 +423,14 @@ impl AppError {
         Self::from(JsonRpcError::database_error())
     }
 }
+
+impl Display for AppError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.rpc_error.message)
+    }
+}
+
+impl Error for AppError {}
 
 impl From<JsonRpcError> for AppError {
     fn from(rpc_error: JsonRpcError) -> Self {
