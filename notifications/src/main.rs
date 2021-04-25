@@ -91,7 +91,7 @@ async fn run(runner: Arc<Runner>) {
 
 async fn handle_message(runner: Arc<Runner>, msg: Msg) {
     let channel = msg.get_channel_name();
-    if channel.starts_with("ijagberg.notifications") {
+    if channel.starts_with("ijagberg.notification") {
         match handle_notification(runner, msg).await {
             Ok(_) => {
                 info!("handled notification")
