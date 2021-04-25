@@ -91,7 +91,7 @@ impl Database<RequestLog> {
             id,
             request,
             response,
-            duration_ms: duration_s,
+            duration_ms,
             created_s,
         }: &RequestLog,
     ) -> DatabaseResult<InsertionResult> {
@@ -112,7 +112,7 @@ impl Database<RequestLog> {
                 request_ts_s, 
                 response_result, 
                 response_error, 
-                duration_s, 
+                duration_ms, 
                 created_s) 
             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
             params![
@@ -123,7 +123,7 @@ impl Database<RequestLog> {
                 request.ts_s,
                 result,
                 error,
-                duration_s,
+                duration_ms,
                 created_s
             ],
         )?;
