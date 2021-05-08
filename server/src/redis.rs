@@ -6,6 +6,8 @@ use mobc_redis::{
 };
 use std::time;
 
+pub type RedisConnection = Connection<RedisConnectionManager>;
+
 pub struct RedisPool {
     addr: String,
     pool: Pool<RedisConnectionManager>,
@@ -21,7 +23,7 @@ impl RedisPool {
         Self { addr, pool }
     }
 
-    pub async fn get_connection(&self) -> AppResult<Connection<RedisConnectionManager>> {
+    pub async fn get_connection(&self) -> AppResult<RedisConnection> {
         trace!("retrieving connection to Redis at '{}'", self.addr);
         let timer = time::Instant::now();
         match self.pool.get().await {
