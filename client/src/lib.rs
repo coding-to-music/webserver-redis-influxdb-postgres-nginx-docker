@@ -4,6 +4,8 @@ use contracts::{GetTokenRequest, GetTokenResponse, JsonRpcError, JsonRpcRequest,
 use isahc::{http::method, AsyncReadResponseExt};
 use std::{error::Error, fmt::Display, sync::Arc};
 
+type WebserverClientResult<T> = Result<T, WebserverClientError>;
+
 #[macro_use]
 extern crate log;
 
@@ -60,24 +62,32 @@ impl WebserverClient {
         format!("{}/api/token", self.url)
     }
 
-    pub async fn token(&self) -> Result<String, WebserverClientError> {
+    pub async fn token(&self) -> WebserverClientResult<String> {
         let mut lock = self.token_manager.lock().await;
         lock.refresh(&self).await?;
         Ok(lock.token.clone().unwrap())
     }
 
+    /// Send a single JSONRPC request.
+    ///
+    /// Returns `None` if there was an empty response array,
+    /// which should only happen if the request was a notification.
     pub async fn send_request(
         &self,
         request: &JsonRpcRequest,
-    ) -> Result<JsonRpcResponse, WebserverClientError> {
+    ) -> WebserverClientResult<Option<JsonRpcResponse>> {
         let mut responses = self._send_batch(&[request]).await?;
-        Ok(responses.remove(0))
+        if responses.is_empty() {
+            Ok(None)
+        } else {
+            Ok(Some(responses.remove(0)))
+        }
     }
 
     pub async fn send_batch(
         &self,
         requests: &[JsonRpcRequest],
-    ) -> Result<Vec<JsonRpcResponse>, WebserverClientError> {
+    ) -> WebserverClientResult<Vec<JsonRpcResponse>> {
         let requests: Vec<&JsonRpcRequest> = requests.iter().collect();
         let responses = self._send_batch(&requests).await?;
 
@@ -87,7 +97,7 @@ impl WebserverClient {
     async fn _send_batch(
         &self,
         requests: &[&JsonRpcRequest],
-    ) -> Result<Vec<JsonRpcResponse>, WebserverClientError> {
+    ) -> WebserverClientResult<Vec<JsonRpcResponse>> {
         let token;
         {
             token = self.token().await?;
@@ -108,7 +118,7 @@ impl WebserverClient {
     async fn get_token(
         &self,
         request: GetTokenRequest,
-    ) -> Result<GetTokenResponse, WebserverClientError> {
+    ) -> WebserverClientResult<GetTokenResponse> {
         let http_request = isahc::Request::builder()
             .uri(self.token_url())
             .method(method::Method::POST)
@@ -243,7 +253,7 @@ impl TokenManager {
         }
     }
 
-    async fn refresh(&mut self, client: &WebserverClient) -> Result<(), WebserverClientError> {
+    async fn refresh(&mut self, client: &WebserverClient) -> WebserverClientResult<()> {
         trace!("refreshing webserver token");
         if self.token.is_none() {
             trace!("no token has been retrieved yet");
@@ -265,7 +275,7 @@ impl TokenManager {
     async fn force_refresh(
         &mut self,
         client: &WebserverClient,
-    ) -> Result<(), WebserverClientError> {
+    ) -> WebserverClientResult<()> {
         info!("forcing token refresh");
         let request = GetTokenRequest::new(self.key_name.clone(), self.key_value.clone());
 
