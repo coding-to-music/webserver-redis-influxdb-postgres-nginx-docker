@@ -10,6 +10,7 @@ use contracts::*;
 use database::{self as db, Database};
 use db::DatabaseError;
 use futures::future;
+use hmac::crypto_mac::InvalidKeyLength;
 use hyper::{body::Buf, Body, Request, Response};
 use mobc_redis::redis::RedisError;
 use queue::QueueMessage;
@@ -177,6 +178,11 @@ impl App {
                     Method::SearchShapesByTags => self
                         .shape_controller
                         .search_shapes_by_tags(request)
+                        .await
+                        .map(|result| JsonRpcResponse::success(result, id)),
+                    Method::GenerateSasKey => self
+                        .server_controller
+                        .generate_sas_key(request)
                         .await
                         .map(|result| JsonRpcResponse::success(result, id)),
                     unimplemented => Ok(JsonRpcResponse::error(
@@ -431,6 +437,10 @@ impl AppError {
     pub fn database_error() -> Self {
         Self::from(JsonRpcError::database_error())
     }
+
+    pub fn not_implemented() -> Self {
+        Self::from(JsonRpcError::not_implemented())
+    }
 }
 
 impl Display for AppError {
@@ -465,6 +475,12 @@ impl From<RedisError> for AppError {
 impl From<mobc_redis::mobc::Error<RedisError>> for AppError {
     fn from(e: mobc_redis::mobc::Error<RedisError>) -> Self {
         AppError::internal_error().with_context(&e)
+    }
+}
+
+impl From<InvalidKeyLength> for AppError {
+    fn from(e: InvalidKeyLength) -> Self {
+        AppError::invalid_request().with_context(&e)
     }
 }
 
