@@ -30,6 +30,8 @@ mod method_names {
     pub const DELETE_SHAPE_TAG: &str = "delete_shape_tag";
 
     pub const SLEEP: &str = "sleep";
+
+    pub const GENERATE_SAS_KEY: &str = "generate_sas_key";
 }
 
 pub mod error_codes {
@@ -82,27 +84,33 @@ pub enum Method {
 
     /// Tell the server to sleep
     Sleep,
+
+    /// Generate an SAS key
+    GenerateSasKey,
 }
 
 impl FromStr for Method {
     type Err = (); // any failure means the method simply doesn't exist
     fn from_str(s: &str) -> Result<Method, Self::Err> {
+        use method_names::*;
+        use Method::*;
         match s {
-            method_names::ADD_LIST_ITEM => Ok(Method::AddListItem),
-            method_names::GET_LIST_ITEMS => Ok(Method::GetListItems),
-            method_names::DELETE_LIST_ITEM => Ok(Method::DeleteListItem),
-            method_names::GET_LIST_TYPES => Ok(Method::GetListTypes),
-            method_names::RENAME_LIST_TYPE => Ok(Method::RenameListType),
-            method_names::SLEEP => Ok(Method::Sleep),
-            method_names::ADD_SHAPE => Ok(Method::AddShape),
-            method_names::ADD_SHAPES => Ok(Method::AddShapes),
-            method_names::GET_SHAPE => Ok(Method::GetShape),
-            method_names::GET_NEARBY_SHAPES => Ok(Method::GetNearbyShapes),
-            method_names::DELETE_SHAPE => Ok(Method::DeleteShape),
-            method_names::ADD_SHAPE_TAG => Ok(Method::AddShapeTag),
-            method_names::GET_SHAPE_TAGS => Ok(Method::GetShapeTags),
-            method_names::SEARCH_SHAPES_BY_TAGS => Ok(Method::SearchShapesByTags),
-            method_names::DELETE_SHAPE_TAG => Ok(Method::DeleteShapeTag),
+            ADD_LIST_ITEM => Ok(AddListItem),
+            GET_LIST_ITEMS => Ok(GetListItems),
+            DELETE_LIST_ITEM => Ok(DeleteListItem),
+            GET_LIST_TYPES => Ok(GetListTypes),
+            RENAME_LIST_TYPE => Ok(RenameListType),
+            ADD_SHAPE => Ok(AddShape),
+            ADD_SHAPES => Ok(AddShapes),
+            GET_SHAPE => Ok(GetShape),
+            GET_NEARBY_SHAPES => Ok(GetNearbyShapes),
+            DELETE_SHAPE => Ok(DeleteShape),
+            ADD_SHAPE_TAG => Ok(AddShapeTag),
+            GET_SHAPE_TAGS => Ok(GetShapeTags),
+            SEARCH_SHAPES_BY_TAGS => Ok(SearchShapesByTags),
+            DELETE_SHAPE_TAG => Ok(DeleteShapeTag),
+            SLEEP => Ok(Sleep),
+            GENERATE_SAS_KEY => Ok(GenerateSasKey),
             _ => Err(()),
         }
     }
@@ -110,22 +118,25 @@ impl FromStr for Method {
 
 impl Display for Method {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        use method_names::*;
+        use Method::*;
         let ouput = match self {
-            Method::AddListItem => method_names::ADD_LIST_ITEM,
-            Method::GetListItems => method_names::GET_LIST_ITEMS,
-            Method::DeleteListItem => method_names::DELETE_LIST_ITEM,
-            Method::GetListTypes => method_names::GET_LIST_TYPES,
-            Method::RenameListType => method_names::RENAME_LIST_TYPE,
-            Method::Sleep => method_names::SLEEP,
-            Method::AddShape => method_names::ADD_SHAPE,
-            Method::AddShapes => method_names::ADD_SHAPES,
-            Method::GetShape => method_names::GET_SHAPE,
-            Method::GetNearbyShapes => method_names::GET_NEARBY_SHAPES,
-            Method::DeleteShape => method_names::DELETE_SHAPE,
-            Method::AddShapeTag => method_names::ADD_SHAPE_TAG,
-            Method::GetShapeTags => method_names::GET_SHAPE_TAGS,
-            Method::DeleteShapeTag => method_names::DELETE_SHAPE_TAG,
-            Method::SearchShapesByTags => method_names::SEARCH_SHAPES_BY_TAGS,
+            AddListItem => ADD_LIST_ITEM,
+            GetListItems => GET_LIST_ITEMS,
+            DeleteListItem => DELETE_LIST_ITEM,
+            GetListTypes => GET_LIST_TYPES,
+            RenameListType => RENAME_LIST_TYPE,
+            Sleep => SLEEP,
+            AddShape => ADD_SHAPE,
+            AddShapes => ADD_SHAPES,
+            GetShape => GET_SHAPE,
+            GetNearbyShapes => GET_NEARBY_SHAPES,
+            DeleteShape => DELETE_SHAPE,
+            AddShapeTag => ADD_SHAPE_TAG,
+            GetShapeTags => GET_SHAPE_TAGS,
+            DeleteShapeTag => DELETE_SHAPE_TAG,
+            SearchShapesByTags => SEARCH_SHAPES_BY_TAGS,
+            GenerateSasKey => GENERATE_SAS_KEY,
         };
         write!(f, "{}", ouput)
     }
