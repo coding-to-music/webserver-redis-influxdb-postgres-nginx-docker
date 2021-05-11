@@ -1,6 +1,6 @@
 use crate::{
     controller::{ListItemController, ServerController, ShapeController},
-    notification::NotificationHandler,
+    notification::{self, NotificationHandler},
     redis::RedisPool,
     token::TokenHandler,
     Opts,
@@ -51,8 +51,13 @@ impl App {
             opts.jwt_secret.clone(),
         ));
 
-        let notification_handler =
-            Arc::new(NotificationHandler::new(notification_redis_pool.clone()));
+        let notification_handler = Arc::new(NotificationHandler::new(
+            notification::Config::new(
+                crate::get_required_env_var("WEBSERVER_REDIS_NOTIFICATION_CHANNEL_PREFIX"),
+                crate::get_required_env_var("WEBSERVER_REDIS_QUEUE_CHANNEL"),
+            ),
+            notification_redis_pool.clone(),
+        ));
 
         let list_controller = ListItemController::new(list_item_db);
         let shape_controller = ShapeController::new(shape_redis_pool.clone(), shape_db.clone());

@@ -1,4 +1,4 @@
-use crate::app::{AppError, AppResult};
+use crate::app::AppResult;
 use mobc_redis::{
     mobc::{Connection, Pool},
     redis::Client,
@@ -26,16 +26,12 @@ impl RedisPool {
     pub async fn get_connection(&self) -> AppResult<RedisConnection> {
         trace!("retrieving connection to Redis at '{}'", self.addr);
         let timer = time::Instant::now();
-        match self.pool.get().await {
-            Ok(conn) => {
-                info!(
-                    "retrieved connection to Redis at '{}' in {:?}",
-                    self.addr,
-                    timer.elapsed()
-                );
-                Ok(conn)
-            }
-            Err(e) => Err(AppError::from(e)),
-        }
+        let conn = self.pool.get().await?;
+        info!(
+            "retrieved connection to Redis at '{}' in {:?}",
+            self.addr,
+            timer.elapsed()
+        );
+        Ok(conn)
     }
 }

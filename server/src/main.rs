@@ -101,3 +101,7 @@ where
         .body(Body::from(b))
         .unwrap()
 }
+
+pub fn get_required_env_var(var_name: &str) -> String {
+    std::env::var(var_name).expect(&format!("missing environment variable: '{}'", var_name))
+}
