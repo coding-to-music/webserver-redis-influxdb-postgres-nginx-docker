@@ -3,7 +3,9 @@ use crate::{
     redis::RedisPool,
 };
 use contracts::JsonRpcError;
-use jsonwebtoken::{Algorithm, DecodingKey, EncodingKey, Header, Validation};
+use jsonwebtoken::{
+    errors::Error as JwtError, Algorithm, DecodingKey, EncodingKey, Header, Validation,
+};
 use mobc_redis::redis::AsyncCommands;
 use std::sync::Arc;
 
@@ -43,13 +45,13 @@ impl TokenHandler {
         }
     }
 
-    pub fn validate_token(&self, token: &str) -> Result<Claims, ()> {
+    pub fn validate_token(&self, token: &str) -> Result<Claims, JwtError> {
         let key = DecodingKey::from_secret(self.jwt_secret.as_bytes());
         match jsonwebtoken::decode(token, &key, &Validation::new(Algorithm::default())) {
             Ok(token_data) => Ok(token_data.claims),
             Err(e) => {
                 error!("failed to validate token with error: '{}'", e);
-                Err(())
+                Err(e)
             }
         }
     }

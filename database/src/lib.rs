@@ -61,9 +61,7 @@ impl Display for DatabaseError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let output = match self {
             DatabaseError::RusqliteError(e) => e.to_string(),
-            DatabaseError::NotAuthorized => {
-                format!("not authorized")
-            }
+            DatabaseError::NotAuthorized => "not authorized".to_string(),
         };
 
         write!(f, "{}", output)

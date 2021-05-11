@@ -26,7 +26,7 @@ impl ListItemController {
 
         let created_s = Utc::now().timestamp();
 
-        let new_item_id = params.id.unwrap_or_else(|| Uuid::new_v4());
+        let new_item_id = params.id.unwrap_or_else(Uuid::new_v4);
         let list_type = params.list_type;
         let item_name = params.item_name;
 
@@ -54,7 +54,7 @@ impl ListItemController {
 
         let list_items: Vec<ListItem> = list_items
             .into_iter()
-            .map(|li| ListItemWrapper::try_from(li).and_then(|w| Ok(w.0)))
+            .map(|li| ListItemWrapper::try_from(li).map(|w| w.0))
             .collect::<Result<_, _>>()?;
 
         Ok(MethodResult::new(list_items))

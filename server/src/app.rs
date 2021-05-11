@@ -47,7 +47,7 @@ impl App {
         let token_redis_pool = Arc::new(RedisPool::new(opts.token_redis_addr.clone()));
 
         let token_handler = Arc::new(TokenHandler::new(
-            token_redis_pool.clone(),
+            token_redis_pool,
             opts.jwt_secret.clone(),
         ));
 
@@ -56,11 +56,11 @@ impl App {
                 crate::get_required_env_var("WEBSERVER_REDIS_NOTIFICATION_CHANNEL_PREFIX"),
                 crate::get_required_env_var("WEBSERVER_REDIS_QUEUE_CHANNEL"),
             ),
-            notification_redis_pool.clone(),
+            notification_redis_pool,
         ));
 
         let list_controller = ListItemController::new(list_item_db);
-        let shape_controller = ShapeController::new(shape_redis_pool.clone(), shape_db.clone());
+        let shape_controller = ShapeController::new(shape_redis_pool, shape_db);
         let server_controller = ServerController::new();
 
         Self {
@@ -264,10 +264,12 @@ impl App {
                     .ok()
                     .map(|tok| tok.strip_prefix("Bearer "))
                     .flatten()
-                    .ok_or(AppError::from(
-                        JsonRpcError::invalid_request()
-                            .with_message("invalid 'Authorization' header"),
-                    ))?;
+                    .ok_or_else(|| {
+                        AppError::from(
+                            JsonRpcError::invalid_request()
+                                .with_message("invalid 'Authorization' header"),
+                        )
+                    })?;
 
                 self.token_handler.validate_token(token).map_err(|_| {
                     AppError::from(JsonRpcError::not_permitted().with_message("invalid token"))
@@ -308,7 +310,7 @@ impl App {
                         }
                     })
                     .collect();
-                results.into_iter().filter_map(|res| res).collect()
+                results.into_iter().flatten().collect()
             }
             Ok(_) => {
                 error!("request contains non-array JSON");

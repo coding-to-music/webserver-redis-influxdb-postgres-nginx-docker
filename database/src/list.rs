@@ -102,14 +102,16 @@ impl Database<ListItem> {
     }
 
     pub fn get_list_items(&self, list_type: &str) -> DatabaseResult<Vec<ListItem>> {
-        let db = self.get_connection()?;
+        // type inferrence doesn't seem to work in `query_map` below if we apply this lint
+        // so disable it to avoid useless warnings
+        #![allow(clippy::redundant_closure)]
 
+        let db = self.get_connection()?;
         let mut stmt = db.prepare(
             "SELECT id, list_type, item_name, created_s FROM list_item WHERE list_type = ?1",
         )?;
-
         let list_item_rows: Vec<_> = stmt
-            .query_map(params![list_type], |row| Ok(ListItem::try_from(row)?))?
+            .query_map(params![list_type], |row| ListItem::try_from(row))?
             .collect::<Result<_, _>>()?;
 
         Ok(list_item_rows)

@@ -1,3 +1,5 @@
+#![allow(clippy::new_without_default)]
+
 use app::{App, AppError};
 use hyper::{
     service::{make_service_fn, service_fn},
@@ -40,16 +42,20 @@ async fn main() {
 
     match env.as_str() {
         "prod" => {
-            dotenv::from_filename("prod.env").expect(&format!(
-                "prod.env not present in '{:?}'",
-                std::env::current_dir().unwrap()
-            ));
+            dotenv::from_filename("prod.env").unwrap_or_else(|_| {
+                panic!(
+                    "prod.env not present in '{:?}'",
+                    std::env::current_dir().unwrap()
+                )
+            });
         }
         "test" => {
-            dotenv::from_filename("test.env").expect(&format!(
-                "test.env not present in '{:?}'",
-                std::env::current_dir().unwrap()
-            ));
+            dotenv::from_filename("test.env").unwrap_or_else(|_| {
+                panic!(
+                    "test.env not present in '{:?}'",
+                    std::env::current_dir().unwrap()
+                )
+            });
         }
         invalid => panic!("invalid environment specified: '{}'", invalid),
     }
@@ -103,5 +109,6 @@ where
 }
 
 pub fn get_required_env_var(var_name: &str) -> String {
-    std::env::var(var_name).expect(&format!("missing environment variable: '{}'", var_name))
+    std::env::var(var_name)
+        .unwrap_or_else(|_| panic!("missing environment variable: '{}'", var_name))
 }

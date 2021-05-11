@@ -56,43 +56,25 @@ impl Coord {
 
 pub fn coordinates_in_geo(geom: &Geometry) -> Vec<Coord> {
     match &geom.value {
-        geojson::Value::Point(p) => {
-            let coords = vec![Coord::new(p[1], p[0])];
-            coords
-        }
-        geojson::Value::MultiPoint(mp) => {
-            let coords = mp.into_iter().map(|p| Coord::new(p[1], p[0])).collect();
-            coords
-        }
-        geojson::Value::LineString(ls) => {
-            let coords = ls.into_iter().map(|p| Coord::new(p[1], p[0])).collect();
-            coords
-        }
-        geojson::Value::MultiLineString(mls) => {
-            let coords = mls
-                .into_iter()
-                .flat_map(|ls| ls.into_iter().map(|p| Coord::new(p[1], p[0])))
-                .collect();
-            coords
-        }
-        geojson::Value::Polygon(poly) => {
-            let coords = poly
-                .into_iter()
-                .flat_map(|ls| ls.into_iter().map(|p| Coord::new(p[1], p[0])))
-                .collect();
-            coords
-        }
-        geojson::Value::MultiPolygon(m_poly) => {
-            let coords = m_poly
-                .into_iter()
-                .flatten()
-                .flatten()
-                .map(|p| Coord::new(p[1], p[0]))
-                .collect();
-            coords
-        }
+        geojson::Value::Point(p) => vec![Coord::new(p[1], p[0])],
+        geojson::Value::MultiPoint(mp) => mp.iter().map(|p| Coord::new(p[1], p[0])).collect(),
+        geojson::Value::LineString(ls) => ls.iter().map(|p| Coord::new(p[1], p[0])).collect(),
+        geojson::Value::MultiLineString(mls) => mls
+            .iter()
+            .flat_map(|ls| ls.iter().map(|p| Coord::new(p[1], p[0])))
+            .collect(),
+        geojson::Value::Polygon(poly) => poly
+            .iter()
+            .flat_map(|ls| ls.iter().map(|p| Coord::new(p[1], p[0])))
+            .collect(),
+        geojson::Value::MultiPolygon(m_poly) => m_poly
+            .iter()
+            .flatten()
+            .flatten()
+            .map(|p| Coord::new(p[1], p[0]))
+            .collect(),
         geojson::Value::GeometryCollection(g) => {
-            g.into_iter().flat_map(|g| coordinates_in_geo(&g)).collect()
+            g.iter().flat_map(|g| coordinates_in_geo(&g)).collect()
         }
     }
 }
@@ -110,13 +92,12 @@ impl From<Shape> for Feature {
         for (name, value) in s.tags {
             properties.insert(name, Value::String(value));
         }
-        let feature = Feature {
+        Feature {
             bbox: None,
             geometry: Some(s.geo),
             id: None,
             properties: Some(properties),
             foreign_members: None,
-        };
-        feature
+        }
     }
 }

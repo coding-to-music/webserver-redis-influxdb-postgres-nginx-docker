@@ -14,7 +14,7 @@ pub struct WebserverClient {
 }
 
 impl WebserverClient {
-    pub fn new(url: String, key_name: String, key_value: String) -> WebserverClientBuilder {
+    pub fn builder(url: String, key_name: String, key_value: String) -> WebserverClientBuilder {
         WebserverClientBuilder::new(url, key_name, key_value)
     }
 
@@ -78,7 +78,7 @@ impl WebserverClient {
         &self,
         requests: &[JsonRpcRequest],
     ) -> Result<Vec<JsonRpcResponse>, WebserverClientError> {
-        let requests: Vec<&JsonRpcRequest> = requests.iter().map(|r| r).collect();
+        let requests: Vec<&JsonRpcRequest> = requests.iter().collect();
         let responses = self._send_batch(&requests).await?;
 
         Ok(responses)

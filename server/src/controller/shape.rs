@@ -118,7 +118,7 @@ impl ShapeController {
         let ids: HashSet<_> = results
             .into_iter()
             .filter_map(|r| {
-                let parts: Vec<_> = r.name.split("_").collect();
+                let parts: Vec<_> = r.name.split('_').collect();
                 if parts.len() != 2 {
                     error!(
                         "failed to retrieve shape id from geo set member: '{}'",

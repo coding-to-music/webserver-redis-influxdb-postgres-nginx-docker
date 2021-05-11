@@ -25,26 +25,26 @@ impl Params {
         count: Option<usize>,
         distance_m: Option<u32>,
     ) -> Result<Self, InvalidParams> {
-        if lat < -90.0 || lat > 90.0 {
-            Err(InvalidParams::InvalidLatitude)?;
+        if !(-90.0..=90.0).contains(&lat) {
+            return Err(InvalidParams::InvalidLatitude);
         }
 
-        if lon < -180.0 || lon > 180.0 {
-            Err(InvalidParams::InvalidLongitude)?;
+        if (-180.0..=180.0).contains(&lon) {
+            return Err(InvalidParams::InvalidLongitude);
         }
 
         let count = match count {
-            Some(count) if count >= MIN_COUNT && count <= MAX_COUNT => count,
+            Some(count) if (MIN_COUNT..=MAX_COUNT).contains(&count) => count,
             None => DEFAULT_COUNT,
-            Some(_invalid) => Err(InvalidParams::InvalidCount)?,
+            Some(_invalid) => return Err(InvalidParams::InvalidCount),
         };
 
         let distance_m = match distance_m {
-            Some(distance_m) if distance_m >= MIN_DISTANCE_M && distance_m <= MAX_DISTANCE_M => {
+            Some(distance_m) if (MIN_DISTANCE_M..=MAX_DISTANCE_M).contains(&distance_m) => {
                 distance_m
             }
             None => DEFAULT_DISTANCE_M,
-            Some(_invalid) => Err(InvalidParams::InvalidDistance)?,
+            Some(_invalid) => return Err(InvalidParams::InvalidDistance),
         };
 
         Ok(Self {
@@ -82,10 +82,10 @@ impl Display for InvalidParams {
                 MIN_DISTANCE_M, MAX_DISTANCE_M
             ),
             InvalidParams::InvalidLatitude => {
-                format!("invalid lat, should be float in [-90, 90]")
+                "invalid lat, should be float in [-90, 90]".to_string()
             }
             InvalidParams::InvalidLongitude => {
-                format!("invalid lon, should be float in [-180, 180]")
+                "invalid lon, should be float in [-180, 180]".to_string()
             }
         };
 
@@ -110,8 +110,8 @@ impl ParamsBuilder {
 impl TryFrom<crate::JsonRpcRequest> for Params {
     type Error = InvalidParams;
     fn try_from(request: crate::JsonRpcRequest) -> Result<Self, Self::Error> {
-        let builder: ParamsBuilder = serde_json::from_value(request.params)
-            .map_err(InvalidParams::InvalidFormat)?;
+        let builder: ParamsBuilder =
+            serde_json::from_value(request.params).map_err(InvalidParams::InvalidFormat)?;
 
         builder.build()
     }

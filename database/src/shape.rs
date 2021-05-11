@@ -345,7 +345,7 @@ fn insert_shape(transaction: &Transaction, shape: &Shape) -> DatabaseResult<usiz
         }
         Err(e) => {
             error!("error inserting shape: '{}'", e);
-            Err(e)?
+             Err(e.into())
         }
     }
 }
@@ -387,7 +387,7 @@ fn insert_shape_tags(transaction: &Transaction, tags: &[&ShapeTag]) -> DatabaseR
         VALUES {}",
         values
     );
-    
+
     executing_query(&query);
 
     match transaction.execute(&query, tag_params) {
@@ -397,7 +397,7 @@ fn insert_shape_tags(transaction: &Transaction, tags: &[&ShapeTag]) -> DatabaseR
         }
         Err(e) => {
             error!("error inserting shape tags: '{}'", e);
-            Err(e)?
+            Err(e.into())
         }
     }
 }

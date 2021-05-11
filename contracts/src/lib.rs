@@ -1,3 +1,5 @@
+#![allow(clippy::new_without_default)]
+
 use serde::{de::DeserializeOwned, Serialize};
 use serde_json::Value;
 use std::{
@@ -185,30 +187,6 @@ pub struct JsonRpcRequestBuilder {
     id: Option<String>,
 }
 
-#[derive(Debug)]
-pub enum JsonRpcRequestBuilderError {
-    MissingMethod,
-    MissingParams,
-}
-
-impl Display for JsonRpcRequestBuilderError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let output = match self {
-            JsonRpcRequestBuilderError::MissingMethod => "missing 'method' property",
-            JsonRpcRequestBuilderError::MissingParams => "missing 'params' property",
-        };
-        write!(f, "{}", output)
-    }
-}
-
-impl From<JsonRpcRequestBuilderError> for String {
-    fn from(error: JsonRpcRequestBuilderError) -> Self {
-        format!("{}", error)
-    }
-}
-
-impl Error for JsonRpcRequestBuilderError {}
-
 impl JsonRpcRequestBuilder {
     pub fn new() -> Self {
         Self {
@@ -260,6 +238,30 @@ impl JsonRpcRequestBuilder {
         self
     }
 }
+
+#[derive(Debug)]
+pub enum JsonRpcRequestBuilderError {
+    MissingMethod,
+    MissingParams,
+}
+
+impl Display for JsonRpcRequestBuilderError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let output = match self {
+            JsonRpcRequestBuilderError::MissingMethod => "missing 'method' property",
+            JsonRpcRequestBuilderError::MissingParams => "missing 'params' property",
+        };
+        write!(f, "{}", output)
+    }
+}
+
+impl From<JsonRpcRequestBuilderError> for String {
+    fn from(error: JsonRpcRequestBuilderError) -> Self {
+        format!("{}", error)
+    }
+}
+
+impl Error for JsonRpcRequestBuilderError {}
 
 /// A JSONRPC response object. Contains _either_ a `result` (in case of success) or `error` (in case of failure).
 #[derive(serde::Serialize, serde::Deserialize, Debug, Clone)]
@@ -491,7 +493,7 @@ pub enum ErrorCode {
 
 impl ErrorCode {
     pub fn is_reserved(code: i32) -> bool {
-        code >= -32768 && code <= -32000
+        (-32768..=-32000).contains(&code)
     }
 }
 

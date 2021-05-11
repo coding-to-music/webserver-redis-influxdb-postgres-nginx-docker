@@ -28,7 +28,7 @@ impl Params {
             return Err(InvalidKeyValue);
         }
 
-        if weeks_expiry < 1 || weeks_expiry > 52 * 10 {
+        if !(1..=52 * 10).contains(&weeks_expiry) {
             return Err(InvalidWeeksExpiry);
         }
 

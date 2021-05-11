@@ -47,7 +47,7 @@ struct Runner {
 
 impl Runner {
     fn new(opts: Opts) -> Self {
-        let webserver_client = WebserverClient::new(
+        let webserver_client = WebserverClient::builder(
             opts.webserver_addr.clone(),
             opts.webserver_key_name.clone(),
             opts.webserver_key_value.clone(),

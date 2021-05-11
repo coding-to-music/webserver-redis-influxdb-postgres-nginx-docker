@@ -9,7 +9,7 @@ async fn main() {
     let key_name = args[2].clone();
     let key_value = args[3].clone();
 
-    let client = WebserverClient::new(url, key_name, key_value)
+    let client = WebserverClient::builder(url, key_name, key_value)
         .build()
         .unwrap();
 

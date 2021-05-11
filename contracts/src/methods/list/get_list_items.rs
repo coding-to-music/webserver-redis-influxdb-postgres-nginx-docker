@@ -34,8 +34,8 @@ impl ParamsBuilder {
 impl TryFrom<crate::JsonRpcRequest> for Params {
     type Error = InvalidParams;
     fn try_from(request: crate::JsonRpcRequest) -> Result<Self, Self::Error> {
-        let builder: ParamsBuilder = serde_json::from_value(request.params)
-            .map_err(InvalidParams::InvalidFormat)?;
+        let builder: ParamsBuilder =
+            serde_json::from_value(request.params).map_err(InvalidParams::InvalidFormat)?;
 
         builder.build()
     }
@@ -56,7 +56,7 @@ impl Display for InvalidParams {
                 crate::invalid_params_serde_message(&serde_error)
             }
             InvalidParams::ListTypeEmptyOrWhitespace => {
-                format!("'list_type' can not be empty or whitespace")
+                "'list_type' can not be empty or whitespace".to_string()
             }
         };
 
