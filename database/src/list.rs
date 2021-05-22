@@ -1,8 +1,7 @@
-use std::convert::TryFrom;
-
 use crate::{Database, DatabaseResult, InsertionResult};
 use chrono::{DateTime, TimeZone, Utc};
 use rusqlite::{params, Row};
+use std::convert::TryFrom;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 #[non_exhaustive]
