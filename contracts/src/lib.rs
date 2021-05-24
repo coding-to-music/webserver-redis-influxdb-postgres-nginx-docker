@@ -177,6 +177,10 @@ impl JsonRpcRequest {
             id,
         }
     }
+
+    pub fn is_notification(&self) -> bool {
+        self.id.is_none()
+    }
 }
 
 #[derive(Debug)]
