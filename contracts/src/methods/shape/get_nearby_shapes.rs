@@ -128,3 +128,26 @@ impl MethodResult {
         Self { shape }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn params_test() {
+        let valids = [
+            Params::new(59.36206482032117, 17.971068620681763, None, None),
+            Params::new(59.36206482032117, -175.971068620681763, Some(50), None),
+            Params::new(59.36206482032117, -175.971068620681763, None, Some(500)),
+        ];
+        for valid in &valids {
+            assert!(valid.is_ok(), "{:?}", valid);
+        }
+
+        let invalids = [Params::new(-150.0, 17.5, None, None)];
+
+        for invalid in &invalids {
+            assert!(invalid.is_err(), "{:?}", invalid);
+        }
+    }
+}
