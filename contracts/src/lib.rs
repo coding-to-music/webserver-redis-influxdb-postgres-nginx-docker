@@ -12,7 +12,6 @@ use std::{
 pub use methods::*;
 
 mod methods;
-pub mod queue;
 
 mod method_names {
     pub const ADD_LIST_ITEM: &str = "add_list_item";

@@ -3,21 +3,26 @@ use crate::{
     redis::RedisPool,
     Opts,
 };
+use chrono::Utc;
 use contracts::*;
 use database::{self as db, Database};
-use db::DatabaseError;
+use db::{DatabaseError, Request as DbRequest, RequestLog as DbRequestLog, Response as DbResponse};
 use hmac::crypto_mac::InvalidKeyLength;
 use mobc_redis::redis::RedisError;
 use std::{
+    convert::TryFrom,
     error::Error,
     fmt::{Debug, Display},
     str::FromStr,
     sync::Arc,
 };
+use uuid::Uuid;
 
 pub type AppResult<T> = Result<T, AppError>;
 
 pub struct App {
+    opts: Opts,
+    request_log_db: Arc<Database<DbRequestLog>>,
     list_controller: ListItemController,
     shape_controller: ShapeController,
     server_controller: ServerController,
@@ -25,11 +30,11 @@ pub struct App {
 
 impl App {
     pub fn new(opts: Opts) -> Self {
-        let list_item_db: Arc<Database<db::ListItem>> =
-            Arc::new(Database::new(opts.database_path.clone()));
+        let list_item_db = Arc::new(Database::new(opts.database_path.clone()));
 
-        let shape_db: Arc<Database<db::Shape>> =
-            Arc::new(Database::new(opts.database_path.clone()));
+        let shape_db = Arc::new(Database::new(opts.database_path.clone()));
+
+        let request_log_db = Arc::new(Database::new(opts.database_path.clone()));
 
         let shape_redis_pool = Arc::new(RedisPool::new(opts.shape_redis_addr.clone()));
 
@@ -38,6 +43,8 @@ impl App {
         let server_controller = ServerController::new();
 
         Self {
+            opts,
+            request_log_db,
             list_controller,
             shape_controller,
             server_controller,
@@ -48,6 +55,8 @@ impl App {
     pub async fn handle_single(&self, request: JsonRpcRequest) -> JsonRpcResponse {
         let timer = std::time::Instant::now();
         let id = request.id.clone();
+        let request_log_clone = request.clone();
+        let request_ts_s = Utc::now().timestamp();
 
         let method = request.method.to_owned();
         info!(
@@ -148,7 +157,7 @@ impl App {
             id, method, elapsed
         );
 
-        let (response, _context) = match result {
+        let (response, error_context) = match result {
             Ok(ok) => (ok, None),
             Err(err) => match &err.context {
                 Some(context) => {
@@ -162,7 +171,64 @@ impl App {
             },
         };
 
+        self.save_request_log(
+            request_log_clone,
+            request_ts_s,
+            &response,
+            error_context,
+            elapsed.as_millis() as i64,
+        );
+
         response
+    }
+
+    fn save_request_log(
+        &self,
+        request: JsonRpcRequest,
+        request_ts_s: i64,
+        response: &JsonRpcResponse,
+        error_context: Option<String>,
+        duration_ms: i64,
+    ) {
+        if !self.opts.publish_request_log {
+            return;
+        }
+
+        let id = Uuid::new_v4().to_string();
+        let db_request = match DbRequestWrapper::try_from((request, request_ts_s)) {
+            Ok(ok) => ok.0,
+            Err(e) => {
+                error!("{}", e);
+                return;
+            }
+        };
+        let db_response = match DbResponseWrapper::try_from(response) {
+            Ok(ok) => ok.0,
+            Err(err) => {
+                error!("{}", err);
+                return;
+            }
+        };
+        let created_s = Utc::now().timestamp();
+
+        let db = self.request_log_db.clone();
+        tokio::spawn(async move {
+            match db.insert_log(&DbRequestLog::new(
+                id,
+                db_request,
+                db_response,
+                error_context,
+                duration_ms,
+                created_s,
+            )) {
+                Ok(ok) => {
+                    info!("successfully inserted request log with result: '{:?}'", ok);
+                }
+                Err(err) => {
+                    error!("failed to insert request log with error: '{:?}'", err);
+                }
+            }
+        });
     }
 }
 
@@ -258,5 +324,42 @@ where
         AppError::invalid_params()
             .with_message(&err.to_string())
             .with_context(&err)
+    }
+}
+
+struct DbRequestWrapper(DbRequest);
+
+impl TryFrom<(JsonRpcRequest, i64)> for DbRequestWrapper {
+    type Error = String;
+
+    fn try_from((request, ts_s): (JsonRpcRequest, i64)) -> Result<Self, Self::Error> {
+        let id = request.id;
+        let method = request.method;
+        let params = serde_json::to_string(&request.params)
+            .map_err(|_| "failed to serialize params".to_string())?;
+        Ok(DbRequestWrapper(DbRequest::new(id, method, params, ts_s)))
+    }
+}
+
+struct DbResponseWrapper(DbResponse);
+
+impl TryFrom<&JsonRpcResponse> for DbResponseWrapper {
+    type Error = String;
+
+    fn try_from(value: &JsonRpcResponse) -> Result<Self, Self::Error> {
+        let (result, error) = match value.kind() {
+            ResponseKind::Success(s) => (
+                Some(serde_json::to_string(s).map_err(|e| e.to_string())),
+                None,
+            ),
+            ResponseKind::Error(e) => (
+                None,
+                Some(serde_json::to_string(e).map_err(|e| e.to_string())),
+            ),
+        };
+        let result = result.transpose()?;
+        let error = error.transpose()?;
+
+        Ok(DbResponseWrapper(DbResponse::new(result, error)))
     }
 }

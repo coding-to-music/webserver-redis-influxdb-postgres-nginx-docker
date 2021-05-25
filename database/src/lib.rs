@@ -10,11 +10,11 @@ use std::{fmt::Display, marker::PhantomData};
 extern crate log;
 
 mod list;
-mod queue;
+mod server;
 mod shape;
 
 pub use list::*;
-pub use queue::*;
+pub use server::*;
 pub use shape::*;
 
 pub type DatabaseResult<T> = Result<T, DatabaseError>;

@@ -17,7 +17,6 @@ use token::TokenHandler;
 
 pub mod app;
 pub mod controller;
-pub mod notification;
 pub mod redis;
 pub mod token;
 
