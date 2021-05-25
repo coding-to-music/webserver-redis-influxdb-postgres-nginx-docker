@@ -29,7 +29,7 @@ impl Params {
             return Err(InvalidParams::InvalidLatitude);
         }
 
-        if (-180.0..=180.0).contains(&lon) {
+        if !(-180.0..=180.0).contains(&lon) {
             return Err(InvalidParams::InvalidLongitude);
         }
 
