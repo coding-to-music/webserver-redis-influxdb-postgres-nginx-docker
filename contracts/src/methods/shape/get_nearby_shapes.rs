@@ -1,5 +1,10 @@
 use super::Shape;
-use std::{convert::TryFrom, error::Error, fmt::Display};
+use crate::JsonRpcRequest;
+use std::{
+    convert::{TryFrom, TryInto},
+    error::Error,
+    fmt::Display,
+};
 
 const MIN_COUNT: usize = 1;
 const MAX_COUNT: usize = 100;
@@ -7,9 +12,13 @@ const DEFAULT_COUNT: usize = 10;
 const MIN_DISTANCE_M: u32 = 1;
 const MAX_DISTANCE_M: u32 = 500;
 const DEFAULT_DISTANCE_M: u32 = 100;
+const MIN_LATITUDE: f64 = -90.0;
+const MAX_LATITUDE: f64 = 90.0;
+const MIN_LONGITUDE: f64 = -180.0;
+const MAX_LONGITUDE: f64 = 180.0;
 
-#[derive(Clone, Debug, serde::Serialize)]
-#[serde(try_from = "GetNearbyShapesParamsBuilder")]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+#[serde(try_from = "ParamsBuilder")]
 #[non_exhaustive]
 pub struct Params {
     pub lat: f64,
@@ -25,11 +34,11 @@ impl Params {
         count: Option<usize>,
         distance_m: Option<u32>,
     ) -> Result<Self, InvalidParams> {
-        if !(-90.0..=90.0).contains(&lat) {
+        if !(MIN_LATITUDE..=MAX_LATITUDE).contains(&lat) {
             return Err(InvalidParams::InvalidLatitude);
         }
 
-        if !(-180.0..=180.0).contains(&lon) {
+        if !(MIN_LONGITUDE..=MAX_LONGITUDE).contains(&lon) {
             return Err(InvalidParams::InvalidLongitude);
         }
 
@@ -53,6 +62,24 @@ impl Params {
             count,
             distance_m,
         })
+    }
+}
+
+impl TryFrom<JsonRpcRequest> for Params {
+    type Error = InvalidParams;
+    fn try_from(request: JsonRpcRequest) -> Result<Self, Self::Error> {
+        let builder: ParamsBuilder =
+            serde_json::from_value(request.params).map_err(InvalidParams::InvalidFormat)?;
+
+        builder.try_into()
+    }
+}
+
+impl TryFrom<ParamsBuilder> for Params {
+    type Error = InvalidParams;
+
+    fn try_from(builder: ParamsBuilder) -> Result<Self, Self::Error> {
+        Self::new(builder.lat, builder.lon, builder.count, builder.distance_m)
     }
 }
 
@@ -82,10 +109,16 @@ impl Display for InvalidParams {
                 MIN_DISTANCE_M, MAX_DISTANCE_M
             ),
             InvalidParams::InvalidLatitude => {
-                "invalid lat, should be float in [-90, 90]".to_string()
+                format!(
+                    "invalid lat, should be float in [{}, {}]",
+                    MIN_LATITUDE, MAX_LATITUDE
+                )
             }
             InvalidParams::InvalidLongitude => {
-                "invalid lon, should be float in [-180, 180]".to_string()
+                format!(
+                    "invalid lon, should be float in [{}, {}]",
+                    MIN_LONGITUDE, MAX_LONGITUDE
+                )
             }
         };
 
@@ -99,22 +132,6 @@ struct ParamsBuilder {
     lon: f64,
     count: Option<usize>,
     distance_m: Option<u32>,
-}
-
-impl ParamsBuilder {
-    fn build(self) -> Result<Params, InvalidParams> {
-        Params::new(self.lat, self.lon, self.count, self.distance_m)
-    }
-}
-
-impl TryFrom<crate::JsonRpcRequest> for Params {
-    type Error = InvalidParams;
-    fn try_from(request: crate::JsonRpcRequest) -> Result<Self, Self::Error> {
-        let builder: ParamsBuilder =
-            serde_json::from_value(request.params).map_err(InvalidParams::InvalidFormat)?;
-
-        builder.build()
-    }
 }
 
 #[derive(serde::Serialize, serde::Deserialize, Debug, Clone)]
@@ -149,5 +166,17 @@ mod tests {
         for invalid in &invalids {
             assert!(invalid.is_err(), "{:?}", invalid);
         }
+    }
+
+    #[test]
+    fn deser() {
+        let json = r#"
+        {
+            "lon": 17.971068620681763,
+            "lat": 59.36206482032117
+        }
+        "#;
+        let params = serde_json::from_str::<Params>(&json);
+        assert!(params.is_ok(), "{:?}", params);
     }
 }

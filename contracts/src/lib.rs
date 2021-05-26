@@ -574,3 +574,7 @@ impl GetTokenResponse {
 fn invalid_params_serde_message(err: &serde_json::Error) -> String {
     format!("invalid format of params object: '{}'", err)
 }
+
+fn generic_invalid_value_message(name: &str) -> String {
+    format!("invalid value of '{}'", name)
+}

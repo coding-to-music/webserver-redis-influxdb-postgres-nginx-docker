@@ -1,5 +1,9 @@
 use crate::JsonRpcRequest;
-use std::{convert::TryFrom, error::Error, fmt::Display};
+use std::{
+    convert::{TryFrom, TryInto},
+    error::Error,
+    fmt::Display,
+};
 
 #[derive(Clone, Debug, serde::Serialize)]
 #[non_exhaustive]
@@ -41,25 +45,6 @@ impl Params {
     }
 }
 
-#[derive(serde::Deserialize)]
-struct ParamsBuilder {
-    pub key_name: String,
-    pub key_value: String,
-    pub resource_uri: String,
-    pub weeks_expiry: u32,
-}
-
-impl ParamsBuilder {
-    fn build(self) -> Result<Params, InvalidParams> {
-        Params::new(
-            self.key_name,
-            self.key_value,
-            self.resource_uri,
-            self.weeks_expiry,
-        )
-    }
-}
-
 impl TryFrom<JsonRpcRequest> for Params {
     type Error = InvalidParams;
 
@@ -67,8 +52,29 @@ impl TryFrom<JsonRpcRequest> for Params {
         let builder: ParamsBuilder =
             serde_json::from_value(value.params).map_err(Self::Error::InvalidFormat)?;
 
-        builder.build()
+        builder.try_into()
     }
+}
+
+impl TryFrom<ParamsBuilder> for Params {
+    type Error = InvalidParams;
+
+    fn try_from(builder: ParamsBuilder) -> Result<Self, Self::Error> {
+        Self::new(
+            builder.key_name,
+            builder.key_value,
+            builder.resource_uri,
+            builder.weeks_expiry,
+        )
+    }
+}
+
+#[derive(serde::Deserialize)]
+struct ParamsBuilder {
+    key_name: String,
+    key_value: String,
+    resource_uri: String,
+    weeks_expiry: u32,
 }
 
 #[derive(Debug)]
@@ -87,9 +93,11 @@ impl Display for InvalidParams {
             InvalidParams::InvalidFormat(serde_error) => {
                 crate::invalid_params_serde_message(&serde_error)
             }
-            InvalidParams::InvalidWeeksExpiry => "invalid value of 'weeks_expiry'".to_string(),
-            InvalidParams::InvalidKeyName => "invalid value of 'key_name'".to_string(),
-            InvalidParams::InvalidKeyValue => "invalid value of 'key_value'".to_string(),
+            InvalidParams::InvalidWeeksExpiry => {
+                crate::generic_invalid_value_message("weeks_expiry")
+            }
+            InvalidParams::InvalidKeyName => crate::generic_invalid_value_message("key_name"),
+            InvalidParams::InvalidKeyValue => crate::generic_invalid_value_message("key_value"),
         };
 
         write!(f, "{}", output)

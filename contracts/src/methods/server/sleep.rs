@@ -1,7 +1,12 @@
 use crate::JsonRpcRequest;
-use std::{convert::TryFrom, error::Error, fmt::Display};
+use std::{
+    convert::{TryFrom, TryInto},
+    error::Error,
+    fmt::Display,
+};
 
-#[derive(Clone, Debug, serde::Serialize)]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+#[serde(try_from = "ParamsBuilder")]
 #[non_exhaustive]
 pub struct Params {
     pub ms: u64,
@@ -17,17 +22,6 @@ impl Params {
     }
 }
 
-#[derive(serde::Deserialize)]
-struct ParamsBuilder {
-    pub ms: u64,
-}
-
-impl ParamsBuilder {
-    fn build(self) -> Result<Params, InvalidParams> {
-        Params::new(self.ms)
-    }
-}
-
 impl TryFrom<JsonRpcRequest> for Params {
     type Error = InvalidParams;
 
@@ -35,8 +29,21 @@ impl TryFrom<JsonRpcRequest> for Params {
         let builder: ParamsBuilder =
             serde_json::from_value(value.params).map_err(Self::Error::InvalidFormat)?;
 
-        builder.build()
+        builder.try_into()
     }
+}
+
+impl TryFrom<ParamsBuilder> for Params {
+    type Error = InvalidParams;
+
+    fn try_from(builder: ParamsBuilder) -> Result<Self, Self::Error> {
+        Self::new(builder.ms)
+    }
+}
+
+#[derive(serde::Deserialize)]
+struct ParamsBuilder {
+    pub ms: u64,
 }
 
 #[derive(Debug)]
@@ -53,7 +60,7 @@ impl Display for InvalidParams {
             InvalidParams::InvalidFormat(serde_error) => {
                 crate::invalid_params_serde_message(&serde_error)
             }
-            InvalidParams::InvalidDuration => "'duration' has an invalid value".to_string(),
+            InvalidParams::InvalidDuration => crate::generic_invalid_value_message("duration"),
         };
 
         write!(f, "{}", output)

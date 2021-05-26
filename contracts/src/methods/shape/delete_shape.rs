@@ -1,5 +1,9 @@
 use crate::JsonRpcRequest;
-use std::{convert::TryFrom, error::Error, fmt::Display};
+use std::{
+    convert::{TryFrom, TryInto},
+    error::Error,
+    fmt::Display,
+};
 use uuid::Uuid;
 
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
@@ -15,11 +19,6 @@ impl Params {
     }
 }
 
-#[derive(Clone, Debug, serde::Deserialize)]
-struct ParamsBuilder {
-    id: Uuid,
-}
-
 impl TryFrom<ParamsBuilder> for Params {
     type Error = InvalidParams;
 
@@ -32,8 +31,16 @@ impl TryFrom<JsonRpcRequest> for Params {
     type Error = InvalidParams;
 
     fn try_from(value: JsonRpcRequest) -> Result<Self, Self::Error> {
-        serde_json::from_value(value.params).map_err(InvalidParams::InvalidFormat)
+        let builder: ParamsBuilder =
+            serde_json::from_value(value.params).map_err(InvalidParams::InvalidFormat)?;
+        
+        builder.try_into()
     }
+}
+
+#[derive(Clone, Debug, serde::Deserialize)]
+struct ParamsBuilder {
+    id: Uuid,
 }
 
 #[derive(Debug)]

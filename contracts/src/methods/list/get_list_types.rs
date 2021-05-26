@@ -1,7 +1,12 @@
 use crate::JsonRpcRequest;
-use std::{convert::TryFrom, error::Error, fmt::Display};
+use std::{
+    convert::{TryFrom, TryInto},
+    error::Error,
+    fmt::Display,
+};
 
-#[derive(Debug, Clone, serde::Serialize)]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+#[serde(try_from = "ParamsBuilder")]
 #[non_exhaustive]
 pub struct Params {}
 
@@ -11,25 +16,27 @@ impl Params {
     }
 }
 
-#[derive(serde::Deserialize)]
-struct ParamsBuilder {}
-
-impl ParamsBuilder {
-    fn build(self) -> Result<Params, InvalidParams> {
-        Ok(Params::new())
-    }
-}
-
 impl TryFrom<JsonRpcRequest> for Params {
     type Error = InvalidParams;
 
     fn try_from(request: JsonRpcRequest) -> Result<Self, Self::Error> {
-        let builder: ParamsBuilder = serde_json::from_value(request.params)
-            .map_err(InvalidParams::InvalidFormat)?;
+        let builder: ParamsBuilder =
+            serde_json::from_value(request.params).map_err(InvalidParams::InvalidFormat)?;
 
-        builder.build()
+        builder.try_into()
     }
 }
+
+impl TryFrom<ParamsBuilder> for Params {
+    type Error = InvalidParams;
+
+    fn try_from(_: ParamsBuilder) -> Result<Self, Self::Error> {
+        Ok(Self::new())
+    }
+}
+
+#[derive(serde::Deserialize)]
+struct ParamsBuilder {}
 
 #[derive(Debug)]
 pub enum InvalidParams {

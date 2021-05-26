@@ -1,37 +1,46 @@
 use super::Shape;
-use std::{convert::TryFrom, error::Error, fmt::Display};
+use crate::JsonRpcRequest;
+use std::{
+    convert::{TryFrom, TryInto},
+    error::Error,
+    fmt::Display,
+};
 
-#[derive(Clone, Debug, serde::Serialize)]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+#[serde(try_from = "ParamsBuilder")]
 #[non_exhaustive]
 pub struct Params {
     pub shape: Shape,
 }
 
 impl Params {
-    pub fn new(shape: Shape) -> Self {
-        Self { shape }
+    pub fn new(shape: Shape) -> Result<Self, InvalidParams> {
+        Ok(Self { shape })
+    }
+}
+
+impl TryFrom<JsonRpcRequest> for Params {
+    type Error = InvalidParams;
+
+    fn try_from(request: JsonRpcRequest) -> Result<Self, Self::Error> {
+        let builder: ParamsBuilder =
+            serde_json::from_value(request.params).map_err(InvalidParams::InvalidFormat)?;
+
+        builder.try_into()
+    }
+}
+
+impl TryFrom<ParamsBuilder> for Params {
+    type Error = InvalidParams;
+
+    fn try_from(builder: ParamsBuilder) -> Result<Self, Self::Error> {
+        Params::new(builder.shape)
     }
 }
 
 #[derive(serde::Deserialize)]
 struct ParamsBuilder {
     shape: Shape,
-}
-
-impl ParamsBuilder {
-    fn build(self) -> Result<Params, InvalidParams> {
-        Ok(Params::new(self.shape))
-    }
-}
-
-impl TryFrom<crate::JsonRpcRequest> for Params {
-    type Error = InvalidParams;
-    fn try_from(request: crate::JsonRpcRequest) -> Result<Self, Self::Error> {
-        let builder: ParamsBuilder =
-            serde_json::from_value(request.params).map_err(InvalidParams::InvalidFormat)?;
-
-        builder.build()
-    }
 }
 
 #[derive(Debug)]

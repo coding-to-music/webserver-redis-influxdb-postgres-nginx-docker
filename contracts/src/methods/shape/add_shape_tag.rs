@@ -1,7 +1,13 @@
-use std::{convert::TryFrom, error::Error, fmt::Display};
+use crate::JsonRpcRequest;
+use std::{
+    convert::{TryFrom, TryInto},
+    error::Error,
+    fmt::Display,
+};
 use uuid::Uuid;
 
-#[derive(Clone, Debug, serde::Serialize)]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+#[serde(try_from = "ParamsBuilder")]
 #[non_exhaustive]
 pub struct Params {
     pub shape_id: Uuid,
@@ -32,6 +38,24 @@ impl Params {
     }
 }
 
+impl TryFrom<JsonRpcRequest> for Params {
+    type Error = InvalidParams;
+    fn try_from(request: JsonRpcRequest) -> Result<Self, Self::Error> {
+        let builder: ParamsBuilder =
+            serde_json::from_value(request.params).map_err(InvalidParams::InvalidFormat)?;
+
+        builder.try_into()
+    }
+}
+
+impl TryFrom<ParamsBuilder> for Params {
+    type Error = InvalidParams;
+
+    fn try_from(builder: ParamsBuilder) -> Result<Self, Self::Error> {
+        Params::new(builder.shape_id, builder.name, builder.value)
+    }
+}
+
 #[derive(Debug)]
 pub enum InvalidParams {
     InvalidFormat(serde_json::Error),
@@ -45,8 +69,8 @@ impl Display for InvalidParams {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let output = match self {
             InvalidParams::InvalidFormat(e) => crate::invalid_params_serde_message(e),
-            InvalidParams::InvalidName => "invalid tag name".to_string(),
-            InvalidParams::InvalidValue => "invalid tag value".to_string(),
+            InvalidParams::InvalidName => crate::generic_invalid_value_message("name"),
+            InvalidParams::InvalidValue => crate::generic_invalid_value_message("value"),
         };
 
         write!(f, "{}", output)
@@ -58,22 +82,6 @@ struct ParamsBuilder {
     shape_id: Uuid,
     name: String,
     value: String,
-}
-
-impl ParamsBuilder {
-    fn build(self) -> Result<Params, InvalidParams> {
-        Params::new(self.shape_id, self.name, self.value)
-    }
-}
-
-impl TryFrom<crate::JsonRpcRequest> for Params {
-    type Error = InvalidParams;
-    fn try_from(request: crate::JsonRpcRequest) -> Result<Self, Self::Error> {
-        let builder: ParamsBuilder =
-            serde_json::from_value(request.params).map_err(InvalidParams::InvalidFormat)?;
-
-        builder.build()
-    }
 }
 
 #[derive(serde::Serialize, serde::Deserialize, Debug, Clone)]
