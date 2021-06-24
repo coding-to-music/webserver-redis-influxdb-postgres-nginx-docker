@@ -17,8 +17,8 @@ pub struct Params {
 }
 
 impl Params {
-    pub fn new(id: Uuid, geojson: Option<bool>) -> Result<Self, InvalidParams> {
-        Ok(Self { id, geojson })
+    pub fn new(id: Uuid, geojson: Option<bool>) -> Self {
+        Self { id, geojson }
     }
 }
 
@@ -36,7 +36,7 @@ impl TryFrom<ParamsBuilder> for Params {
     type Error = InvalidParams;
 
     fn try_from(builder: ParamsBuilder) -> Result<Self, Self::Error> {
-        Self::new(builder.id, builder.geojson)
+        Ok(Self::new(builder.id, builder.geojson))
     }
 }
 

@@ -13,6 +13,8 @@ pub struct Params {
 }
 
 impl Params {
+    /// ## Error
+    /// * If `ms` is greater than 10,000.
     pub fn new(ms: u64) -> Result<Self, InvalidParams> {
         if ms > 10_000 {
             Err(InvalidParams::InvalidDuration)

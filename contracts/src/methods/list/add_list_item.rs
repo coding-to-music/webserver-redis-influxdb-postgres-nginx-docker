@@ -16,6 +16,9 @@ pub struct Params {
 }
 
 impl Params {
+    /// ## Error
+    /// * If `list_type` is empty or whitespace.
+    /// * If `list_name` is empty or whitespace.
     pub fn new(
         id: Option<Uuid>,
         list_type: String,

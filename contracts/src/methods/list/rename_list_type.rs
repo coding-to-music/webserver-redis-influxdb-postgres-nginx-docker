@@ -14,6 +14,9 @@ pub struct Params {
 }
 
 impl Params {
+    /// ## Error
+    /// * If `old_name` is empty or whitespace.
+    /// * If `new_name` is empty or whitespace.
     pub fn new(old_name: String, new_name: String) -> Result<Self, InvalidParams> {
         let old_trimmed = old_name.trim().to_owned();
         let new_trimmed = new_name.trim().to_owned();

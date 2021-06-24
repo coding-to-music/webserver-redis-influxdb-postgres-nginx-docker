@@ -15,6 +15,11 @@ pub struct Params {
 }
 
 impl Params {
+    /// ## Error
+    /// * If `key_name` is empty or whitespace.
+    /// * If `key_value` is empty or whitespace.
+    /// * If `resource_uri` is empty or whitespace.
+    /// * If `weeks_expiry` is outside the range (1..=520).
     pub fn new(
         key_name: String,
         key_value: String,

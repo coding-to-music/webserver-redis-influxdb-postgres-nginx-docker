@@ -16,6 +16,9 @@ pub struct Params {
 }
 
 impl Params {
+    /// ## Error
+    /// * If `name` is empty or whitespace.
+    /// * If `value` is empty or whitespace.
     pub fn new(shape_id: Uuid, name: String, value: String) -> Result<Self, InvalidParams> {
         let trimmed_name = name.trim();
         if trimmed_name.is_empty() {

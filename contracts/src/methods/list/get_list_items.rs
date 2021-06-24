@@ -14,6 +14,8 @@ pub struct Params {
 }
 
 impl Params {
+    /// ## Error
+    /// * If `list_type` is empty or whitespace.
     pub fn new(list_type: String) -> Result<Self, InvalidParams> {
         let trimmed = list_type.trim();
         if trimmed.is_empty() {

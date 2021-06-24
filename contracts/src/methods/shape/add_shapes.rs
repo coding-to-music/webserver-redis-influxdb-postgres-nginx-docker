@@ -14,8 +14,8 @@ pub struct Params {
 }
 
 impl Params {
-    pub fn new(shapes: Vec<Shape>) -> Result<Self, InvalidParams> {
-        Ok(Self { shapes })
+    pub fn new(shapes: Vec<Shape>) -> Self {
+        Self { shapes }
     }
 }
 
@@ -34,7 +34,7 @@ impl TryFrom<ParamsBuilder> for Params {
     type Error = InvalidParams;
 
     fn try_from(builder: ParamsBuilder) -> Result<Self, Self::Error> {
-        Self::new(builder.shapes)
+        Ok(Self::new(builder.shapes))
     }
 }
 

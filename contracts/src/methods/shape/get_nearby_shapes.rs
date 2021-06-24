@@ -28,6 +28,11 @@ pub struct Params {
 }
 
 impl Params {
+    /// ## Error
+    /// * If `lat` is an invalid latitude.
+    /// * If `lon` is an invalid longitude.
+    /// * If `count` is outside the range (1..=100).
+    /// * If `distance_m` is outside the range (1..=500).
     pub fn new(
         lat: f64,
         lon: f64,

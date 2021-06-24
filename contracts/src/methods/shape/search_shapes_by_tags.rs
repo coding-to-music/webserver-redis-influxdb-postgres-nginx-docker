@@ -15,8 +15,8 @@ pub struct Params {
 }
 
 impl Params {
-    pub fn new(or: Vec<HashMap<String, String>>) -> Result<Self, InvalidParams> {
-        Ok(Self { or })
+    pub fn new(or: Vec<HashMap<String, String>>) -> Self {
+        Self { or }
     }
 }
 
@@ -24,7 +24,7 @@ impl TryFrom<ParamsBuilder> for Params {
     type Error = InvalidParams;
 
     fn try_from(builder: ParamsBuilder) -> Result<Self, Self::Error> {
-        Self::new(builder.or)
+        Ok(Self::new(builder.or))
     }
 }
 
