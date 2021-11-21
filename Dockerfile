@@ -6,4 +6,4 @@ COPY . .
 
 RUN cargo install --path ./server
 
-CMD ["./server"]
+CMD ["cargo run --release server"]
