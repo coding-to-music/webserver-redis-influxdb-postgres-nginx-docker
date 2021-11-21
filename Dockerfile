@@ -1,8 +1,9 @@
 FROM rust:1.56
 
-WORKDIR /usr/ijagb/webserver
+WORKDIR /usr/src
+
 COPY . .
 
-RUN cargo install --path .
+RUN cargo install --path ./server
 
-CMD ["webserver"]
+CMD ["./server"]
