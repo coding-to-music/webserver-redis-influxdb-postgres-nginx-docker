@@ -1,9 +1,19 @@
-FROM rust:1.56
+# Build stage
 
-WORKDIR /usr/src
+FROM rust:1.56 as build
+
+WORKDIR /usr/src/server
 
 COPY . .
 
-RUN cargo install --path ./server
+RUN cargo build --release
 
-CMD ["cargo run --release server"]
+RUN cargo install --path .
+
+# Execution stage
+
+FROM alpine:latest
+
+COPY --from=build /usr/local/cargo/bin/server /usr/local/bin/server
+
+CMD ["server"]
