@@ -2,18 +2,9 @@
 
 FROM rust:1.56 as build
 
-WORKDIR /usr/src/server
-
+WORKDIR /usr/src/webserver
 COPY . .
 
-RUN cargo build --release
+RUN cd server && cargo install --debug --verbose --path .
 
-RUN cargo install --path .
-
-# Execution stage
-
-FROM alpine:latest
-
-COPY --from=build /usr/local/cargo/bin/server /usr/local/bin/server
-
-CMD ["server"]
+ENTRYPOINT server
