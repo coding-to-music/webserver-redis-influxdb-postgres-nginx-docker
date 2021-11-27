@@ -1,5 +1,3 @@
-# Build stage
-
 FROM rust:1.56 as build
 
 WORKDIR /usr/src/webserver

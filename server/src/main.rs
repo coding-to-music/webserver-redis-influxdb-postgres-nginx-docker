@@ -43,24 +43,10 @@ pub struct Opts {
 async fn main() {
     let env = std::env::var("WEBSERVER_ENV").unwrap_or_else(|_| "test".to_string());
 
-    match env.as_str() {
-        "prod" => {
-            dotenv::from_filename("prod.env").unwrap_or_else(|_| {
-                panic!(
-                    "prod.env not present in '{:?}'",
-                    std::env::current_dir().unwrap()
-                )
-            });
-        }
-        "test" => {
-            dotenv::from_filename("test.env").unwrap_or_else(|_| {
-                panic!(
-                    "test.env not present in '{:?}'",
-                    std::env::current_dir().unwrap()
-                )
-            });
-        }
-        invalid => panic!("invalid environment specified: '{}'", invalid),
+    let env_file_name = format!("{}.env", env);
+
+    if let Err(e) = dotenv::from_filename(&env_file_name) {
+        warn!("environment file not found: {}, error: {}", env_file_name, e);
     }
 
     pretty_env_logger::formatted_timed_builder()
