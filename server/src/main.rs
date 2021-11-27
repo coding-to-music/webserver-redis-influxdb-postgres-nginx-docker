@@ -46,11 +46,14 @@ async fn main() {
     let env_file_name = format!("{}.env", env);
 
     if let Err(e) = dotenv::from_filename(&env_file_name) {
-        warn!("environment file not found: {}, error: {}", env_file_name, e);
+        warn!(
+            "environment file not found: {}, error: {}",
+            env_file_name, e
+        );
     }
 
     pretty_env_logger::formatted_timed_builder()
-        .parse_filters(&std::env::var("RUST_LOG").unwrap())
+        .parse_filters(&get_required_env_var("RUST_LOG"))
         .init();
 
     let opts = Opts::from_args();
