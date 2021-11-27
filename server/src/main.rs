@@ -102,6 +102,7 @@ impl Webserver {
     pub async fn handle_request(&self, request: Request<Body>) -> Response<Body> {
         let route = request.uri().to_string();
         match (request.method(), route.as_str()) {
+            (_, "/ping") => ping_pong_response(),
             (&hyper::Method::POST, "/api") => {
                 let response_body = self.api_route(request).await;
                 return crate::generic_json_response(response_body, 200);
@@ -257,6 +258,13 @@ where
         .status(status)
         .header("Content-Type", "application/json")
         .body(Body::from(b))
+        .unwrap()
+}
+
+fn ping_pong_response() -> Response<Body> {
+    Response::builder()
+        .status(200)
+        .body(Body::from("pong"))
         .unwrap()
 }
 
