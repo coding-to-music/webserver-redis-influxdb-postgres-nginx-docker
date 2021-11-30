@@ -12,3 +12,6 @@ services:
   webserver:
     image: "."
     env_file: "prod.env"
+    links:
+      - "redis:redis"
+      - "postgres:postgres"
