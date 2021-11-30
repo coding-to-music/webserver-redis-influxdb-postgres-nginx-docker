@@ -11,7 +11,7 @@ services:
       - "postgres.env"
     volumes:
       - pgdata:/var/lib/postgresql/data
-  webserver:
+  server:
     build: "."
     env_file: "prod.env"
     links:
