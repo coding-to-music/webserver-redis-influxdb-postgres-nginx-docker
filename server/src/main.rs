@@ -27,7 +27,7 @@ extern crate log;
 pub struct Opts {
     #[structopt(long, default_value = "3000", env = "WEBSERVER_LISTEN_PORT")]
     port: u16,
-    #[structopt(long, env = "WEBSERVER_SQLITE_PATH")]
+    #[structopt(long, env = "WEBSERVER_DATABASE_ADDR")]
     database_path: String,
     #[structopt(long, env = "WEBSERVER_TOKEN_REDIS_ADDR")]
     token_redis_addr: String,
