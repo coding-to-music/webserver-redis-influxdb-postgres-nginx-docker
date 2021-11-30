@@ -1,9 +1,9 @@
 use crate::{Database, DatabaseResult, InsertionResult};
 use chrono::{DateTime, TimeZone, Utc};
-use rusqlite::{params, Row, ToSql, Transaction};
+use sqlx::{Connection, Executor, FromRow, Sqlite, SqliteConnection, Transaction};
 use std::{collections::HashMap, convert::TryFrom};
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, FromRow)]
 #[non_exhaustive]
 pub struct Shape {
     pub id: String,
@@ -27,20 +27,7 @@ impl Shape {
     }
 }
 
-impl<'a> TryFrom<&Row<'a>> for Shape {
-    type Error = rusqlite::Error;
-    fn try_from(row: &Row<'a>) -> Result<Self, Self::Error> {
-        let id: String = row.get(0)?;
-        let name: Option<String> = row.get(1)?;
-        let geo: String = row.get(2)?;
-
-        let created_s = row.get(3)?;
-
-        Ok(Shape::new(id, name, geo, created_s))
-    }
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, FromRow)]
 #[non_exhaustive]
 pub struct ShapeTag {
     pub id: String,
@@ -72,158 +59,151 @@ impl ShapeTag {
     }
 }
 
-impl<'a> TryFrom<&Row<'a>> for ShapeTag {
-    type Error = rusqlite::Error;
-    fn try_from(row: &Row<'a>) -> Result<Self, Self::Error> {
-        let id: String = row.get(0)?;
-        let shape_id: String = row.get(1)?;
-        let tag_name: String = row.get(2)?;
-        let tag_value: String = row.get(3)?;
-        let created_s = row.get(4)?;
-
-        Ok(ShapeTag::new(id, shape_id, tag_name, tag_value, created_s))
-    }
-}
-
 impl Database<Shape> {
-    pub fn insert_shape(
+    pub async fn insert_shape(
         &self,
         shape: &Shape,
         tags: &[&ShapeTag],
     ) -> DatabaseResult<InsertionResult> {
-        let mut db = self.get_connection()?;
+        let mut db = self.get_connection().await?;
 
-        let transaction = db.transaction()?;
-        let changed_shape_rows = insert_shape(&transaction, &shape)?;
-        let _changed_shape_tag_rows = insert_shape_tags(&transaction, &tags)?;
-        transaction.commit()?;
+        let mut transaction = db.begin().await?;
+        let changed_shape_rows = insert_shape(&mut transaction, &shape).await?;
+        for tag in tags {
+            insert_shape_tag(&mut transaction, tag).await?;
+        }
+        transaction.commit().await?;
 
         Ok(InsertionResult::from_changed_rows(changed_shape_rows))
     }
 
-    pub fn get_shape(&self, id: &str) -> DatabaseResult<Option<Shape>> {
-        let db = self.get_connection()?;
+    pub async fn get_shape(&self, id: &str) -> DatabaseResult<Option<Shape>> {
+        let mut db = self.get_connection().await?;
 
-        let mut stmt = db.prepare("SELECT id, name, geo, created_s FROM shape WHERE id = ?1")?;
+        let mut query_result =
+            sqlx::query_as::<_, Shape>("SELECT id, name, geo, created_s FROM shape WHERE id = ?1")
+                .bind(id)
+                .fetch_all(&mut db)
+                .await?;
 
-        let mut shape_rows: Vec<_> = stmt
-            .query_map(params![id], |row| crate::parse_from_row(row))?
-            .collect::<Result<_, _>>()?;
-
-        if shape_rows.is_empty() {
+        if query_result.is_empty() {
             Ok(None)
-        } else if shape_rows.len() > 1 {
+        } else if query_result.len() > 1 {
             error!(r#"more than 1 shape with id: "{}""#, id);
             Ok(None)
         } else {
-            Ok(Some(shape_rows.swap_remove(0)))
+            Ok(Some(query_result.remove(0)))
         }
     }
 
-    pub fn get_shapes_by_ids(&self, ids: &[&str]) -> DatabaseResult<Vec<Shape>> {
-        let db = self.get_connection()?;
+    pub async fn get_shapes_by_ids(&self, ids: &[&str]) -> DatabaseResult<Vec<Shape>> {
+        let mut db = self.get_connection().await?;
 
         let query_list = ids
             .iter()
             .map(|id| format!(r#""{}""#, id))
             .collect::<Vec<_>>()
             .join(", ");
-        let query = format!(
+
+        let query_result = sqlx::query_as::<_, Shape>(
             "
             SELECT id, 
                 name,
                 geo,
                 created_s
             FROM shape 
-            WHERE id IN ({})",
-            query_list
-        );
+            WHERE id IN (?1)",
+        )
+        .bind(query_list)
+        .fetch_all(&mut db)
+        .await?;
 
-        debug!(r#"executing query: '{}'"#, query);
-
-        let mut stmt = db.prepare(&query)?;
-
-        let shape_rows: Vec<Shape> = stmt
-            .query_map(params![], |row| crate::parse_from_row(row))?
-            .collect::<Result<_, _>>()?;
-
-        Ok(shape_rows)
+        Ok(query_result)
     }
 
-    pub fn delete_shape(&self, id: &str) -> DatabaseResult<bool> {
-        let mut db = self.get_connection()?;
-        let transaction = db.transaction()?;
-        let changed_rows = transaction.execute("DELETE FROM shape WHERE id = ?1", params![id])?;
-        let _changed_rows_tag =
-            transaction.execute("DELETE FROM shape_tag WHERE shape_id = ?1", params![id])?;
-        transaction.commit()?;
+    pub async fn delete_shape(&self, id: &str) -> DatabaseResult<bool> {
+        let mut db = self.get_connection().await?;
+        let mut transaction = db.begin().await?;
+        let shape_query_result = sqlx::query("DELETE FROM shape WHERE id = ?1")
+            .bind(id)
+            .execute(&mut transaction)
+            .await?;
+        let shape_tag_query_result = sqlx::query("DELETE FROM shape_tag WHERE shape_id = ?1")
+            .bind(id)
+            .execute(&mut transaction)
+            .await?;
+        transaction.commit().await?;
 
-        Ok(changed_rows == 1)
+        let changed_rows =
+            shape_query_result.rows_affected() + shape_tag_query_result.rows_affected();
+
+        Ok(changed_rows > 1)
     }
 
-    pub fn get_shapes_with_tags(
+    pub async fn get_shapes_with_tags(
         &self,
         tags: &HashMap<String, String>,
     ) -> DatabaseResult<Vec<Shape>> {
-        let db = self.get_connection()?;
+        // let db = self.get_connection().await?;
 
-        let pivot_columns = tags
-            .iter()
-            .map(|(name, _value)| {
-                format!(
-                    "MAX(CASE WHEN tag_name = '{}' THEN tag_value END) AS {}_tag",
-                    name, name
-                )
-            })
-            .collect::<Vec<_>>()
-            .join(", ");
+        // let pivot_columns = tags
+        //     .iter()
+        //     .map(|(name, _value)| {
+        //         format!(
+        //             "MAX(CASE WHEN tag_name = '{}' THEN tag_value END) AS {}_tag",
+        //             name, name
+        //         )
+        //     })
+        //     .collect::<Vec<_>>()
+        //     .join(", ");
 
-        let and_joins = tags
-            .iter()
-            .map(|(name, value)| format!("{}_tag = '{}'", name, value))
-            .collect::<Vec<_>>()
-            .join(" AND ");
+        // let and_joins = tags
+        //     .iter()
+        //     .map(|(name, value)| format!("{}_tag = '{}'", name, value))
+        //     .collect::<Vec<_>>()
+        //     .join(" AND ");
 
-        let pivot_query = format!(
-            "
-            WITH piv AS (
-                SELECT shape_id,
-                    {}
-                FROM shape_tag
-                GROUP BY shape_id)
-            SELECT shape.id,
-                shape.name,
-                shape.geo,
-                shape.created_s
-            FROM piv
-            JOIN shape ON piv.shape_id = shape.id
-            WHERE {}",
-            pivot_columns, and_joins
-        );
+        // let pivot_query = format!(
+        //     "
+        //     WITH piv AS (
+        //         SELECT shape_id,
+        //             {}
+        //         FROM shape_tag
+        //         GROUP BY shape_id)
+        //     SELECT shape.id,
+        //         shape.name,
+        //         shape.geo,
+        //         shape.created_s
+        //     FROM piv
+        //     JOIN shape ON piv.shape_id = shape.id
+        //     WHERE {}",
+        //     pivot_columns, and_joins
+        // );
 
-        executing_query(&pivot_query);
+        // executing_query(&pivot_query);
 
-        let shapes: Vec<_> = db
-            .prepare(&pivot_query)?
-            .query_map(params![], |row| crate::parse_from_row(row))?
-            .collect::<Result<_, _>>()?;
+        // let shapes: Vec<_> = db
+        //     .prepare(&pivot_query)?
+        //     .query_map(params![], |row| crate::parse_from_row(row))?
+        //     .collect::<Result<_, _>>()?;
 
-        Ok(shapes)
+        // Ok(shapes)
+        todo!();
     }
 
-    pub fn insert_shape_tag(&self, tag: &ShapeTag) -> DatabaseResult<InsertionResult> {
-        let mut db = self.get_connection()?;
-        let transaction = db.transaction()?;
-        let changed_rows = insert_shape_tags(&transaction, &[tag])?;
-        transaction.commit()?;
+    pub async fn insert_shape_tag(&self, tag: &ShapeTag) -> DatabaseResult<InsertionResult> {
+        let mut db = self.get_connection().await?;
+        let mut transaction = db.begin().await?;
+        let changed_rows = insert_shape_tag(&mut transaction, &tag).await?;
+        transaction.commit().await?;
 
         Ok(InsertionResult::from_changed_rows(changed_rows))
     }
 
-    pub fn get_shape_tag_by_id(&self, id: &str) -> DatabaseResult<Option<ShapeTag>> {
-        let db = self.get_connection()?;
+    pub async fn get_shape_tag_by_id(&self, id: &str) -> DatabaseResult<Option<ShapeTag>> {
+        let mut db = self.get_connection().await?;
 
-        let mut stmt = db.prepare(
+        let mut query_result = sqlx::query_as::<_, ShapeTag>(
             "
             SELECT id, 
                 shape_id, 
@@ -232,26 +212,25 @@ impl Database<Shape> {
                 created_s 
             FROM shape_tag 
             WHERE id = ?1",
-        )?;
+        )
+        .bind(id)
+        .fetch_all(&mut db)
+        .await?;
 
-        let mut shape_tag_rows: Vec<_> = stmt
-            .query_map(params![id], |row| crate::parse_from_row(row))?
-            .collect::<Result<_, _>>()?;
-
-        if shape_tag_rows.is_empty() {
+        if query_result.is_empty() {
             Ok(None)
-        } else if shape_tag_rows.len() > 1 {
+        } else if query_result.len() > 1 {
             error!(r#"more than 1 shape tag with id: "{}""#, id);
             Ok(None)
         } else {
-            Ok(Some(shape_tag_rows.swap_remove(0)))
+            Ok(Some(query_result.swap_remove(0)))
         }
     }
 
-    pub fn get_tags_for_shape(&self, shape_id: &str) -> DatabaseResult<Vec<ShapeTag>> {
-        let db = self.get_connection()?;
+    pub async fn get_tags_for_shape(&self, shape_id: &str) -> DatabaseResult<Vec<ShapeTag>> {
+        let mut db = self.get_connection().await?;
 
-        let mut stmt = db.prepare(
+        let query_result = sqlx::query_as::<_, ShapeTag>(
             "
             SELECT id, 
                 shape_id, 
@@ -260,146 +239,83 @@ impl Database<Shape> {
                 created_s 
             FROM shape_tag 
             WHERE shape_id = ?1",
-        )?;
+        )
+        .bind(shape_id)
+        .fetch_all(&mut db)
+        .await?;
 
-        let shape_tag_rows: Vec<_> = stmt
-            .query_map(params![shape_id], |row| crate::parse_from_row(row))?
-            .collect::<Result<_, _>>()?;
-
-        Ok(shape_tag_rows)
+        Ok(query_result)
     }
 
-    pub fn get_tags_for_shapes(&self, shape_ids: &[&str]) -> DatabaseResult<Vec<ShapeTag>> {
-        let db = self.get_connection()?;
+    pub async fn get_tags_for_shapes(&self, shape_ids: &[&str]) -> DatabaseResult<Vec<ShapeTag>> {
+        let mut tags = Vec::new();
+        for shape_id in shape_ids {
+            let mut shape_tags = self.get_tags_for_shape(shape_id).await?;
+            tags.append(&mut shape_tags);
+        }
 
-        let query_list = shape_ids
-            .iter()
-            .map(|id| format!(r#""{}""#, id))
-            .collect::<Vec<_>>()
-            .join(", ");
-        let query = format!(
-            "
-        SELECT id, 
-            shape_id, 
-            tag_name, 
-            tag_value, 
-            created_s 
-        FROM shape_tag 
-        WHERE shape_id IN ({})",
-            query_list
-        );
-
-        let shape_tag_rows: Vec<_> = db
-            .prepare(&query)?
-            .query_map(params![], |row| crate::parse_from_row(row))?
-            .collect::<Result<_, _>>()?;
-
-        Ok(shape_tag_rows)
+        Ok(tags)
     }
 
-    pub fn get_tags_by_name_and_value(
+    pub async fn get_tags_by_name_and_value(
         &self,
         tag_name: &str,
         tag_value: &str,
     ) -> DatabaseResult<Vec<ShapeTag>> {
-        let db = self.get_connection()?;
+        let mut db = self.get_connection().await?;
 
-        let mut stmt = db.prepare(
-            "
-            SELECT id,
-                shape_id,
-                tag_name,
-                tag_value,
-                created_s
-            FROM shape_tag
-            WHERE tag_name = ?1 AND tag_value = ?2
-        ",
-        )?;
+        let query_result = sqlx::query_as::<_, ShapeTag>(
+            "SELECT id, shape_id, tag_name, tag_value, created_s FROM shape_tag WHERE tag_name = ?1 AND tag_value = ?2",
+        )
+        .bind(tag_name)
+        .bind(tag_value)
+        .fetch_all(&mut db)
+        .await?;
 
-        let shape_tag_rows: Vec<ShapeTag> = stmt
-            .query_map(params![tag_name, tag_value], |row| {
-                crate::parse_from_row(row)
-            })?
-            .collect::<Result<_, _>>()?;
-
-        Ok(shape_tag_rows)
+        Ok(query_result)
     }
 
-    pub fn delete_tag(&self, id: &str) -> DatabaseResult<bool> {
-        let db = self.get_connection()?;
+    pub async fn delete_tag(&self, id: &str) -> DatabaseResult<bool> {
+        let mut db = self.get_connection().await?;
 
-        let changed_rows = db.execute("DELETE FROM shape_tag WHERE id = ?1", params![id])?;
+        let query_result = sqlx::query("DELETE FROM shape_tag WHERE id = ?1")
+            .bind(id)
+            .execute(&mut db)
+            .await?;
 
-        Ok(changed_rows == 1)
+        Ok(query_result.rows_affected() == 1)
     }
 }
 
-fn insert_shape(transaction: &Transaction, shape: &Shape) -> DatabaseResult<usize> {
-    match transaction.execute(
-        "INSERT INTO shape (id, name, geo, created_s) VALUES (?1, ?2, ?3, ?4)",
-        params![shape.id, shape.name, shape.geo, shape.created_s],
-    ) {
-        Ok(changed_rows) => {
-            info!("successfully inserted shape with id '{}'", shape.id);
-            Ok(changed_rows)
-        }
-        Err(e) => {
-            error!("error inserting shape: '{}'", e);
-             Err(e.into())
-        }
-    }
+async fn insert_shape<'a>(
+    transaction: &mut Transaction<'a, Sqlite>,
+    shape: &Shape,
+) -> DatabaseResult<u64> {
+    let query_result =
+        sqlx::query("INSERT INTO shape (id, name, geo, created_s) VALUES (?1, ?2, ?3, ?4)")
+            .bind(&shape.id)
+            .bind(&shape.name)
+            .bind(&shape.geo)
+            .bind(shape.created_s)
+            .execute(transaction)
+            .await?;
+    Ok(query_result.rows_affected())
 }
 
-fn insert_shape_tags(transaction: &Transaction, tags: &[&ShapeTag]) -> DatabaseResult<usize> {
-    let tag_params: Vec<_> = tags
-        .iter()
-        .flat_map(|t| {
-            vec![
-                &t.id as &dyn ToSql,
-                &t.shape_id as &dyn ToSql,
-                &t.tag_name as &dyn ToSql,
-                &t.tag_value as &dyn ToSql,
-                &t.created_s as &dyn ToSql,
-            ]
-        })
-        .collect();
-
-    let values = (0..tags.len())
-        .map(|i| {
-            format!(
-                "(?{}, ?{}, ?{}, ?{}, ?{})",
-                i * 5 + 1,
-                i * 5 + 2,
-                i * 5 + 3,
-                i * 5 + 4,
-                i * 5 + 5
-            )
-        })
-        .collect::<Vec<_>>()
-        .join(", ");
-    let query = format!(
-        "
-        INSERT INTO shape_tag (id,
-            shape_id,
-            tag_name,
-            tag_value,
-            created_s)
-        VALUES {}",
-        values
-    );
-
-    executing_query(&query);
-
-    match transaction.execute(&query, tag_params) {
-        Ok(rows) => {
-            info!("successfully inserted {}/{} tags", rows, tags.len());
-            Ok(rows)
-        }
-        Err(e) => {
-            error!("error inserting shape tags: '{}'", e);
-            Err(e.into())
-        }
-    }
+async fn insert_shape_tag<'a>(
+    transaction: &mut Transaction<'a, Sqlite>,
+    tag: &ShapeTag,
+) -> DatabaseResult<u64> {
+    let query_result =
+        sqlx::query("INSERT INTO shape_tag (id, shape_id, tag_name, tag_value, created_s) VALUES (?1, ?2, ?3, ?4, ?5)")
+            .bind(&tag.id)
+            .bind(&tag.shape_id)
+            .bind(&tag.tag_name)
+            .bind(&tag.tag_value)
+            .bind(&tag.created_s)
+            .execute(transaction)
+            .await?;
+    Ok(query_result.rows_affected())
 }
 
 fn executing_query(query: &str) {

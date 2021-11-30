@@ -58,7 +58,7 @@ async fn main() {
 
     let opts = Opts::from_args();
 
-    let app = Arc::new(App::new(opts.clone()));
+    let app = Arc::new(App::new(opts.clone()).await);
 
     let webserver = Arc::new(Webserver::new(app, opts.clone()));
 

@@ -1,9 +1,9 @@
-use rusqlite::{Connection, Error, Row};
+#![allow(unused)]
+
+use sqlx::pool::PoolConnection;
+use sqlx::Sqlite;
 use std::time;
-use std::{
-    convert::{From, TryFrom},
-    fmt::Debug,
-};
+use std::{convert::From, fmt::Debug};
 use std::{fmt::Display, marker::PhantomData};
 
 #[macro_use]
@@ -21,46 +21,48 @@ pub type DatabaseResult<T> = Result<T, DatabaseError>;
 
 pub struct Database<T> {
     path: String,
+    pool: sqlx::SqlitePool,
     _phantom: PhantomData<T>,
 }
 
 impl<T> Database<T> {
-    pub fn new(path: String) -> Self {
-        Self {
+    pub async fn new(path: String) -> Result<Self, DatabaseError> {
+        Ok(Self {
+            pool: sqlx::SqlitePool::connect(&path).await?,
             path,
             _phantom: PhantomData,
-        }
+        })
     }
 
-    fn get_connection(&self) -> Result<Connection, DatabaseError> {
+    async fn get_connection(&self) -> Result<PoolConnection<Sqlite>, DatabaseError> {
         trace!("connecting to database at '{}'", self.path);
         let timer = time::Instant::now();
-        let conn = Connection::open(&self.path)?;
+        let connection = self.pool.acquire().await?;
         trace!(
             "successfully connected to database at '{}' in {:?}",
             self.path,
             timer.elapsed()
         );
-        Ok(conn)
+        Ok(connection)
     }
 }
 
 #[derive(Debug)]
 pub enum DatabaseError {
-    RusqliteError(rusqlite::Error),
+    SqlxError(sqlx::Error),
     NotAuthorized,
 }
 
-impl From<rusqlite::Error> for DatabaseError {
-    fn from(rusqlite_error: rusqlite::Error) -> Self {
-        DatabaseError::RusqliteError(rusqlite_error)
+impl From<sqlx::Error> for DatabaseError {
+    fn from(sqlx_err: sqlx::Error) -> Self {
+        DatabaseError::SqlxError(sqlx_err)
     }
 }
 
 impl Display for DatabaseError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let output = match self {
-            DatabaseError::RusqliteError(e) => e.to_string(),
+            DatabaseError::SqlxError(e) => format!("sqlx error: '{}'", e.to_string()),
             DatabaseError::NotAuthorized => "not authorized".to_string(),
         };
 
@@ -77,35 +79,13 @@ pub enum InsertionResult {
 }
 
 impl InsertionResult {
-    pub(crate) fn from_changed_rows(changed_rows: usize) -> Self {
+    pub(crate) fn from_changed_rows(changed_rows: u64) -> Self {
         if changed_rows == 1 {
             Self::Inserted
         } else if changed_rows == 0 {
             Self::AlreadyExists
         } else {
             panic!("insertion resulted in {} changed rows", changed_rows);
-        }
-    }
-}
-
-fn parse_from_row<'a, T>(row: &'a Row) -> Result<T, Error>
-where
-    T: TryFrom<&'a Row<'a>, Error = Error> + Debug,
-{
-    let result = T::try_from(row);
-
-    match result {
-        Ok(ok) => {
-            trace!("parsed '{:?}' from row", ok);
-            Ok(ok)
-        }
-        Err(err) => {
-            error!(
-                "failed to parse object of type '{}' from row with error '{:?}'",
-                std::any::type_name::<T>(),
-                err
-            );
-            Err(err)
         }
     }
 }

@@ -1,8 +1,8 @@
 use crate::{Database, DatabaseResult, InsertionResult};
 use chrono::{DateTime, TimeZone, Utc};
-use rusqlite::params;
+use sqlx::Executor;
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, sqlx::FromRow)]
 #[non_exhaustive]
 pub struct RequestLog {
     id: String,
@@ -88,7 +88,7 @@ enum ResponseKind<'a> {
 }
 
 impl Database<RequestLog> {
-    pub fn insert_log(
+    pub async fn insert_log(
         &self,
         RequestLog {
             id,
@@ -99,7 +99,7 @@ impl Database<RequestLog> {
             created_s,
         }: &RequestLog,
     ) -> DatabaseResult<InsertionResult> {
-        let db = self.get_connection()?;
+        let mut db = self.get_connection().await?;
 
         let (result, error): (Option<&String>, Option<&String>) = match response.kind() {
             ResponseKind::Success(result) => (Some(result), None),
@@ -107,33 +107,35 @@ impl Database<RequestLog> {
             ResponseKind::None => (None, None),
         };
 
-        let changed_rows = db.execute(
+        let query_result = sqlx::query(
             "
-            INSERT INTO request_log (id, 
-                request_id, 
-                request_method, 
-                request_params, 
-                request_ts_s, 
-                response_result, 
-                response_error, 
-                response_error_context,
-                duration_ms, 
-                created_s) 
-            VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
-            params![
-                id,
-                request.id,
-                request.method,
-                request.params,
-                request.ts_s,
-                result,
-                error,
-                error_context,
-                duration_ms,
-                created_s
-            ],
-        )?;
+        INSERT INTO request_log (id, 
+            request_id, 
+            request_method, 
+            request_params, 
+            request_ts_s, 
+            response_result, 
+            response_error, 
+            response_error_context,
+            duration_ms, 
+            created_s) 
+        VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
+        )
+        .bind(id)
+        .bind(&request.id)
+        .bind(&request.method)
+        .bind(&request.params)
+        .bind(request.ts_s)
+        .bind(result)
+        .bind(error)
+        .bind(error_context)
+        .bind(duration_ms)
+        .bind(created_s)
+        .execute(&mut db)
+        .await?;
 
-        Ok(InsertionResult::from_changed_rows(changed_rows))
+        Ok(InsertionResult::from_changed_rows(
+            query_result.rows_affected(),
+        ))
     }
 }
