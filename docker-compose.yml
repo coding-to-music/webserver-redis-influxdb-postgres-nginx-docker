@@ -10,10 +10,13 @@ services:
     env_file:
       - "postgres.env"
     volumes:
-      - "pgdata:/var/lib/postgresql/data"
+      - pgdata:/var/lib/postgresql/data
   webserver:
     image: "."
     env_file: "prod.env"
     links:
       - "redis:redis"
       - "postgres:postgres"
+
+volumes:
+  pgdata: null
