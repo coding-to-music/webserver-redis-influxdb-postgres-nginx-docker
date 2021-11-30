@@ -1,6 +1,6 @@
 use crate::{Database, DatabaseResult, InsertionResult};
 use chrono::{DateTime, TimeZone, Utc};
-use sqlx::{sqlite::SqliteRow, Row};
+use sqlx::{sqlite::SqliteRow, Row, postgres::PgRow};
 
 #[derive(Debug, Clone, PartialEq, Eq, sqlx::FromRow)]
 #[non_exhaustive]
@@ -75,7 +75,7 @@ impl Database<ListItem> {
         let mut db = self.get_connection().await?;
 
         let query_result = sqlx::query("SELECT DISTINCT list_type FROM list_item")
-            .map(|row: SqliteRow| {
+            .map(|row: PgRow| {
                 let list_type: &str = row.get("list_type");
                 list_type.to_owned()
             })

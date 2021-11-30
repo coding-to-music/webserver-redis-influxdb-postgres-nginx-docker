@@ -1,6 +1,6 @@
 use crate::{Database, DatabaseResult, InsertionResult};
 use chrono::{DateTime, TimeZone, Utc};
-use sqlx::{Connection, Executor, FromRow, Sqlite, SqliteConnection, Transaction};
+use sqlx::{Connection, Executor, FromRow, Transaction, Postgres};
 use std::{collections::HashMap, convert::TryFrom};
 
 #[derive(Debug, Clone, PartialEq, Eq, FromRow)]
@@ -288,7 +288,7 @@ impl Database<Shape> {
 }
 
 async fn insert_shape<'a>(
-    transaction: &mut Transaction<'a, Sqlite>,
+    transaction: &mut Transaction<'a, Postgres>,
     shape: &Shape,
 ) -> DatabaseResult<u64> {
     let query_result =
@@ -303,7 +303,7 @@ async fn insert_shape<'a>(
 }
 
 async fn insert_shape_tag<'a>(
-    transaction: &mut Transaction<'a, Sqlite>,
+    transaction: &mut Transaction<'a, Postgres>,
     tag: &ShapeTag,
 ) -> DatabaseResult<u64> {
     let query_result =

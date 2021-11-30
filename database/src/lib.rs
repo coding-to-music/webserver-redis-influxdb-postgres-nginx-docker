@@ -1,7 +1,7 @@
 #![allow(unused)]
 
 use sqlx::pool::PoolConnection;
-use sqlx::Sqlite;
+use sqlx::Postgres;
 use std::time;
 use std::{convert::From, fmt::Debug};
 use std::{fmt::Display, marker::PhantomData};
@@ -21,20 +21,20 @@ pub type DatabaseResult<T> = Result<T, DatabaseError>;
 
 pub struct Database<T> {
     path: String,
-    pool: sqlx::SqlitePool,
+    pool: sqlx::PgPool,
     _phantom: PhantomData<T>,
 }
 
 impl<T> Database<T> {
     pub async fn new(path: String) -> Result<Self, DatabaseError> {
         Ok(Self {
-            pool: sqlx::SqlitePool::connect(&path).await?,
+            pool: sqlx::PgPool::connect(&path).await?,
             path,
             _phantom: PhantomData,
         })
     }
 
-    async fn get_connection(&self) -> Result<PoolConnection<Sqlite>, DatabaseError> {
+    async fn get_connection(&self) -> Result<PoolConnection<Postgres>, DatabaseError> {
         trace!("connecting to database at '{}'", self.path);
         let timer = time::Instant::now();
         let connection = self.pool.acquire().await?;
