@@ -12,7 +12,7 @@ services:
     volumes:
       - pgdata:/var/lib/postgresql/data
   webserver:
-    image: "."
+    build: "."
     env_file: "prod.env"
     links:
       - "redis:redis"
