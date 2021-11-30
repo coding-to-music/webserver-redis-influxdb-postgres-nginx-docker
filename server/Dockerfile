@@ -1,8 +1,8 @@
 FROM rust:1.56 as rust-builder
 WORKDIR /usr/src/webserver
-COPY ./server/Cargo.toml .
-COPY ./server/Cargo.lock .
-RUN mkdir ./server/src && echo 'fn main() { println!("Dummy!"); }' > ./server/src/main.rs
+COPY ./Cargo.toml .
+COPY ./Cargo.lock .
+RUN mkdir ./src && echo 'fn main() { println!("Dummy!"); }' > ./src/main.rs
 RUN cargo build --release 
 RUN rm -rf ./src
 COPY ./src ./src
