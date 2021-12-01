@@ -16,6 +16,8 @@ services:
   server:
     build: "."
     env_file: "server-prod.env"
+    ports:
+      - "3000:3000"
     links:
       - "redis:redis"
       - "postgres:postgres"
