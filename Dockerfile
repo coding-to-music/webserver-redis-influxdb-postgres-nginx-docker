@@ -1,4 +1,4 @@
-FROM rust:1.56-alpine as build
+FROM rust:1.56 as build
 
 WORKDIR /usr/src/webserver
 
