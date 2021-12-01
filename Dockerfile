@@ -13,6 +13,8 @@ WORKDIR /usr/src
 COPY --from=build /usr/local/cargo/bin/server /usr/local/bin
 
 RUN echo $(pwd)
-RUN echo $(ls -a)
+RUN echo $(ls -al)
+RUN echo $PATH
+RUN echo $(ls /usr/local/bin -al)
 
 ENTRYPOINT server
