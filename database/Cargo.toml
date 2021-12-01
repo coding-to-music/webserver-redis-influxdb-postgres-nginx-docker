@@ -10,8 +10,4 @@ chrono = "0.4.11"
 
 [dependencies.sqlx]
 version = "0.5"
-features = ["runtime-tokio-rustls", "postgres", "sqlite"]
-
-# [dependencies.rusqlite]
-# version = "0.24.2"
-# features = ["bundled"]
+features = ["runtime-tokio-rustls", "postgres"]

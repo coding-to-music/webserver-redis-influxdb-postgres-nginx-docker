@@ -1,6 +1,6 @@
 use crate::{Database, DatabaseResult, InsertionResult};
 use chrono::{DateTime, TimeZone, Utc};
-use sqlx::{sqlite::SqliteRow, Row, postgres::PgRow};
+use sqlx::{postgres::PgRow, Row};
 
 #[derive(Debug, Clone, PartialEq, Eq, sqlx::FromRow)]
 #[non_exhaustive]

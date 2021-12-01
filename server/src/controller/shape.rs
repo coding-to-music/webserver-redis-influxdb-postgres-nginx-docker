@@ -77,19 +77,26 @@ impl ShapeController {
     pub async fn get_shape(&self, request: JsonRpcRequest) -> AppResult<get_shape::MethodResult> {
         use get_shape::{MethodResult, Params};
         let params = Params::try_from(request)?;
+        let as_geojson = params.geojson.unwrap_or(false);
 
         let shape = self.shape_db.get_shape(&params.id.to_string()).await?;
 
         let shape = match shape {
             Some(db_shape) => db_shape,
-            None => return Ok(MethodResult::shape(None)),
+            None => {
+                if as_geojson {
+                    return Ok(MethodResult::geojson(None));
+                } else {
+                    return Ok(MethodResult::shape(None));
+                }
+            }
         };
 
         let tags = self.get_tags_for_shape(&shape.id).await?;
 
         let shape_result = ShapeWrapper::try_from((shape, tags))?.0;
 
-        if params.geojson.unwrap_or(false) {
+        if as_geojson {
             Ok(MethodResult::geojson(Some(Feature::from(shape_result))))
         } else {
             Ok(MethodResult::shape(Some(shape_result)))
@@ -157,13 +164,16 @@ impl ShapeController {
 
         let id = uuid::Uuid::new_v4().to_string();
 
-        let result = self.shape_db.insert_shape_tag(&DbShapeTag::new(
-            id.clone(),
-            params.shape_id.to_string(),
-            params.name,
-            params.value,
-            created_s,
-        )).await?;
+        let result = self
+            .shape_db
+            .insert_shape_tag(&DbShapeTag::new(
+                id.clone(),
+                params.shape_id.to_string(),
+                params.name,
+                params.value,
+                created_s,
+            ))
+            .await?;
 
         match result {
             InsertionResult::Inserted => Ok(add_shape_tag::MethodResult::success(id)),
