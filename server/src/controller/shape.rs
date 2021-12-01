@@ -33,7 +33,8 @@ impl ShapeController {
         let (db_shape, db_shape_tags) = make_db_entities(shape.clone());
         let result = self
             .shape_db
-            .insert_shape(&db_shape, &db_shape_tags.iter().collect::<Vec<_>>())?;
+            .insert_shape(&db_shape, &db_shape_tags.iter().collect::<Vec<_>>())
+            .await?;
 
         match result {
             InsertionResult::Inserted => {
@@ -52,10 +53,10 @@ impl ShapeController {
         let params = Params::try_from(request)?;
         let shape_id = params.id.to_string();
 
-        let shape = self.shape_db.get_shape(&shape_id)?;
+        let shape = self.shape_db.get_shape(&shape_id).await?;
 
         if let Some(db_shape) = shape {
-            let success = self.shape_db.delete_shape(&shape_id)?;
+            let success = self.shape_db.delete_shape(&shape_id).await?;
             if success {
                 // delete points from redis
                 let geo: Geometry = serde_json::from_str(&db_shape.geo)
@@ -76,19 +77,26 @@ impl ShapeController {
     pub async fn get_shape(&self, request: JsonRpcRequest) -> AppResult<get_shape::MethodResult> {
         use get_shape::{MethodResult, Params};
         let params = Params::try_from(request)?;
+        let as_geojson = params.geojson.unwrap_or(false);
 
-        let shape = self.shape_db.get_shape(&params.id.to_string())?;
+        let shape = self.shape_db.get_shape(&params.id.to_string()).await?;
 
         let shape = match shape {
             Some(db_shape) => db_shape,
-            None => return Ok(MethodResult::shape(None)),
+            None => {
+                if as_geojson {
+                    return Ok(MethodResult::geojson(None));
+                } else {
+                    return Ok(MethodResult::shape(None));
+                }
+            }
         };
 
-        let tags = self.get_tags_for_shape(&shape.id)?;
+        let tags = self.get_tags_for_shape(&shape.id).await?;
 
         let shape_result = ShapeWrapper::try_from((shape, tags))?.0;
 
-        if params.geojson.unwrap_or(false) {
+        if as_geojson {
             Ok(MethodResult::geojson(Some(Feature::from(shape_result))))
         } else {
             Ok(MethodResult::shape(Some(shape_result)))
@@ -137,7 +145,7 @@ impl ShapeController {
             })
             .collect();
 
-        let with_tags = self.get_shapes_with_tags(&ids)?;
+        let with_tags = self.get_shapes_with_tags(&ids).await?;
 
         let out: Vec<_> = with_tags
             .into_iter()
@@ -156,13 +164,16 @@ impl ShapeController {
 
         let id = uuid::Uuid::new_v4().to_string();
 
-        let result = self.shape_db.insert_shape_tag(&DbShapeTag::new(
-            id.clone(),
-            params.shape_id.to_string(),
-            params.name,
-            params.value,
-            created_s,
-        ))?;
+        let result = self
+            .shape_db
+            .insert_shape_tag(&DbShapeTag::new(
+                id.clone(),
+                params.shape_id.to_string(),
+                params.name,
+                params.value,
+                created_s,
+            ))
+            .await?;
 
         match result {
             InsertionResult::Inserted => Ok(add_shape_tag::MethodResult::success(id)),
@@ -177,7 +188,7 @@ impl ShapeController {
         use delete_shape_tag::{MethodResult, Params};
         let params = Params::try_from(request)?;
 
-        let success = self.shape_db.delete_tag(&params.id.to_string())?;
+        let success = self.shape_db.delete_tag(&params.id.to_string()).await?;
 
         Ok(MethodResult::new(success))
     }
@@ -191,13 +202,13 @@ impl ShapeController {
 
         let mut shapes = Vec::new();
         for tags_query in params.or {
-            let mut tags = self.shape_db.get_shapes_with_tags(&tags_query)?;
+            let mut tags = self.shape_db.get_shapes_with_tags(&tags_query).await?;
             shapes.append(&mut tags);
         }
 
         let mut pairs = Vec::new();
         for shape in shapes {
-            if let Ok(tags) = self.get_tags_for_shape(&shape.id) {
+            if let Ok(tags) = self.get_tags_for_shape(&shape.id).await {
                 pairs.push((shape, tags));
             } else {
                 error!("could not retrieve tags for shape: '{}'", shape.id);
@@ -212,25 +223,25 @@ impl ShapeController {
         Ok(MethodResult::new(shapes_out))
     }
 
-    fn get_shapes_with_tags(
+    async fn get_shapes_with_tags(
         &self,
         shape_ids: &HashSet<Uuid>,
     ) -> AppResult<Vec<(DbShape, Vec<DbShapeTag>)>> {
         let ids: Vec<String> = shape_ids.iter().map(|s| s.to_string()).collect();
         let ids: Vec<_> = ids.iter().map(|id| id.as_str()).collect();
-        let db_shapes = self.shape_db.get_shapes_by_ids(&ids)?;
+        let db_shapes = self.shape_db.get_shapes_by_ids(&ids).await?;
 
         let mut with_tags = Vec::new();
         for db_shape in db_shapes {
-            let tags = self.get_tags_for_shape(&db_shape.id)?;
+            let tags = self.get_tags_for_shape(&db_shape.id).await?;
             with_tags.push((db_shape, tags));
         }
 
         Ok(with_tags)
     }
 
-    fn get_tags_for_shape(&self, shape_id: &str) -> AppResult<Vec<DbShapeTag>> {
-        let shapes = self.shape_db.get_tags_for_shape(shape_id)?;
+    async fn get_tags_for_shape(&self, shape_id: &str) -> AppResult<Vec<DbShapeTag>> {
+        let shapes = self.shape_db.get_tags_for_shape(shape_id).await?;
         Ok(shapes)
     }
 
