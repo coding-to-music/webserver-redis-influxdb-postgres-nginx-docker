@@ -29,12 +29,12 @@ pub struct App {
 }
 
 impl App {
-    pub fn new(opts: Opts) -> Self {
-        let list_item_db = Arc::new(Database::new(opts.database_path.clone()));
+    pub async fn new(opts: Opts) -> Self {
+        let list_item_db = Arc::new(Database::new(opts.database_addr.clone()).await.unwrap());
 
-        let shape_db = Arc::new(Database::new(opts.database_path.clone()));
+        let shape_db = Arc::new(Database::new(opts.database_addr.clone()).await.unwrap());
 
-        let request_log_db = Arc::new(Database::new(opts.database_path.clone()));
+        let request_log_db = Arc::new(Database::new(opts.database_addr.clone()).await.unwrap());
 
         let shape_redis_pool = Arc::new(RedisPool::new(opts.shape_redis_addr.clone()));
 
@@ -220,7 +220,7 @@ impl App {
                 error_context,
                 duration_ms,
                 created_s,
-            )) {
+            )).await {
                 Ok(ok) => {
                     info!("successfully inserted request log with result: '{:?}'", ok);
                 }

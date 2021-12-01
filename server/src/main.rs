@@ -27,8 +27,8 @@ extern crate log;
 pub struct Opts {
     #[structopt(long, default_value = "3000", env = "WEBSERVER_LISTEN_PORT")]
     port: u16,
-    #[structopt(long, env = "WEBSERVER_SQLITE_PATH")]
-    database_path: String,
+    #[structopt(long, env = "WEBSERVER_DATABASE_ADDR")]
+    database_addr: String,
     #[structopt(long, env = "WEBSERVER_TOKEN_REDIS_ADDR")]
     token_redis_addr: String,
     #[structopt(long, env = "WEBSERVER_SHAPE_REDIS_ADDR")]
@@ -58,7 +58,7 @@ async fn main() {
 
     let opts = Opts::from_args();
 
-    let app = Arc::new(App::new(opts.clone()));
+    let app = Arc::new(App::new(opts.clone()).await);
 
     let webserver = Arc::new(Webserver::new(app, opts.clone()));
 
