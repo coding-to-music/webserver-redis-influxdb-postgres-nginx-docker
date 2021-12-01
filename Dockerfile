@@ -8,6 +8,8 @@ RUN cd server && cargo install --debug --path .
 
 FROM alpine:3.15.0 as run
 
-COPY --from=build /usr/local/bin/server /usr/local/bin/server
+COPY --from=build /usr/local/cargo/bin/server .
 
-ENTRYPOINT ["./usr/local/bin/server"]
+CMD ["pwd && ls -a"]
+
+ENTRYPOINT server
