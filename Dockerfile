@@ -4,7 +4,7 @@ WORKDIR /usr/src/webserver
 
 COPY . .
 
-RUN cd server && cargo build --debug && mv ./target/debug/server /usr/src/webserver
+RUN cd server && cargo build && mv ./target/debug/server /usr/src/webserver
 
 FROM alpine:3.15.0 as run
 
