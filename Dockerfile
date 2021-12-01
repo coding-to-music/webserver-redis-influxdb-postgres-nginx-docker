@@ -10,11 +10,16 @@ FROM alpine:3.15.0 as run
 
 WORKDIR /usr/src
 
-COPY --from=build /usr/local/cargo/bin/server /usr/local/bin
+RUN apk update && apk add \
+    git \
+    make \
+    gcc \
+    g++ \
+    zlib \
+    zlib-dev \
+    python3 \
+    ldc 
 
-RUN echo $(pwd)
-RUN echo $(ls -al)
-RUN echo $PATH
-RUN echo $(ls /usr/local/bin -al)
+COPY --from=build /usr/local/cargo/bin/server /usr/local/bin
 
 ENTRYPOINT ["/usr/local/bin/server"]
