@@ -1,4 +1,4 @@
-FROM rust:1.56 as build
+FROM rust:1.56-alpine as build
 
 WORKDIR /usr/src/webserver
 
@@ -17,4 +17,4 @@ RUN echo $(ls -al)
 RUN echo $PATH
 RUN echo $(ls /usr/local/bin -al)
 
-ENTRYPOINT server
+ENTRYPOINT ["/usr/local/bin/server"]
