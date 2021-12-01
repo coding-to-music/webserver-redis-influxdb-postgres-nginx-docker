@@ -30,11 +30,11 @@ pub struct App {
 
 impl App {
     pub async fn new(opts: Opts) -> Self {
-        let list_item_db = Arc::new(Database::new(opts.database_path.clone()).await.unwrap());
+        let list_item_db = Arc::new(Database::new(opts.database_addr.clone()).await.unwrap());
 
-        let shape_db = Arc::new(Database::new(opts.database_path.clone()).await.unwrap());
+        let shape_db = Arc::new(Database::new(opts.database_addr.clone()).await.unwrap());
 
-        let request_log_db = Arc::new(Database::new(opts.database_path.clone()).await.unwrap());
+        let request_log_db = Arc::new(Database::new(opts.database_addr.clone()).await.unwrap());
 
         let shape_redis_pool = Arc::new(RedisPool::new(opts.shape_redis_addr.clone()));
 
