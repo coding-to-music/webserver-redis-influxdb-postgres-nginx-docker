@@ -14,6 +14,5 @@ COPY --from=build /usr/local/cargo/bin/server /usr/local/bin
 
 RUN echo $(pwd)
 RUN echo $(ls -a)
-RUN echo $(stat server)
 
-ENTRYPOINT ["./server"]
+ENTRYPOINT server
