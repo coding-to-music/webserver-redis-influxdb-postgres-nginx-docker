@@ -10,7 +10,7 @@ FROM alpine:3.15.0 as run
 
 WORKDIR /usr/src
 
-COPY --from=build /usr/local/cargo/bin/server .
+COPY --from=build /usr/local/cargo/bin/server /usr/local/bin
 
 RUN echo $(pwd)
 RUN echo $(ls -a)
