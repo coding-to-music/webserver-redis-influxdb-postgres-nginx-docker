@@ -50,7 +50,6 @@ impl<T> Database<T> {
 #[derive(Debug)]
 pub enum DatabaseError {
     SqlxError(sqlx::Error),
-    NotAuthorized,
 }
 
 impl From<sqlx::Error> for DatabaseError {
@@ -63,7 +62,6 @@ impl Display for DatabaseError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let output = match self {
             DatabaseError::SqlxError(e) => format!("sqlx error: '{}'", e.to_string()),
-            DatabaseError::NotAuthorized => "not authorized".to_string(),
         };
 
         write!(f, "{}", output)

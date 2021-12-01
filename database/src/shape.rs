@@ -81,7 +81,7 @@ impl Database<Shape> {
         let mut db = self.get_connection().await?;
 
         let mut query_result =
-            sqlx::query_as::<_, Shape>("SELECT id, name, geo, created_s FROM shape WHERE id = ?1")
+            sqlx::query_as::<_, Shape>("SELECT id, name, geo, created_s FROM shape WHERE id = $1")
                 .bind(id)
                 .fetch_all(&mut db)
                 .await?;
@@ -112,7 +112,7 @@ impl Database<Shape> {
                 geo,
                 created_s
             FROM shape 
-            WHERE id IN (?1)",
+            WHERE id IN ($1)",
         )
         .bind(query_list)
         .fetch_all(&mut db)
@@ -124,11 +124,11 @@ impl Database<Shape> {
     pub async fn delete_shape(&self, id: &str) -> DatabaseResult<bool> {
         let mut db = self.get_connection().await?;
         let mut transaction = db.begin().await?;
-        let shape_query_result = sqlx::query("DELETE FROM shape WHERE id = ?1")
+        let shape_query_result = sqlx::query("DELETE FROM shape WHERE id = $1")
             .bind(id)
             .execute(&mut transaction)
             .await?;
-        let shape_tag_query_result = sqlx::query("DELETE FROM shape_tag WHERE shape_id = ?1")
+        let shape_tag_query_result = sqlx::query("DELETE FROM shape_tag WHERE shape_id = $1")
             .bind(id)
             .execute(&mut transaction)
             .await?;
@@ -211,7 +211,7 @@ impl Database<Shape> {
                 tag_value, 
                 created_s 
             FROM shape_tag 
-            WHERE id = ?1",
+            WHERE id = $1",
         )
         .bind(id)
         .fetch_all(&mut db)
@@ -238,7 +238,7 @@ impl Database<Shape> {
                 tag_value, 
                 created_s 
             FROM shape_tag 
-            WHERE shape_id = ?1",
+            WHERE shape_id = $1",
         )
         .bind(shape_id)
         .fetch_all(&mut db)
@@ -265,7 +265,7 @@ impl Database<Shape> {
         let mut db = self.get_connection().await?;
 
         let query_result = sqlx::query_as::<_, ShapeTag>(
-            "SELECT id, shape_id, tag_name, tag_value, created_s FROM shape_tag WHERE tag_name = ?1 AND tag_value = ?2",
+            "SELECT id, shape_id, tag_name, tag_value, created_s FROM shape_tag WHERE tag_name = $1 AND tag_value = $2",
         )
         .bind(tag_name)
         .bind(tag_value)
@@ -278,7 +278,7 @@ impl Database<Shape> {
     pub async fn delete_tag(&self, id: &str) -> DatabaseResult<bool> {
         let mut db = self.get_connection().await?;
 
-        let query_result = sqlx::query("DELETE FROM shape_tag WHERE id = ?1")
+        let query_result = sqlx::query("DELETE FROM shape_tag WHERE id = $1")
             .bind(id)
             .execute(&mut db)
             .await?;
@@ -292,7 +292,7 @@ async fn insert_shape<'a>(
     shape: &Shape,
 ) -> DatabaseResult<u64> {
     let query_result =
-        sqlx::query("INSERT INTO shape (id, name, geo, created_s) VALUES (?1, ?2, ?3, ?4)")
+        sqlx::query("INSERT INTO shape (id, name, geo, created_s) VALUES ($1, $2, $3, $4)")
             .bind(&shape.id)
             .bind(&shape.name)
             .bind(&shape.geo)
@@ -307,7 +307,7 @@ async fn insert_shape_tag<'a>(
     tag: &ShapeTag,
 ) -> DatabaseResult<u64> {
     let query_result =
-        sqlx::query("INSERT INTO shape_tag (id, shape_id, tag_name, tag_value, created_s) VALUES (?1, ?2, ?3, ?4, ?5)")
+        sqlx::query("INSERT INTO shape_tag (id, shape_id, tag_name, tag_value, created_s) VALUES ($1, $2, $3, $4, $5)")
             .bind(&tag.id)
             .bind(&tag.shape_id)
             .bind(&tag.tag_name)
@@ -316,8 +316,4 @@ async fn insert_shape_tag<'a>(
             .execute(transaction)
             .await?;
     Ok(query_result.rows_affected())
-}
-
-fn executing_query(query: &str) {
-    trace!("executing: {}", query)
 }

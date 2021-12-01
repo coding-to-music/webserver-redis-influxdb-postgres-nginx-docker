@@ -37,7 +37,7 @@ impl Database<ListItem> {
         let mut db = self.get_connection().await?;
 
         let query_result = sqlx::query(
-            "INSERT INTO list_item (id, list_type, item_name, created_s) VALUES (?1, ?2, ?3, ?4)",
+            "INSERT INTO list_item (id, list_type, item_name, created_s) VALUES ($1, $2, $3, $4)",
         )
         .bind(id)
         .bind(list_type)
@@ -55,7 +55,7 @@ impl Database<ListItem> {
         let mut db = self.get_connection().await?;
 
         let mut query_result = sqlx::query_as::<_, ListItem>(
-            "SELECT id, list_type, item_name, created_s FROM list_item WHERE id = ?1",
+            "SELECT id, list_type, item_name, created_s FROM list_item WHERE id = $1",
         )
         .bind(id)
         .fetch_all(&mut db)
@@ -88,7 +88,7 @@ impl Database<ListItem> {
     pub async fn update_list_item(&self, id: &str, item_name: &str) -> DatabaseResult<u64> {
         let mut db = self.get_connection().await?;
 
-        let query_result = sqlx::query("UPDATE list_item SET item_name = ?1 WHERE id = ?2")
+        let query_result = sqlx::query("UPDATE list_item SET item_name = $1 WHERE id = $2")
             .bind(item_name)
             .bind(id)
             .execute(&mut db)
@@ -101,7 +101,7 @@ impl Database<ListItem> {
         let mut db = self.get_connection().await?;
 
         let query_result = sqlx::query_as::<_, ListItem>(
-            "SELECT id, list_type, item_name, created_s FROM list_item WHERE list_type = ?1",
+            "SELECT id, list_type, item_name, created_s FROM list_item WHERE list_type = $1",
         )
         .bind(list_type)
         .fetch_all(&mut db)
@@ -113,7 +113,7 @@ impl Database<ListItem> {
     pub async fn delete_list_item(&self, id: &str) -> DatabaseResult<bool> {
         let mut db = self.get_connection().await?;
 
-        let query_result = sqlx::query("DELETE FROM list_item WHERE id = ?1")
+        let query_result = sqlx::query("DELETE FROM list_item WHERE id = $1")
             .bind(id)
             .execute(&mut db)
             .await?;
@@ -124,7 +124,7 @@ impl Database<ListItem> {
     pub async fn rename_list_type(&self, old_name: &str, new_name: &str) -> DatabaseResult<u64> {
         let mut db = self.get_connection().await?;
 
-        let query_result = sqlx::query("UPDATE list_item SET list_type = ?1 WHERE list_type = ?2")
+        let query_result = sqlx::query("UPDATE list_item SET list_type = $1 WHERE list_type = $2")
             .bind(new_name)
             .bind(old_name)
             .execute(&mut db)
