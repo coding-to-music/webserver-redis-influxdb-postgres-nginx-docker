@@ -8,8 +8,12 @@ RUN cd server && cargo install --debug --path .
 
 FROM alpine:3.15.0 as run
 
+WORKDIR /usr/src
+
 COPY --from=build /usr/local/cargo/bin/server .
 
-CMD ["pwd && ls -a"]
+RUN echo $(pwd)
+RUN echo $(ls -a)
+RUN echo $(stat server)
 
-ENTRYPOINT server
+ENTRYPOINT ["./server"]
