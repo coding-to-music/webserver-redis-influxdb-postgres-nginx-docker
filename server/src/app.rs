@@ -130,9 +130,9 @@ impl App {
                         .delete_shape_tag(request)
                         .await
                         .map(|result| JsonRpcResponse::success(result, id)),
-                    Method::SearchShapesByTags => self
+                    Method::RefreshGeoPointsInCache => self
                         .shape_controller
-                        .search_shapes_by_tags(request)
+                        .refresh_geo_points_in_cache(request)
                         .await
                         .map(|result| JsonRpcResponse::success(result, id)),
                     Method::GenerateSasKey => self
@@ -213,14 +213,17 @@ impl App {
 
         let db = self.request_log_db.clone();
         tokio::spawn(async move {
-            match db.insert_log(&DbRequestLog::new(
-                id,
-                db_request,
-                db_response,
-                error_context,
-                duration_ms,
-                created_s,
-            )).await {
+            match db
+                .insert_log(&DbRequestLog::new(
+                    id,
+                    db_request,
+                    db_response,
+                    error_context,
+                    duration_ms,
+                    created_s,
+                ))
+                .await
+            {
                 Ok(ok) => {
                     info!("successfully inserted request log with result: '{:?}'", ok);
                 }

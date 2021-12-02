@@ -30,7 +30,7 @@ impl ShapeController {
         let shape = params.shape;
         let id = shape.id.to_string();
 
-        let (db_shape, db_shape_tags) = make_db_entities(shape.clone());
+        let (db_shape, db_shape_tags) = make_db_entities_for_insertion(shape.clone());
         let result = self
             .shape_db
             .insert_shape(&db_shape, &db_shape_tags.iter().collect::<Vec<_>>())
@@ -38,7 +38,7 @@ impl ShapeController {
 
         match result {
             InsertionResult::Inserted => {
-                self.add_points_to_redis(&shape).await?;
+                self.add_points_to_redis(&[shape]).await?;
                 Ok(MethodResult::success(id))
             }
             InsertionResult::AlreadyExists => Ok(MethodResult::failure()),
@@ -59,14 +59,8 @@ impl ShapeController {
             let success = self.shape_db.delete_shape(&shape_id).await?;
             if success {
                 // delete points from redis
-                let geo: Geometry = serde_json::from_str(&db_shape.geo)
-                    .map_err(|e| AppError::internal_error().with_context(&e))?;
-                let geo_members: Vec<usize> = contracts::shape::coordinates_in_geo(&geo)
-                    .iter()
-                    .enumerate()
-                    .map(|(idx, _)| idx)
-                    .collect();
-                self.delete_points_from_redis(&geo_members).await?;
+                let point_ids = geo_point_ids(&db_shape)?;
+                self.delete_points_from_redis(&point_ids).await?;
                 return Ok(MethodResult::new(success));
             }
         }
@@ -223,6 +217,29 @@ impl ShapeController {
         Ok(MethodResult::new(shapes_out))
     }
 
+    pub async fn refresh_geo_points_in_cache(
+        &self,
+        request: JsonRpcRequest,
+    ) -> AppResult<refresh_geo_points_in_cache::MethodResult> {
+        use refresh_geo_points_in_cache::{MethodResult, Params};
+        let params = Params::try_from(request)?;
+        info!("'{}': refreshing geo points", params.source);
+
+        let shape_rows = self.shape_db.get_all_shapes().await?;
+
+        let mut shapes_to_add: Vec<_> = Vec::new();
+        for db_shape in shape_rows {
+            if db_shape.deleted_at_s.is_none() {
+                let shape = ShapeWrapper::try_from((db_shape, vec![])).map(|w| w.0)?;
+                shapes_to_add.push(shape);
+            }
+        }
+
+        let count = self.add_points_to_redis(&shapes_to_add).await?;
+
+        Ok(MethodResult::new(count))
+    }
+
     async fn get_shapes_with_tags(
         &self,
         shape_ids: &HashSet<Uuid>,
@@ -245,16 +262,26 @@ impl ShapeController {
         Ok(shapes)
     }
 
-    async fn add_points_to_redis(&self, shape: &Shape) -> AppResult<()> {
+    /// Adds the geo points for the given shapes to cache.
+    ///
+    /// ## Returns
+    /// The number of points that were added.
+    async fn add_points_to_redis(&self, shapes: &[Shape]) -> AppResult<usize> {
         let mut conn = self.pool.get_connection().await?;
 
-        let members: Vec<_> = Self::get_geo_members_from_shape(shape);
+        let mut members: Vec<_> = Vec::new();
+        for shape in shapes {
+            members.append(&mut Self::get_geo_members_from_shape(shape));
+        }
+
+        let count = members.len();
+
         conn.geo_add(GEO_KEY, members).await?;
 
-        Ok(())
+        Ok(count)
     }
 
-    async fn delete_points_from_redis(&self, members: &[usize]) -> AppResult<usize> {
+    async fn delete_points_from_redis(&self, members: &[String]) -> AppResult<usize> {
         let mut conn = self.pool.get_connection().await?;
 
         let result: usize = conn.zrem(GEO_KEY, members).await?;
@@ -302,13 +329,14 @@ impl TryFrom<(DbShape, Vec<DbShapeTag>)> for ShapeWrapper {
     }
 }
 
-fn make_db_entities(shape: Shape) -> (DbShape, Vec<DbShapeTag>) {
+fn make_db_entities_for_insertion(shape: Shape) -> (DbShape, Vec<DbShapeTag>) {
     let created_s = Utc::now().timestamp();
     let shape_id = shape.id.to_string();
     let db_shape = DbShape::new(
         shape.id.to_string(),
         shape.name,
         serde_json::to_string(&shape.geo).unwrap(),
+        None,
         created_s,
     );
     let db_shape_tags = shape
@@ -327,6 +355,16 @@ fn make_db_entities(shape: Shape) -> (DbShape, Vec<DbShapeTag>) {
     (db_shape, db_shape_tags)
 }
 
+fn geo_point_ids(db_shape: &DbShape) -> AppResult<Vec<String>> {
+    let geo: Geometry = serde_json::from_str(&db_shape.geo)
+        .map_err(|e| AppError::internal_error().with_context(&e))?;
+    Ok(contracts::shape::coordinates_in_geo(&geo)
+        .iter()
+        .enumerate()
+        .map(|(idx, _)| format!("{}_{}", db_shape.id, idx))
+        .collect())
+}
+
 impl ParamsError for add_shape::InvalidParams {}
 impl ParamsError for get_shape::InvalidParams {}
 impl ParamsError for get_nearby_shapes::InvalidParams {}
@@ -334,3 +372,4 @@ impl ParamsError for add_shape_tag::InvalidParams {}
 impl ParamsError for search_shapes_by_tags::InvalidParams {}
 impl ParamsError for delete_shape::InvalidParams {}
 impl ParamsError for delete_shape_tag::InvalidParams {}
+impl ParamsError for refresh_geo_points_in_cache::InvalidParams {}
