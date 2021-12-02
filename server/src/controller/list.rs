@@ -35,7 +35,7 @@ impl ListItemController {
             &list_type,
             &item_name,
             created_s,
-        )?;
+        ).await?;
 
         match result {
             InsertionResult::Inserted => Ok(MethodResult::new(true, Some(new_item_id))),
@@ -50,7 +50,7 @@ impl ListItemController {
         use get_list_items::{MethodResult, Params};
         let params = Params::try_from(request)?;
 
-        let list_items = self.db.get_list_items(&params.list_type)?;
+        let list_items = self.db.get_list_items(&params.list_type).await?;
 
         let list_items: Vec<ListItem> = list_items
             .into_iter()
@@ -71,7 +71,7 @@ impl ListItemController {
 
         info!("deleting list item with id '{}'", id);
 
-        let result = self.db.delete_list_item(&id)?;
+        let result = self.db.delete_list_item(&id).await?;
 
         Ok(MethodResult::new(result))
     }
@@ -83,7 +83,7 @@ impl ListItemController {
         use get_list_types::{MethodResult, Params};
         let _params = Params::try_from(request)?;
 
-        let list_types = self.db.get_list_types()?;
+        let list_types = self.db.get_list_types().await?;
 
         Ok(MethodResult::new(list_types))
     }
@@ -95,7 +95,7 @@ impl ListItemController {
         use rename_list_type::{MethodResult, Params};
         let params = Params::try_from(request)?;
 
-        let existing_list_types: HashSet<_> = self.db.get_list_types()?.into_iter().collect();
+        let existing_list_types: HashSet<_> = self.db.get_list_types().await?.into_iter().collect();
 
         if !existing_list_types.contains(&params.old_name) {
             return Ok(MethodResult::new(false));
@@ -103,7 +103,7 @@ impl ListItemController {
 
         let updated_rows = self
             .db
-            .rename_list_type(&params.old_name, &params.new_name)?;
+            .rename_list_type(&params.old_name, &params.new_name).await?;
 
         Ok(MethodResult::new(updated_rows > 0))
     }

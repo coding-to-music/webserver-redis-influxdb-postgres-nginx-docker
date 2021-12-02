@@ -1,9 +1,8 @@
 use crate::{Database, DatabaseResult, InsertionResult};
 use chrono::{DateTime, TimeZone, Utc};
-use rusqlite::{params, Row};
-use std::convert::TryFrom;
+use sqlx::{postgres::PgRow, Row};
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, sqlx::FromRow)]
 #[non_exhaustive]
 pub struct ListItem {
     pub id: String,
@@ -27,112 +26,111 @@ impl ListItem {
     }
 }
 
-impl<'a> TryFrom<&Row<'a>> for ListItem {
-    type Error = rusqlite::Error;
-    fn try_from(row: &Row<'a>) -> Result<Self, Self::Error> {
-        let id: String = row.get(0)?;
-        let list_type: String = row.get(1)?;
-        let item_name: String = row.get(2)?;
-        let created_s = row.get(3)?;
-
-        Ok(ListItem::new(id, list_type, item_name, created_s))
-    }
-}
-
 impl Database<ListItem> {
-    pub fn insert_list_item(
+    pub async fn insert_list_item(
         &self,
         id: &str,
         list_type: &str,
         item_name: &str,
         created_s: i64,
     ) -> DatabaseResult<InsertionResult> {
-        let db = self.get_connection()?;
+        let mut db = self.get_connection().await?;
 
-        let changed_rows = db.execute(
-            "INSERT INTO list_item (id, list_type, item_name, created_s) VALUES (?1, ?2, ?3, ?4)",
-            params![id, list_type, item_name, created_s],
-        )?;
+        let query_result = sqlx::query(
+            "INSERT INTO list_item (id, list_type, item_name, created_s) VALUES ($1, $2, $3, $4)",
+        )
+        .bind(id)
+        .bind(list_type)
+        .bind(item_name)
+        .bind(created_s)
+        .execute(&mut db)
+        .await?;
 
-        Ok(InsertionResult::from_changed_rows(changed_rows))
+        Ok(InsertionResult::from_changed_rows(
+            query_result.rows_affected(),
+        ))
     }
 
-    pub fn get_list_item(&self, id: &str) -> DatabaseResult<Option<ListItem>> {
-        let db = self.get_connection()?;
+    pub async fn get_list_item(&self, id: &str) -> DatabaseResult<Option<ListItem>> {
+        let mut db = self.get_connection().await?;
 
-        let mut stmt =
-            db.prepare("SELECT id, list_type, item_name, created_s FROM list_item WHERE id = ?1")?;
+        let mut query_result = sqlx::query_as::<_, ListItem>(
+            "SELECT id, list_type, item_name, created_s FROM list_item WHERE id = $1",
+        )
+        .bind(id)
+        .fetch_all(&mut db)
+        .await?;
 
-        let mut list_item_rows: Vec<_> = stmt
-            .query_map(params![id], |row| crate::parse_from_row(row))?
-            .collect::<Result<_, _>>()?;
-
-        if list_item_rows.is_empty() {
+        if query_result.is_empty() {
             Ok(None)
-        } else if list_item_rows.len() > 1 {
+        } else if query_result.len() > 1 {
             error!(r#"more than 1 list item with id: "{}""#, id);
             Ok(None)
         } else {
-            Ok(Some(list_item_rows.swap_remove(0)))
+            Ok(Some(query_result.remove(0)))
         }
     }
 
-    pub fn get_list_types(&self) -> DatabaseResult<Vec<String>> {
-        let db = self.get_connection()?;
+    pub async fn get_list_types(&self) -> DatabaseResult<Vec<String>> {
+        let mut db = self.get_connection().await?;
 
-        let mut stmt = db.prepare("SELECT DISTINCT list_type FROM list_item")?;
+        let query_result = sqlx::query("SELECT DISTINCT list_type FROM list_item")
+            .map(|row: PgRow| {
+                let list_type: &str = row.get("list_type");
+                list_type.to_owned()
+            })
+            .fetch_all(&mut db)
+            .await?;
 
-        let user_rows: Vec<String> = stmt
-            .query_map(params![], |row| row.get(0))?
-            .collect::<Result<_, _>>()?;
-
-        Ok(user_rows)
+        Ok(query_result)
     }
 
-    pub fn update_list_item(&self, id: &str, item_name: &str) -> DatabaseResult<usize> {
-        let db = self.get_connection()?;
+    pub async fn update_list_item(&self, id: &str, item_name: &str) -> DatabaseResult<u64> {
+        let mut db = self.get_connection().await?;
 
-        let changed_rows = db.execute(
-            "UPDATE list_item SET item_name = ?1 WHERE id = ?4",
-            params![item_name, id],
-        )?;
+        let query_result = sqlx::query("UPDATE list_item SET item_name = $1 WHERE id = $2")
+            .bind(item_name)
+            .bind(id)
+            .execute(&mut db)
+            .await?;
 
-        Ok(changed_rows)
+        Ok(query_result.rows_affected())
     }
 
-    pub fn get_list_items(&self, list_type: &str) -> DatabaseResult<Vec<ListItem>> {
-        // type inferrence doesn't seem to work in `query_map` below if we apply this lint
-        // so disable it to avoid useless warnings
-        #![allow(clippy::redundant_closure)]
+    pub async fn get_list_items(&self, list_type: &str) -> DatabaseResult<Vec<ListItem>> {
+        let mut db = self.get_connection().await?;
 
-        let db = self.get_connection()?;
-        let mut stmt = db.prepare(
-            "SELECT id, list_type, item_name, created_s FROM list_item WHERE list_type = ?1",
-        )?;
-        let list_item_rows: Vec<_> = stmt
-            .query_map(params![list_type], |row| ListItem::try_from(row))?
-            .collect::<Result<_, _>>()?;
+        let query_result = sqlx::query_as::<_, ListItem>(
+            "SELECT id, list_type, item_name, created_s FROM list_item WHERE list_type = $1",
+        )
+        .bind(list_type)
+        .fetch_all(&mut db)
+        .await?;
 
-        Ok(list_item_rows)
+        Ok(query_result)
     }
 
-    pub fn delete_list_item(&self, id: &str) -> DatabaseResult<bool> {
-        let db = self.get_connection()?;
+    pub async fn delete_list_item(&self, id: &str) -> DatabaseResult<bool> {
+        let mut db = self.get_connection().await?;
 
-        let changed_rows = db.execute("DELETE FROM list_item WHERE id = ?1", params![id])?;
+        let query_result = sqlx::query("DELETE FROM list_item WHERE id = $1")
+            .bind(id)
+            .execute(&mut db)
+            .await?;
 
-        Ok(changed_rows == 1)
+        Ok(query_result.rows_affected() == 1)
     }
 
-    pub fn rename_list_type(&self, old_name: &str, new_name: &str) -> DatabaseResult<usize> {
-        let db = self.get_connection()?;
+    pub async fn rename_list_type(&self, old_name: &str, new_name: &str) -> DatabaseResult<u64> {
+        let mut db = self.get_connection().await?;
 
-        let changed_rows = db.execute(
-            "UPDATE list_item SET list_type = ?1 WHERE list_type = ?2",
-            params![new_name, old_name],
-        )?;
+        let query_result = sqlx::query("UPDATE list_item SET list_type = $1 WHERE list_type = $2")
+            .bind(new_name)
+            .bind(old_name)
+            .execute(&mut db)
+            .await?;
 
-        Ok(changed_rows)
+        Ok(query_result.rows_affected())
     }
 }
 

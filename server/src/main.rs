@@ -27,8 +27,8 @@ extern crate log;
 pub struct Opts {
     #[structopt(long, default_value = "3000", env = "WEBSERVER_LISTEN_PORT")]
     port: u16,
-    #[structopt(long, env = "WEBSERVER_SQLITE_PATH")]
-    database_path: String,
+    #[structopt(long, env = "WEBSERVER_DATABASE_ADDR")]
+    database_addr: String,
     #[structopt(long, env = "WEBSERVER_TOKEN_REDIS_ADDR")]
     token_redis_addr: String,
     #[structopt(long, env = "WEBSERVER_SHAPE_REDIS_ADDR")]
@@ -43,33 +43,22 @@ pub struct Opts {
 async fn main() {
     let env = std::env::var("WEBSERVER_ENV").unwrap_or_else(|_| "test".to_string());
 
-    match env.as_str() {
-        "prod" => {
-            dotenv::from_filename("prod.env").unwrap_or_else(|_| {
-                panic!(
-                    "prod.env not present in '{:?}'",
-                    std::env::current_dir().unwrap()
-                )
-            });
-        }
-        "test" => {
-            dotenv::from_filename("test.env").unwrap_or_else(|_| {
-                panic!(
-                    "test.env not present in '{:?}'",
-                    std::env::current_dir().unwrap()
-                )
-            });
-        }
-        invalid => panic!("invalid environment specified: '{}'", invalid),
+    let env_file_name = format!("{}.env", env);
+
+    if let Err(e) = dotenv::from_filename(&env_file_name) {
+        warn!(
+            "environment file not found: {}, error: {}",
+            env_file_name, e
+        );
     }
 
     pretty_env_logger::formatted_timed_builder()
-        .parse_filters(&std::env::var("RUST_LOG").unwrap())
+        .parse_filters(&get_required_env_var("RUST_LOG"))
         .init();
 
     let opts = Opts::from_args();
 
-    let app = Arc::new(App::new(opts.clone()));
+    let app = Arc::new(App::new(opts.clone()).await);
 
     let webserver = Arc::new(Webserver::new(app, opts.clone()));
 
@@ -113,6 +102,7 @@ impl Webserver {
     pub async fn handle_request(&self, request: Request<Body>) -> Response<Body> {
         let route = request.uri().to_string();
         match (request.method(), route.as_str()) {
+            (_, "/ping") => ping_pong_response(),
             (&hyper::Method::POST, "/api") => {
                 let response_body = self.api_route(request).await;
                 return crate::generic_json_response(response_body, 200);
@@ -268,6 +258,13 @@ where
         .status(status)
         .header("Content-Type", "application/json")
         .body(Body::from(b))
+        .unwrap()
+}
+
+fn ping_pong_response() -> Response<Body> {
+    Response::builder()
+        .status(200)
+        .body(Body::from("pong"))
         .unwrap()
 }
 

@@ -15,11 +15,16 @@ pub struct RedisPool {
 
 impl RedisPool {
     pub fn new(addr: String) -> Self {
+        let client = match Client::open(addr.clone()) {
+            Ok(c) => c,
+            Err(e) => panic!(
+                "failed to create redis client with address: '{}', error: '{}'",
+                addr, e
+            ),
+        };
         let pool = Pool::builder()
             .max_open(20)
-            .build(RedisConnectionManager::new(
-                Client::open(addr.clone()).unwrap(),
-            ));
+            .build(RedisConnectionManager::new(client));
         Self { addr, pool }
     }
 
