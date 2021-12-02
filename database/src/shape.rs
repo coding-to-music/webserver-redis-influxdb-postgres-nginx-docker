@@ -90,11 +90,16 @@ impl Database<Shape> {
     pub async fn get_shape(&self, id: &str) -> DatabaseResult<Option<Shape>> {
         let mut db = self.get_connection().await?;
 
-        let mut query_result =
-            sqlx::query_as::<_, Shape>("SELECT id, name, geo, created_s FROM shape WHERE id = $1")
-                .bind(id)
-                .fetch_all(&mut db)
-                .await?;
+        let mut query_result = sqlx::query_as::<_, Shape>(
+            "
+            SELECT id, name, geo, deleted_at_s, created_s 
+            FROM shape 
+            WHERE id = $1
+            ",
+        )
+        .bind(id)
+        .fetch_all(&mut db)
+        .await?;
 
         if query_result.is_empty() {
             Ok(None)
@@ -132,12 +137,10 @@ impl Database<Shape> {
 
         let query_result = sqlx::query_as::<_, Shape>(
             "
-            SELECT id, 
-                name,
-                geo,
-                created_s
+            SELECT id, name, geo, deleted_at_s, created_s
             FROM shape 
-            WHERE id IN ($1)",
+            WHERE id IN ($1)
+            ",
         )
         .bind(query_list)
         .fetch_all(&mut db)
@@ -149,20 +152,22 @@ impl Database<Shape> {
     pub async fn delete_shape(&self, id: &str) -> DatabaseResult<bool> {
         let mut db = self.get_connection().await?;
         let mut transaction = db.begin().await?;
-        let shape_query_result = sqlx::query("DELETE FROM shape WHERE id = $1")
-            .bind(id)
-            .execute(&mut transaction)
-            .await?;
-        let shape_tag_query_result = sqlx::query("DELETE FROM shape_tag WHERE shape_id = $1")
-            .bind(id)
-            .execute(&mut transaction)
-            .await?;
+        let deleted_at_s = chrono::Utc::now().timestamp();
+        let query_result = sqlx::query(
+            "
+            UPDATE shape
+            SET deleted_at_s = $1
+            WHERE id = $2 AND deleted_at_s IS NULL
+        ",
+        )
+        .bind(deleted_at_s)
+        .bind(id)
+        .execute(&mut transaction)
+        .await?;
         transaction.commit().await?;
 
-        let changed_rows =
-            shape_query_result.rows_affected() + shape_tag_query_result.rows_affected();
-
-        Ok(changed_rows > 1)
+        let changed_rows = query_result.rows_affected();
+        Ok(changed_rows == 1)
     }
 
     pub async fn get_shapes_with_tags(
@@ -316,14 +321,16 @@ async fn insert_shape<'a>(
     transaction: &mut Transaction<'a, Postgres>,
     shape: &Shape,
 ) -> DatabaseResult<u64> {
-    let query_result =
-        sqlx::query("INSERT INTO shape (id, name, geo, created_s) VALUES ($1, $2, $3, $4)")
-            .bind(&shape.id)
-            .bind(&shape.name)
-            .bind(&shape.geo)
-            .bind(shape.created_s)
-            .execute(transaction)
-            .await?;
+    let query_result = sqlx::query(
+        "INSERT INTO shape (id, name, geo, deleted_at_s, created_s) VALUES ($1, $2, $3, $4, $5)",
+    )
+    .bind(&shape.id)
+    .bind(&shape.name)
+    .bind(&shape.geo)
+    .bind::<Option<String>>(None)
+    .bind(shape.created_s)
+    .execute(transaction)
+    .await?;
     Ok(query_result.rows_affected())
 }
 
