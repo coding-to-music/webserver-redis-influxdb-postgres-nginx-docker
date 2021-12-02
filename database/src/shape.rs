@@ -1,23 +1,32 @@
 use crate::{Database, DatabaseResult, InsertionResult};
 use chrono::{DateTime, TimeZone, Utc};
-use sqlx::{Connection, Executor, FromRow, Transaction, Postgres};
+use sqlx::{Connection, Executor, FromRow, Postgres, Transaction};
 use std::{collections::HashMap, convert::TryFrom};
 
+/// This is a row in the `shape` table.
 #[derive(Debug, Clone, PartialEq, Eq, FromRow)]
 #[non_exhaustive]
 pub struct Shape {
     pub id: String,
     pub name: Option<String>,
     pub geo: String,
+    pub deleted_at_s: Option<i64>,
     pub created_s: i64,
 }
 
 impl Shape {
-    pub fn new(id: String, name: Option<String>, geo: String, created_s: i64) -> Self {
+    pub fn new(
+        id: String,
+        name: Option<String>,
+        geo: String,
+        deleted_at_s: Option<i64>,
+        created_s: i64,
+    ) -> Self {
         Self {
             id,
             name,
             geo,
+            deleted_at_s,
             created_s,
         }
     }
@@ -27,6 +36,7 @@ impl Shape {
     }
 }
 
+/// This is a row in the `shape_tag` table.
 #[derive(Debug, Clone, PartialEq, Eq, FromRow)]
 #[non_exhaustive]
 pub struct ShapeTag {
@@ -94,6 +104,21 @@ impl Database<Shape> {
         } else {
             Ok(Some(query_result.remove(0)))
         }
+    }
+
+    pub async fn get_all_shapes(&self) -> DatabaseResult<Vec<Shape>> {
+        let mut db = self.get_connection().await?;
+
+        let query_result = sqlx::query_as::<_, Shape>(
+            "
+            SELECT id, name, geo, deleted_at_s, created_s
+            FROM shape
+            ",
+        )
+        .fetch_all(&mut db)
+        .await?;
+
+        Ok(query_result)
     }
 
     pub async fn get_shapes_by_ids(&self, ids: &[&str]) -> DatabaseResult<Vec<Shape>> {
