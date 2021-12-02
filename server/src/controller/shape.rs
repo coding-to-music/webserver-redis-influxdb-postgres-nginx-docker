@@ -81,8 +81,9 @@ impl ShapeController {
         let shape = self.shape_db.get_shape(&params.id.to_string()).await?;
 
         let shape = match shape {
-            Some(db_shape) => db_shape,
-            None => {
+            Some(db_shape) if db_shape.deleted_at_s.is_none() => db_shape,
+            _ => {
+                // the shape has either been deleted or it does not exist
                 if as_geojson {
                     return Ok(MethodResult::geojson(None));
                 } else {
