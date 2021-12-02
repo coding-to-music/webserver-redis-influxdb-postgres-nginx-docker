@@ -327,7 +327,7 @@ async fn insert_shape<'a>(
     .bind(&shape.id)
     .bind(&shape.name)
     .bind(&shape.geo)
-    .bind::<Option<String>>(None)
+    .bind::<Option<i64>>(None)
     .bind(shape.created_s)
     .execute(transaction)
     .await?;
