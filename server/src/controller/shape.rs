@@ -5,9 +5,13 @@ use crate::{
 use chrono::Utc;
 use contracts::{shape::geojson::*, shape::*, *};
 use database::{Database, InsertionResult, Shape as DbShape, ShapeTag as DbShapeTag};
-use mobc_redis::redis::{
-    geo::{RadiusOptions, RadiusSearchResult, Unit},
-    AsyncCommands,
+use mobc_redis::{
+    mobc::Connection,
+    redis::{
+        geo::{RadiusOptions, RadiusSearchResult, Unit},
+        AsyncCommands,
+    },
+    RedisConnectionManager,
 };
 use std::{collections::HashSet, convert::TryFrom, sync::Arc};
 use uuid::Uuid;
@@ -15,13 +19,13 @@ use uuid::Uuid;
 const GEO_KEY: &str = "Shape:Geo";
 
 pub struct ShapeController {
-    pool: Arc<RedisPool>,
+    redis: Arc<RedisPool>,
     shape_db: Arc<Database<DbShape>>,
 }
 
 impl ShapeController {
-    pub fn new(pool: Arc<RedisPool>, shape_db: Arc<Database<DbShape>>) -> Self {
-        Self { pool, shape_db }
+    pub fn new(redis: Arc<RedisPool>, shape_db: Arc<Database<DbShape>>) -> Self {
+        Self { redis, shape_db }
     }
 
     pub async fn add_shape(&self, request: JsonRpcRequest) -> AppResult<add_shape::MethodResult> {
@@ -38,7 +42,8 @@ impl ShapeController {
 
         match result {
             InsertionResult::Inserted => {
-                self.add_points_to_redis(&[shape]).await?;
+                let mut conn = self.redis.get_connection().await?;
+                self.add_points_to_redis(&mut conn, &[shape]).await?;
                 Ok(MethodResult::success(id))
             }
             InsertionResult::AlreadyExists => Ok(MethodResult::failure()),
@@ -104,7 +109,7 @@ impl ShapeController {
         use get_nearby_shapes::{MethodResult, Params};
         let params = Params::try_from(request)?;
 
-        let mut conn = self.pool.get_connection().await?;
+        let mut conn = self.redis.get_connection().await?;
 
         let results: Vec<RadiusSearchResult> = conn
             .geo_radius(
@@ -227,6 +232,10 @@ impl ShapeController {
 
         let shape_rows = self.shape_db.get_all_shapes().await?;
 
+        let mut conn = self.redis.get_connection().await?;
+
+        conn.del(GEO_KEY).await?;
+
         let mut shapes_to_add: Vec<_> = Vec::new();
         for db_shape in shape_rows {
             if db_shape.deleted_at_s.is_none() {
@@ -235,7 +244,7 @@ impl ShapeController {
             }
         }
 
-        let count = self.add_points_to_redis(&shapes_to_add).await?;
+        let count = self.add_points_to_redis(&mut conn, &shapes_to_add).await?;
 
         Ok(MethodResult::new(count))
     }
@@ -266,9 +275,11 @@ impl ShapeController {
     ///
     /// ## Returns
     /// The number of points that were added.
-    async fn add_points_to_redis(&self, shapes: &[Shape]) -> AppResult<usize> {
-        let mut conn = self.pool.get_connection().await?;
-
+    async fn add_points_to_redis(
+        &self,
+        conn: &mut Connection<RedisConnectionManager>,
+        shapes: &[Shape],
+    ) -> AppResult<usize> {
         let mut members: Vec<_> = Vec::new();
         for shape in shapes {
             members.append(&mut Self::get_geo_members_from_shape(shape));
@@ -282,7 +293,7 @@ impl ShapeController {
     }
 
     async fn delete_points_from_redis(&self, members: &[String]) -> AppResult<usize> {
-        let mut conn = self.pool.get_connection().await?;
+        let mut conn = self.redis.get_connection().await?;
 
         let result: usize = conn.zrem(GEO_KEY, members).await?;
 
