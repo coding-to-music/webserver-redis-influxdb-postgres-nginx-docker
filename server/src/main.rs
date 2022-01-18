@@ -20,6 +20,11 @@ pub mod controller;
 pub mod redis;
 pub mod token;
 
+const API_URI: &'static str = "/api";
+const TOKEN_URI: &'static str = "/api/token";
+const PING_URI: &'static str = "/api/ping";
+const URIS: [&'static str; 3] = [API_URI, TOKEN_URI, PING_URI];
+
 #[macro_use]
 extern crate log;
 
@@ -101,14 +106,20 @@ impl Webserver {
 
     pub async fn handle_request(&self, request: Request<Body>) -> Response<Body> {
         let route = request.uri().to_string();
+        let without_trailing_slash = route.trim_end_matches("/");
         // route without trailing slash for easier matching
-        match (request.method(), route.trim_end_matches("/")) {
-            (_, "/api/ping") => ping_pong_response(),
-            (&hyper::Method::POST, "/api") => {
+        trace!(
+            "matching route '{}' against {:?}",
+            without_trailing_slash,
+            URIS
+        );
+        match (request.method(), without_trailing_slash) {
+            (_, PING_URI) => ping_pong_response(),
+            (&hyper::Method::POST, API_URI) => {
                 let response_body = self.api_route(request).await;
                 return crate::generic_json_response(response_body, 200);
             }
-            (&hyper::Method::POST, "/api/token") => {
+            (&hyper::Method::POST, TOKEN_URI) => {
                 let response_body = self.token_route(request).await;
                 match response_body {
                     Ok(resp) | Err(resp) => {
