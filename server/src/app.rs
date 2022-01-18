@@ -1,5 +1,6 @@
 use crate::{
     controller::{ListItemController, ServerController, ShapeController},
+    influx::InfluxClient,
     redis::RedisPool,
     Opts,
 };
@@ -23,6 +24,7 @@ pub type AppResult<T> = Result<T, AppError>;
 pub struct App {
     opts: Opts,
     request_log_db: Arc<Database<DbRequestLog>>,
+    influx_db: Arc<InfluxClient>,
     list_controller: ListItemController,
     shape_controller: ShapeController,
     server_controller: ServerController,
@@ -33,6 +35,15 @@ impl App {
         let list_item_db = Arc::new(Database::new(opts.database_addr.clone()).await.unwrap());
 
         let shape_db = Arc::new(Database::new(opts.database_addr.clone()).await.unwrap());
+
+        let influx_db = Arc::new(
+            InfluxClient::new(
+                opts.influx_addr.clone(),
+                opts.influx_token.clone(),
+                opts.influx_org.clone(),
+            )
+            .unwrap(),
+        );
 
         let request_log_db = Arc::new(Database::new(opts.database_addr.clone()).await.unwrap());
 
@@ -48,6 +59,7 @@ impl App {
             list_controller,
             shape_controller,
             server_controller,
+            influx_db,
         }
     }
 
@@ -195,6 +207,7 @@ impl App {
         }
 
         let id = Uuid::new_v4().to_string();
+        let method = request.method.clone();
         let db_request = match DbRequestWrapper::try_from((request, request_ts_s)) {
             Ok(ok) => ok.0,
             Err(e) => {
@@ -229,6 +242,21 @@ impl App {
                 }
                 Err(err) => {
                     error!("failed to insert request log with error: '{:?}'", err);
+                }
+            }
+        });
+
+        let influx = self.influx_db.clone();
+        tokio::spawn(async move {
+            match influx
+                .send_request_log(&method, duration_ms, request_ts_s)
+                .await
+            {
+                Ok(_) => {
+                    ();
+                }
+                Err(_) => {
+                    ();
                 }
             }
         });

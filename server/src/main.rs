@@ -17,6 +17,7 @@ use token::TokenHandler;
 
 pub mod app;
 pub mod controller;
+pub mod influx;
 pub mod redis;
 pub mod token;
 
@@ -42,6 +43,12 @@ pub struct Opts {
     jwt_secret: String,
     #[structopt(long, env = "WEBSERVER_PUBLISH_REQUEST_LOG")]
     publish_request_log: bool,
+    #[structopt(long, env = "WEBSERVER_INFLUX_ADDR")]
+    influx_addr: Option<String>,
+    #[structopt(long, env = "WEBSERVER_INFLUX_TOKEN")]
+    influx_token: Option<String>,
+    #[structopt(long, env = "WEBSERVER_INFLUX_ORG")]
+    influx_org: Option<String>,
 }
 
 #[tokio::main]
