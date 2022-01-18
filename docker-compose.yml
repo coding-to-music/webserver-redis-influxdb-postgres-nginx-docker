@@ -17,14 +17,19 @@ services:
     restart: always
     volumes:
       - ./nginx/conf/:/etc/nginx/conf.d/:ro
-      - ./nginx/certs/:/etc/nginx/ssl/live/
+      - ./certbot/www:/var/www/certbot/:ro
+      - ./certbot/conf/:/etc/nginx/ssl/:ro
+  certbot:
+    image: certbot/certbot:latest
+    volumes:
+      - ./certbot/www/:/var/www/certbot/:rw
+      - ./certbot/conf/:/etc/letsencrypt/:rw
   server:
     build: "."
     env_file: "server-prod.env"
     links:
       - "redis:redis"
       - "postgres:postgres"
-
 
 volumes:
   pgdata: null
