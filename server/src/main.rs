@@ -101,7 +101,8 @@ impl Webserver {
 
     pub async fn handle_request(&self, request: Request<Body>) -> Response<Body> {
         let route = request.uri().to_string();
-        match (request.method(), route.as_str()) {
+        // route without trailing slash for easier matching
+        match (request.method(), route.trim_end_matches("/")) {
             (_, "/api/ping") => ping_pong_response(),
             (&hyper::Method::POST, "/api") => {
                 let response_body = self.api_route(request).await;
