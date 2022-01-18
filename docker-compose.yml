@@ -24,12 +24,18 @@ services:
     volumes:
       - ./certbot/www/:/var/www/certbot/:rw
       - ./certbot/conf/:/etc/letsencrypt/:rw
+  influxdb:
+    image: influxdb:latest
+    env_file:
+      - "influxdb-prod.env"
+    volumes:
+      - influxdata:/var/lib/influxdb2
+      - influxconfig:/etc/influxdb2
   server:
     build: "."
     env_file: "server-prod.env"
-    links:
-      - "redis:redis"
-      - "postgres:postgres"
 
 volumes:
   pgdata: null
+  influxdata: null
+  influxconfig: null
