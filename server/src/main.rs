@@ -102,12 +102,13 @@ impl Webserver {
     pub async fn handle_request(&self, request: Request<Body>) -> Response<Body> {
         let route = request.uri().to_string();
         match (request.method(), route.as_str()) {
-            (_, "/ping") => ping_pong_response(),
-            (&hyper::Method::POST, "/api") => {
+            (&hyper::Method::POST, "/") => {
                 let response_body = self.api_route(request).await;
                 return crate::generic_json_response(response_body, 200);
             }
-            (&hyper::Method::POST, "/api/token") => {
+            (_, "/ping") => ping_pong_response(),
+
+            (&hyper::Method::POST, "/token") => {
                 let response_body = self.token_route(request).await;
                 match response_body {
                     Ok(resp) | Err(resp) => {
