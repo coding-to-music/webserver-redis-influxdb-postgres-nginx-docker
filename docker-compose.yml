@@ -12,23 +12,19 @@ services:
   nginx:
     image: nginx:latest
     ports:
+      - 80:80
       - 443:443
     restart: always
     volumes:
       - ./nginx/conf/:/etc/nginx/conf.d/:ro
-      - ./certbot/www:/var/www/certbot/:ro
-  certbot:
-    image: certbot/cerbot:latest
-    volumes:
-      - ./certbot/www/:/var/www/certbot/:rw
+      - ./nginx/certs/:/etc/nginx/ssl/live/
   server:
     build: "."
     env_file: "server-prod.env"
-    ports:
-      - "3000:3000"
     links:
       - "redis:redis"
       - "postgres:postgres"
+
 
 volumes:
   pgdata: null
