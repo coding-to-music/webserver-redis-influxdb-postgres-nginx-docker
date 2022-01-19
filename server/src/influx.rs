@@ -1,6 +1,6 @@
 use std::time::Instant;
 
-use influxrs::Measurement;
+use influxrs::{InfluxError, Measurement};
 
 pub struct InfluxClient {
     client: Option<influxrs::InfluxClient>,
@@ -29,8 +29,9 @@ impl InfluxClient {
         method: &str,
         duration_ms: i64,
         timestamp_ts_s: i64,
-    ) -> Result<(), ()> {
+    ) -> Result<(), InfluxError> {
         if let Some(client) = &self.client {
+            trace!("writing request log to Influx for method '{}'", method);
             let timer = Instant::now();
             client
                 .write(
@@ -42,9 +43,10 @@ impl InfluxClient {
                         .build()
                         .unwrap()],
                 )
-                .await
-                .map_err(|_| ())?;
+                .await?;
             info!("writing request logs to influx took {:?}", timer.elapsed());
+        } else {
+            trace!("Influx client is None, skipping");
         }
         Ok(())
     }

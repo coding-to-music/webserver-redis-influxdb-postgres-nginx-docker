@@ -252,11 +252,12 @@ impl App {
                 .send_request_log(&method, duration_ms, request_ts_s)
                 .await
             {
-                Ok(_) => {
-                    ();
-                }
-                Err(_) => {
-                    ();
+                Ok(_) => (),
+                Err(err) => {
+                    error!(
+                        "failed to write request log to Influx with error: '{}'",
+                        err
+                    );
                 }
             }
         });
