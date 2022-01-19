@@ -1,17 +1,17 @@
-/client/target
+src/client/target
 
-/notifications/target
+src/notifications/target
 
-/contracts/target
-/contracts/Cargo.lock
+src/contracts/target
+src/contracts/Cargo.lock
 
-/database/target
-/database/Cargo.lock
+src/database/target
+src/database/Cargo.lock
 
-/server/target
+src/server/target
 
-/target
-/Cargo.lock
+src/target
+src/Cargo.lock
 
 **/*.rs.bk
 **/*.env*

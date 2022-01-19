@@ -2,9 +2,9 @@ FROM rust:1.56 as build
 
 WORKDIR /usr/src/webserver
 
-COPY . .
+COPY ./src .
 
-RUN cd server && cargo install --path .
+RUN cd src/server && cargo install --path .
 
 FROM ubuntu:latest as run
 
