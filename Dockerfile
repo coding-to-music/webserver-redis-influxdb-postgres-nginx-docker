@@ -10,7 +10,9 @@ FROM ubuntu:latest as run
 
 WORKDIR /usr/src
 
-RUN apt-get -y install openssl
+RUN apt-get update
+RUN apt-get -y install libssl-dev
+
 COPY --from=build /usr/local/cargo/bin/server /usr/local/bin
 
 ENTRYPOINT ["/usr/local/bin/server"]
