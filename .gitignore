@@ -20,3 +20,5 @@ src/Cargo.lock
 
 nginx/
 certbot/
+postgres/
+influxdb/

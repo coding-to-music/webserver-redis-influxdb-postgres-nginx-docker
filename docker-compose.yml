@@ -6,9 +6,9 @@ services:
   postgres:
     image: postgres
     env_file:
-      - "postgres-prod.env"
+      - "postgres/postgres-prod.env"
     volumes:
-      - pgdata:/var/lib/postgresql/data
+      - ./postgres/data/:/var/lib/postgresql/data
   nginx:
     image: nginx:latest
     ports:
@@ -27,15 +27,10 @@ services:
   influxdb:
     image: influxdb:latest
     env_file:
-      - "influxdb-prod.env"
+      - "influxdb/influxdb-prod.env"
     volumes:
-      - influxdata:/var/lib/influxdb2
-      - influxconfig:/etc/influxdb2
+      - ./influxdb/data/:/var/lib/influxdb2
+      - ./influxdb/config/:/etc/influxdb2
   server:
     build: "."
-    env_file: "server-prod.env"
-
-volumes:
-  pgdata: null
-  influxdata: null
-  influxconfig: null
+    env_file: "src/server-prod.env"
