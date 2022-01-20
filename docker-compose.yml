@@ -35,5 +35,8 @@ services:
       - ./influxdb/data/:/var/lib/influxdb2
       - ./influxdb/config/:/etc/influxdb2
   server:
-    build: "."
-    env_file: "src/server-prod.env"
+    build: "./src/server"
+    env_file: "src/server/server-prod.env"
+  collector:
+    build: "./src/collector"
+    env_file: "src/collector/collector-prod.env"
