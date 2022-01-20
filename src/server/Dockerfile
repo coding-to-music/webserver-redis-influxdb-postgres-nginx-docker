@@ -1,18 +1,24 @@
-FROM rust:1.56 as build
+FROM rust:1.58 AS chef
+RUN cargo install cargo-chef
+RUN pwd
 
-WORKDIR /usr/src/webserver
+FROM chef AS planner
+COPY . .
+RUN pwd
+RUN ls
+RUN cargo chef prepare --recipe-path recipe.json
 
-COPY ./src .
+# Build dependencies - this is the caching Docker layer!
+FROM chef AS builder 
+COPY --from=planner /server/recipe.json recipe.json
 
-RUN cd server && cargo install --path .
+RUN pwd
+RUN ls
+RUN cargo chef cook --release --recipe-path recipe.json
+
+COPY . .
+RUN cargo build --release --bin server
 
 FROM ubuntu:latest as run
-
-WORKDIR /usr/src
-
-RUN apt-get update
-RUN apt-get -y install libssl-dev
-
-COPY --from=build /usr/local/cargo/bin/server /usr/local/bin
-
+COPY --from=builder /app/target/release/server /usr/local/bin
 ENTRYPOINT ["/usr/local/bin/server"]
