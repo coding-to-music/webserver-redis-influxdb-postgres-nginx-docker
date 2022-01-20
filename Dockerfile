@@ -4,7 +4,7 @@ WORKDIR /usr/src/webserver
 
 COPY ./src .
 
-RUN cd src/server && cargo install --path .
+RUN cd server && cargo install --path .
 
 FROM ubuntu:latest as run
 

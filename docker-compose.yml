@@ -5,10 +5,13 @@ services:
     image: redis
   postgres:
     image: postgres
+    ports:
+      - 5432:5432
     env_file:
       - "postgres/postgres-prod.env"
     volumes:
       - ./postgres/data/:/var/lib/postgresql/data
+      - ./postgres/init-scripts/:/docker-entrypoint-initdb.d/
   nginx:
     image: nginx:latest
     ports:

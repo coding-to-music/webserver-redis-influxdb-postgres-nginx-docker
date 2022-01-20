@@ -13,6 +13,9 @@ src/server/target
 src/target
 src/Cargo.lock
 
+target
+Cargo.lock
+
 **/*.rs.bk
 **/*.env*
 
