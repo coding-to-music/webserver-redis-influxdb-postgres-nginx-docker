@@ -1,3 +1,6 @@
+#[macro_use]
+extern crate log;
+
 use clap::Parser;
 
 mod weather;
@@ -17,8 +20,8 @@ struct WeatherOpts {
     influx_token: String,
     #[clap(long, env = "COLLECTOR_INFLUX_ORG")]
     influx_org: String,
-    #[clap(long)]
-    stations: Vec<String>,
+    #[clap(long, env = "COLLECTOR_STATIONS")]
+    stations: String,
     #[clap(long, default_value = "5")]
     minute_interval: u64,
 }

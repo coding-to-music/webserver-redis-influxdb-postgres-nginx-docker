@@ -1,9 +1,9 @@
 use std::{collections::HashMap, time::Duration};
-
 use self::smhi::Root;
 use crate::WeatherOpts;
 use influxrs::{InfluxClient, Measurement};
 use isahc::{AsyncReadResponseExt, HttpClient};
+
 
 mod smhi;
 
@@ -15,7 +15,11 @@ impl Weather {
         let client = WeatherClient::new(opts);
         loop {
             interval.tick().await;
-            client.collect_weather_data().await;
+            let result = client.collect_weather_data().await;
+            match result {
+                Ok(_) => info!("successfully collected weather data"),
+                Err(e) => error!("failed to collect weather data with error: '{}'", e),
+            }
         }
     }
 }
@@ -43,31 +47,31 @@ impl WeatherClient {
         }
     }
 
-    pub async fn collect_weather_data(&self) {
-        let data = self.get_data().await;
+    pub async fn collect_weather_data(&self) -> Result<(), String> {
+        let data = self.get_data().await?;
         let measurements = create_measurements(data);
 
         self.influx_client
             .write("weather", &measurements)
             .await
-            .unwrap();
+            .map_err(|influx_err| format!("{}", influx_err))
     }
 
-    async fn get_data(&self) -> HashMap<String, Root> {
+    async fn get_data(&self) -> Result<HashMap<String, Root>, String> {
         let mut stations = HashMap::new();
-        for station in &self.opts.stations {
+        for station in self.opts.stations.split(',') {
             let uri = format!("https://opendata-download-metobs.smhi.se/api/version/1.0/parameter/1/station/{}/period/latest-hour/data.json", station);
             let response: Root = self
                 .http_client
                 .get_async(&uri)
                 .await
-                .unwrap()
+                .map_err(|e| format!("error: {}", e))?
                 .json()
                 .await
-                .unwrap();
-            stations.insert(station.clone(), response);
+                .map_err(|e| format!("error: {}", e))?;
+            stations.insert(station.to_owned(), response);
         }
-        stations
+        Ok(stations)
     }
 }
 
