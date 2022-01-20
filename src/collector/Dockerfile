@@ -1,18 +1,23 @@
-FROM rust:1.56 as build
+FROM rust:1.58 AS chef
+WORKDIR /webserver
+RUN cargo install cargo-chef
 
-WORKDIR /usr/src/webserver
+FROM chef AS planner
+COPY . .
+RUN cargo chef prepare --recipe-path recipe.json
 
-COPY ./src .
+# Build dependencies - this is the caching Docker layer!
+FROM chef AS builder 
+COPY --from=planner /webserver/recipe.json recipe.json
+RUN cargo chef cook --release --recipe-path recipe.json
 
-RUN cd collector && cargo install --path .
+COPY . .
+RUN cargo build --release --bin collector
 
 FROM ubuntu:latest as run
 
-WORKDIR /usr/src
-
 RUN apt-get update
-RUN apt-get -y install openssl ca-certificates
+RUN apt-get -y install ca-certificates openssl
 
-COPY --from=build /usr/local/cargo/bin/collector /usr/local/bin
-
+COPY --from=builder /webserver/target/release/collector /usr/local/bin
 ENTRYPOINT ["/usr/local/bin/collector", "weather"]
