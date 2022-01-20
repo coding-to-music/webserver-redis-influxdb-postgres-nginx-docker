@@ -39,7 +39,7 @@ impl InfluxClient {
                     &[Measurement::builder("request")
                         .tag("method", method)
                         .field("duration_ms", duration_ms)
-                        .timestamp(1000 * timestamp_ts_s as u128) // ms precision in InfluxClient
+                        .timestamp_ms(1000 * timestamp_ts_s as u128) // ms precision in InfluxClient
                         .build()
                         .unwrap()],
                 )
