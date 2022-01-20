@@ -35,8 +35,12 @@ services:
       - ./influxdb/data/:/var/lib/influxdb2
       - ./influxdb/config/:/etc/influxdb2
   server:
-    build: "./src/server"
+    build: 
+      context: "./src"
+      dockerfile: "server/Dockerfile"
     env_file: "src/server/server-prod.env"
   collector:
-    build: "./src/collector"
+    build: 
+      context: "."
+      dockerfile: "src/collector/Dockerfile"
     env_file: "src/collector/collector-prod.env"

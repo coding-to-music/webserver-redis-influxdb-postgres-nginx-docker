@@ -11,8 +11,8 @@ FROM ubuntu:latest as run
 WORKDIR /usr/src
 
 RUN apt-get update
-RUN apt-get -y install libssl-dev
+RUN apt-get -y install openssl ca-certificates
 
 COPY --from=build /usr/local/cargo/bin/collector /usr/local/bin
 
-ENTRYPOINT ["/usr/local/bin/collector"]
+ENTRYPOINT ["/usr/local/bin/collector", "weather"]
