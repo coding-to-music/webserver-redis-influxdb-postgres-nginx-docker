@@ -41,6 +41,6 @@ services:
     env_file: "src/server/server-prod.env"
   collector:
     build: 
-      context: "."
-      dockerfile: "src/collector/Dockerfile"
+      context: "./src"
+      dockerfile: "collector/Dockerfile"
     env_file: "src/collector/collector-prod.env"
