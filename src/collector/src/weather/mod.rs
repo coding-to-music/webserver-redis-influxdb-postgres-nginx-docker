@@ -1,5 +1,6 @@
 use self::data::DataResponse;
 use crate::{weather::station::StationResponse, WeatherOpts};
+use futures::future;
 use influxrs::{InfluxClient, Measurement};
 use isahc::{AsyncReadResponseExt, HttpClient};
 use std::{collections::HashMap, time::Duration};
@@ -58,7 +59,7 @@ impl WeatherClient {
             .map_err(|influx_err| format!("{}", influx_err))
     }
 
-    async fn get_active_stations(&self, parameter: u32) -> Result<HashMap<String, String>, String> {
+    async fn get_active_stations(&self, parameter: u32) -> Result<HashMap<i64, String>, String> {
         let uri = format!(
             "https://opendata-download-metobs.smhi.se/api/version/1.0/parameter/{}.json",
             parameter
@@ -75,25 +76,34 @@ impl WeatherClient {
             .station
             .into_iter()
             .filter(|s| s.active)
-            .map(|s| (s.key, s.name))
+            .map(|s| (s.id, s.name))
             .collect())
     }
 
-    async fn get_data(&self, parameter: u32) -> Result<HashMap<String, DataResponse>, String> {
+    async fn get_data(&self, parameter: u32) -> Result<HashMap<i64, DataResponse>, String> {
         let active_stations = self.get_active_stations(parameter).await?;
         let mut station_responses = HashMap::new();
+        let mut station_tasks = Vec::with_capacity(active_stations.len());
+
         for (id, _name) in active_stations {
-            match self.get_data_for_station(&id).await {
+            station_tasks.push(async move { (id, self.get_data_for_station(id).await) });
+        }
+
+        let results = future::join_all(station_tasks).await;
+
+        for (id, result) in results {
+            match result {
                 Ok(response) => {
                     station_responses.insert(id.to_owned(), response);
                 }
                 Err(e) => warn!("failed to get data for station {} with error: '{}'", id, e),
             }
         }
+
         Ok(station_responses)
     }
 
-    async fn get_data_for_station(&self, station: &str) -> Result<DataResponse, String> {
+    async fn get_data_for_station(&self, station: i64) -> Result<DataResponse, String> {
         let uri = format!("https://opendata-download-metobs.smhi.se/api/version/1.0/parameter/1/station/{}/period/latest-hour/data.json", station);
         let response: DataResponse = self
             .http_client
@@ -108,7 +118,7 @@ impl WeatherClient {
 }
 
 fn create_measurements(
-    stations: HashMap<String, DataResponse>,
+    stations: HashMap<i64, DataResponse>,
 ) -> Result<Vec<Measurement>, String> {
     let mut measurements = Vec::new();
 
