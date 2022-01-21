@@ -1,10 +1,11 @@
-use self::smhi::Root;
-use crate::WeatherOpts;
+use self::data::DataResponse;
+use crate::{weather::station::StationResponse, WeatherOpts};
 use influxrs::{InfluxClient, Measurement};
 use isahc::{AsyncReadResponseExt, HttpClient};
 use std::{collections::HashMap, time::Duration};
 
-mod smhi;
+mod data;
+mod station;
 
 pub(crate) struct Weather;
 
@@ -23,6 +24,7 @@ impl Weather {
     }
 }
 
+#[allow(unused)]
 struct WeatherClient {
     opts: WeatherOpts,
     influx_client: InfluxClient,
@@ -47,7 +49,7 @@ impl WeatherClient {
     }
 
     pub async fn collect_weather_data(&self) -> Result<(), String> {
-        let data = self.get_data().await?;
+        let data = self.get_data(1).await?;
         let measurements = create_measurements(data)?;
 
         self.influx_client
@@ -56,25 +58,44 @@ impl WeatherClient {
             .map_err(|influx_err| format!("{}", influx_err))
     }
 
-    async fn get_data(&self) -> Result<HashMap<String, Root>, String> {
-        let mut stations = HashMap::new();
-        for station in self.opts.stations.split(',') {
-            match self.get_data_for_station(station).await {
-                Ok(response) => {
-                    stations.insert(station.to_owned(), response);
-                }
-                Err(e) => warn!(
-                    "failed to get data for station {} with error: '{}'",
-                    station, e
-                ),
-            }
-        }
-        Ok(stations)
+    async fn get_active_stations(&self, parameter: u32) -> Result<HashMap<String, String>, String> {
+        let uri = format!(
+            "https://opendata-download-metobs.smhi.se/api/version/1.0/parameter/{}.json",
+            parameter
+        );
+        let response: StationResponse = self
+            .http_client
+            .get_async(&uri)
+            .await
+            .map_err(|e| format!("error: {}", e))?
+            .json()
+            .await
+            .map_err(|e| format!("error: {}", e))?;
+        Ok(response
+            .station
+            .into_iter()
+            .filter(|s| s.active)
+            .map(|s| (s.key, s.name))
+            .collect())
     }
 
-    async fn get_data_for_station(&self, station: &str) -> Result<Root, String> {
+    async fn get_data(&self, parameter: u32) -> Result<HashMap<String, DataResponse>, String> {
+        let active_stations = self.get_active_stations(parameter).await?;
+        let mut station_responses = HashMap::new();
+        for (id, _name) in active_stations {
+            match self.get_data_for_station(&id).await {
+                Ok(response) => {
+                    station_responses.insert(id.to_owned(), response);
+                }
+                Err(e) => warn!("failed to get data for station {} with error: '{}'", id, e),
+            }
+        }
+        Ok(station_responses)
+    }
+
+    async fn get_data_for_station(&self, station: &str) -> Result<DataResponse, String> {
         let uri = format!("https://opendata-download-metobs.smhi.se/api/version/1.0/parameter/1/station/{}/period/latest-hour/data.json", station);
-        let response: Root = self
+        let response: DataResponse = self
             .http_client
             .get_async(&uri)
             .await
@@ -86,7 +107,9 @@ impl WeatherClient {
     }
 }
 
-fn create_measurements(stations: HashMap<String, Root>) -> Result<Vec<Measurement>, String> {
+fn create_measurements(
+    stations: HashMap<String, DataResponse>,
+) -> Result<Vec<Measurement>, String> {
     let mut measurements = Vec::new();
 
     for (_station, root) in stations {
