@@ -1,9 +1,8 @@
-use std::{collections::HashMap, time::Duration};
 use self::smhi::Root;
 use crate::WeatherOpts;
 use influxrs::{InfluxClient, Measurement};
 use isahc::{AsyncReadResponseExt, HttpClient};
-
+use std::{collections::HashMap, time::Duration};
 
 mod smhi;
 
@@ -60,18 +59,30 @@ impl WeatherClient {
     async fn get_data(&self) -> Result<HashMap<String, Root>, String> {
         let mut stations = HashMap::new();
         for station in self.opts.stations.split(',') {
-            let uri = format!("https://opendata-download-metobs.smhi.se/api/version/1.0/parameter/1/station/{}/period/latest-hour/data.json", station);
-            let response: Root = self
-                .http_client
-                .get_async(&uri)
-                .await
-                .map_err(|e| format!("error: {}", e))?
-                .json()
-                .await
-                .map_err(|e| format!("error: {}", e))?;
-            stations.insert(station.to_owned(), response);
+            match self.get_data_for_station(station).await {
+                Ok(response) => {
+                    stations.insert(station.to_owned(), response);
+                }
+                Err(e) => warn!(
+                    "failed to get data for station {} with error: '{}'",
+                    station, e
+                ),
+            }
         }
         Ok(stations)
+    }
+
+    async fn get_data_for_station(&self, station: &str) -> Result<Root, String> {
+        let uri = format!("https://opendata-download-metobs.smhi.se/api/version/1.0/parameter/1/station/{}/period/latest-hour/data.json", station);
+        let response: Root = self
+            .http_client
+            .get_async(&uri)
+            .await
+            .map_err(|e| format!("error: {}", e))?
+            .json()
+            .await
+            .map_err(|e| format!("error: {}", e))?;
+        Ok(response)
     }
 }
 
