@@ -48,7 +48,7 @@ impl WeatherClient {
 
     pub async fn collect_weather_data(&self) -> Result<(), String> {
         let data = self.get_data().await?;
-        let measurements = create_measurements(data);
+        let measurements = create_measurements(data)?;
 
         self.influx_client
             .write("weather", &measurements)
@@ -86,21 +86,27 @@ impl WeatherClient {
     }
 }
 
-fn create_measurements(stations: HashMap<String, Root>) -> Vec<Measurement> {
+fn create_measurements(stations: HashMap<String, Root>) -> Result<Vec<Measurement>, String> {
     let mut measurements = Vec::new();
 
     for (_station, root) in stations {
         let value = &root.value[0];
 
+        let mut builder = Measurement::builder("air_temp")
+            .field("celsius", value.value.parse::<f64>().unwrap())
+            .tag("station", root.station.name)
+            .timestamp_ms(value.date);
+        if let Some(pos) = root.position.get(0) {
+            builder = builder
+                .field("station_lat", pos.latitude)
+                .field("station_lon", pos.longitude);
+        }
         measurements.push(
-            Measurement::builder("air_temp")
-                .field("celsius", value.value.parse::<f64>().unwrap())
-                .tag("station", root.station.name)
-                .timestamp_ms(value.date)
+            builder
                 .build()
-                .unwrap(),
+                .map_err(|i| format!("error building measurement: '{}'", i))?,
         );
     }
 
-    measurements
+    Ok(measurements)
 }
