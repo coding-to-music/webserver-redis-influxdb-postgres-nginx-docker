@@ -3,8 +3,8 @@ use crate::{
     AppError,
 };
 use chrono::Utc;
-use contracts::{list::*, JsonRpcError, JsonRpcRequest};
 use database::{Database, InsertionResult, ListItem as DbListItem};
+use model::{list::*, JsonRpcError, JsonRpcRequest};
 use std::{collections::HashSet, convert::TryFrom, str::FromStr, sync::Arc};
 use uuid::Uuid;
 
@@ -30,12 +30,10 @@ impl ListItemController {
         let list_type = params.list_type;
         let item_name = params.item_name;
 
-        let result = self.db.insert_list_item(
-            &new_item_id.to_string(),
-            &list_type,
-            &item_name,
-            created_s,
-        ).await?;
+        let result = self
+            .db
+            .insert_list_item(&new_item_id.to_string(), &list_type, &item_name, created_s)
+            .await?;
 
         match result {
             InsertionResult::Inserted => Ok(MethodResult::new(true, Some(new_item_id))),
@@ -103,7 +101,8 @@ impl ListItemController {
 
         let updated_rows = self
             .db
-            .rename_list_type(&params.old_name, &params.new_name).await?;
+            .rename_list_type(&params.old_name, &params.new_name)
+            .await?;
 
         Ok(MethodResult::new(updated_rows > 0))
     }

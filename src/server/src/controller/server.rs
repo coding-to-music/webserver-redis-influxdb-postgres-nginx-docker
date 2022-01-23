@@ -1,6 +1,6 @@
 use crate::app::{AppResult, ParamsError};
-use contracts::{sas, server, JsonRpcRequest};
 use hmac::{Hmac, Mac, NewMac};
+use model::{sas, server, JsonRpcRequest};
 use server::sleep;
 use sha2::Sha256;
 use std::{convert::TryFrom, time};

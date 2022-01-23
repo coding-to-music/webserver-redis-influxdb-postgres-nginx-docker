@@ -1,5 +1,5 @@
 use client::WebserverClient;
-use contracts::{server::sleep, JsonRpcRequest, Method};
+use model::{server::sleep, JsonRpcRequest, Method};
 
 #[tokio::main]
 async fn main() {

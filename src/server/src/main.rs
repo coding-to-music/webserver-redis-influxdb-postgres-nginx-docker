@@ -1,13 +1,13 @@
 #![allow(clippy::new_without_default)]
 
 use app::{App, AppError};
-use contracts::{GetTokenRequest, GetTokenResponse, JsonRpcError, JsonRpcRequest, JsonRpcResponse};
 use futures::future;
 use hyper::{
     body::Buf,
     service::{make_service_fn, service_fn},
     Body, Request, Response, Server,
 };
+use model::{GetTokenRequest, GetTokenResponse, JsonRpcError, JsonRpcRequest, JsonRpcResponse};
 use redis::RedisPool;
 use serde::Serialize;
 use serde_json::Value as JsonValue;

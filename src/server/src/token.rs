@@ -2,11 +2,11 @@ use crate::{
     app::{AppError, AppResult},
     redis::RedisPool,
 };
-use contracts::JsonRpcError;
 use jsonwebtoken::{
     errors::Error as JwtError, Algorithm, DecodingKey, EncodingKey, Header, Validation,
 };
 use mobc_redis::redis::AsyncCommands;
+use model::JsonRpcError;
 use std::sync::Arc;
 
 #[derive(Clone)]

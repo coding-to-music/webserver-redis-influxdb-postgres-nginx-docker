@@ -1,7 +1,7 @@
 use async_mutex::Mutex;
 use chrono::{DateTime, Utc};
-use contracts::{GetTokenRequest, GetTokenResponse, JsonRpcError, JsonRpcRequest, JsonRpcResponse};
 use isahc::{http::method, AsyncReadResponseExt};
+use model::{GetTokenRequest, GetTokenResponse, JsonRpcError, JsonRpcRequest, JsonRpcResponse};
 use std::{error::Error, fmt::Display, sync::Arc};
 
 type WebserverClientResult<T> = Result<T, WebserverClientError>;
@@ -115,10 +115,7 @@ impl WebserverClient {
         Ok(responses)
     }
 
-    async fn get_token(
-        &self,
-        request: GetTokenRequest,
-    ) -> WebserverClientResult<GetTokenResponse> {
+    async fn get_token(&self, request: GetTokenRequest) -> WebserverClientResult<GetTokenResponse> {
         let http_request = isahc::Request::builder()
             .uri(self.token_url())
             .method(method::Method::POST)
@@ -272,10 +269,7 @@ impl TokenManager {
         }
     }
 
-    async fn force_refresh(
-        &mut self,
-        client: &WebserverClient,
-    ) -> WebserverClientResult<()> {
+    async fn force_refresh(&mut self, client: &WebserverClient) -> WebserverClientResult<()> {
         info!("forcing token refresh");
         let request = GetTokenRequest::new(self.key_name.clone(), self.key_value.clone());
 

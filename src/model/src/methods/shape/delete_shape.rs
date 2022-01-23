@@ -33,7 +33,7 @@ impl TryFrom<JsonRpcRequest> for Params {
     fn try_from(value: JsonRpcRequest) -> Result<Self, Self::Error> {
         let builder: ParamsBuilder =
             serde_json::from_value(value.params).map_err(InvalidParams::InvalidFormat)?;
-        
+
         builder.try_into()
     }
 }

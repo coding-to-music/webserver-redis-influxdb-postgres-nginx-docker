@@ -12,8 +12,8 @@ pub mod delete_shape;
 pub mod delete_shape_tag;
 pub mod get_nearby_shapes;
 pub mod get_shape;
-pub mod search_shapes_by_tags;
 pub mod refresh_geo_points_in_cache;
+pub mod search_shapes_by_tags;
 
 #[derive(serde::Serialize, Clone, Debug, serde::Deserialize)]
 #[non_exhaustive]

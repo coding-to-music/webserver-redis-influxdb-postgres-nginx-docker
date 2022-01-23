@@ -5,11 +5,11 @@ use crate::{
     Opts,
 };
 use chrono::Utc;
-use contracts::*;
 use database::{self as db, Database};
 use db::{DatabaseError, Request as DbRequest, RequestLog as DbRequestLog, Response as DbResponse};
 use hmac::crypto_mac::InvalidKeyLength;
 use mobc_redis::redis::RedisError;
+use model::*;
 use std::{
     convert::TryFrom,
     error::Error,

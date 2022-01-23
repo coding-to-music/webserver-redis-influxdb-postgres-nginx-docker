@@ -1,5 +1,5 @@
 [package]
-name = "contracts"
+name = "model"
 version = "0.1.1"
 authors = ["Isak Jägberg <ijagberg@gmail.com>"]
 edition = "2018"

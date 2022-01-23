@@ -15,7 +15,7 @@ futures = "0.3.4"
 chrono = "0.4.11"
 structopt = "0.3.14"
 database = { path = "../database" }
-contracts = { path = "../contracts" }
+model = { path = "../model" }
 uuid = "0.8.2"
 jsonwebtoken = "7.2.0"
 hyper = { version = "0.14", features = ["full"] }

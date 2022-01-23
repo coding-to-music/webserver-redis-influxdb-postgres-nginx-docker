@@ -117,9 +117,7 @@ impl WeatherClient {
     }
 }
 
-fn create_measurements(
-    stations: HashMap<i64, DataResponse>,
-) -> Result<Vec<Measurement>, String> {
+fn create_measurements(stations: HashMap<i64, DataResponse>) -> Result<Vec<Measurement>, String> {
     let mut measurements = Vec::new();
 
     for (_station, root) in stations {

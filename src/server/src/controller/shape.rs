@@ -3,7 +3,6 @@ use crate::{
     redis::RedisPool,
 };
 use chrono::Utc;
-use contracts::{shape::geojson::*, shape::*, *};
 use database::{Database, InsertionResult, Shape as DbShape, ShapeTag as DbShapeTag};
 use mobc_redis::{
     mobc::Connection,
@@ -13,6 +12,7 @@ use mobc_redis::{
     },
     RedisConnectionManager,
 };
+use model::{shape::geojson::*, shape::*, *};
 use std::{collections::HashSet, convert::TryFrom, sync::Arc};
 use uuid::Uuid;
 
@@ -370,7 +370,7 @@ fn make_db_entities_for_insertion(shape: Shape) -> (DbShape, Vec<DbShapeTag>) {
 fn geo_point_ids(db_shape: &DbShape) -> AppResult<Vec<String>> {
     let geo: Geometry = serde_json::from_str(&db_shape.geo)
         .map_err(|e| AppError::internal_error().with_context(&e))?;
-    Ok(contracts::shape::coordinates_in_geo(&geo)
+    Ok(model::shape::coordinates_in_geo(&geo)
         .iter()
         .enumerate()
         .map(|(idx, _)| format!("{}_{}", db_shape.id, idx))
