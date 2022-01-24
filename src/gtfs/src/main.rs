@@ -54,10 +54,21 @@ impl Populate {
     }
 
     async fn run(&self) -> Result<(), Box<dyn Error>> {
+        self.create_download_dir()?;
         let archive = self.download_area_zip().await?;
         self.unzip_gtfs_archive(&archive)?;
         self.populate_redis_from_files().await?;
 
+        Ok(())
+    }
+
+    fn create_download_dir(&self) -> Result<(), Box<dyn Error>> {
+        if let Err(e) = std::fs::create_dir("gtfs_download") {
+            match e.kind() {
+                std::io::ErrorKind::AlreadyExists => (),
+                _ => return Err(Box::new(e)),
+            }
+        }
         Ok(())
     }
 
