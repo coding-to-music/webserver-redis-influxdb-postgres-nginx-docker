@@ -5,6 +5,7 @@ use crate::model::Agency;
 use clap::Parser;
 use isahc::{AsyncReadResponseExt, HttpClient};
 use mobc_redis::redis::{AsyncCommands, Client};
+use model::{Calendar, Route, Stop};
 use std::{error::Error, fs::File};
 
 pub(crate) mod model;
@@ -126,15 +127,40 @@ impl Populate {
         for result in rdr.deserialize() {
             let agency: Agency = result?;
 
+            conn.hset("agency", &agency.agency_id, serde_json::to_string(&agency)?)
+                .await?;
+        }
+
+        // calendar.txt
+        let mut rdr = csv::Reader::from_path("calendar.txt")?;
+        for result in rdr.deserialize() {
+            let calendar: Calendar = result?;
+
             conn.hset(
-                "agencies",
-                &agency.agency_id,
-                serde_json::to_string(&agency)?,
+                "calendar",
+                &calendar.service_id,
+                serde_json::to_string(&calendar)?,
             )
             .await?;
         }
 
         // stops.txt
+        let mut rdr = csv::Reader::from_path("stops.txt")?;
+        for result in rdr.deserialize() {
+            let stop: Stop = result?;
+
+            conn.hset("stop", &stop.stop_id, serde_json::to_string(&stop)?)
+                .await?;
+        }
+
+        // routes.txt
+        let mut rdr = csv::Reader::from_path("routes.txt")?;
+        for result in rdr.deserialize() {
+            let route: Route = result?;
+
+            conn.hset("route", &route.route_id, serde_json::to_string(&route)?)
+                .await?;
+        }
 
         Ok(())
     }
