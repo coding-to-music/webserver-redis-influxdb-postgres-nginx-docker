@@ -1,12 +1,11 @@
 #[macro_use]
 extern crate log;
 
+use crate::model::Agency;
 use clap::Parser;
 use isahc::{AsyncReadResponseExt, HttpClient};
 use mobc_redis::redis::{AsyncCommands, Client};
 use std::{error::Error, fs::File};
-
-use crate::model::Agency;
 
 pub(crate) mod model;
 
