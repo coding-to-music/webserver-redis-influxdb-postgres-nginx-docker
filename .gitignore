@@ -1,20 +1,14 @@
-src/client/target
+target/
+gtfs_download/
 
-src/notifications/target
-
-src/contracts/target
 src/contracts/Cargo.lock
 
-src/database/target
 src/database/Cargo.lock
 
-src/server/target
-
-src/target
 src/Cargo.lock
 
-target
 Cargo.lock
+
 
 **/*.rs.bk
 **/*.env*
