@@ -9,6 +9,8 @@ use std::{error::Error, fs::File};
 
 pub(crate) mod model;
 
+const GTFS_DOWNLOAD_DIR: &'static str = "gtfs_download";
+
 #[derive(Parser, Debug)]
 #[clap(author, version, about, long_about = None)]
 enum Subcommand {
@@ -55,6 +57,7 @@ impl Populate {
 
     async fn run(&self) -> Result<(), Box<dyn Error>> {
         self.create_download_dir()?;
+        std::env::set_current_dir(GTFS_DOWNLOAD_DIR)?;
         let archive = self.download_area_zip().await?;
         self.unzip_gtfs_archive(&archive)?;
         self.populate_redis_from_files().await?;
@@ -63,9 +66,11 @@ impl Populate {
     }
 
     fn create_download_dir(&self) -> Result<(), Box<dyn Error>> {
-        if let Err(e) = std::fs::create_dir("gtfs_download") {
+        if let Err(e) = std::fs::create_dir(GTFS_DOWNLOAD_DIR) {
             match e.kind() {
-                std::io::ErrorKind::AlreadyExists => (),
+                std::io::ErrorKind::AlreadyExists => {
+                    info!("{GTFS_DOWNLOAD_DIR} directory already exists")
+                }
                 _ => return Err(Box::new(e)),
             }
         }
