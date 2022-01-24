@@ -107,7 +107,7 @@ impl Populate {
             };
 
             info!("writing {outpath:?}");
-            if i == 0 {
+            if i < 5 {
                 let mut outfile = File::create(&outpath).unwrap();
                 std::io::copy(&mut file, &mut outfile).unwrap();
             }
@@ -133,6 +133,8 @@ impl Populate {
             )
             .await?;
         }
+
+        // stops.txt
 
         Ok(())
     }
