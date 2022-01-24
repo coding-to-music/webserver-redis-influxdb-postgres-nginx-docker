@@ -91,8 +91,10 @@ impl Populate {
             };
 
             info!("writing {outpath:?}");
-            let mut outfile = File::create(&outpath).unwrap();
-            std::io::copy(&mut file, &mut outfile).unwrap();
+            if i == 0 {
+                let mut outfile = File::create(&outpath).unwrap();
+                std::io::copy(&mut file, &mut outfile).unwrap();
+            }
         }
 
         Ok(())
