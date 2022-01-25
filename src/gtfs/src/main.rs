@@ -4,9 +4,10 @@ extern crate log;
 use crate::model::Agency;
 use clap::Parser;
 use isahc::{AsyncReadResponseExt, HttpClient};
-use mobc_redis::redis::{AsyncCommands, Client};
-use model::{Calendar, Route, Stop};
-use std::{error::Error, fs::File};
+use mobc_redis::redis::{aio::Connection, AsyncCommands, Client};
+use model::{Calendar, Id, Route, Stop};
+use serde::{de::DeserializeOwned, Serialize};
+use std::{collections::HashSet, error::Error, fs::File};
 
 pub(crate) mod model;
 
@@ -108,10 +109,8 @@ impl Populate {
             };
 
             info!("writing {outpath:?}");
-            if i < 5 {
-                let mut outfile = File::create(&outpath).unwrap();
-                std::io::copy(&mut file, &mut outfile).unwrap();
-            }
+            let mut outfile = File::create(&outpath).unwrap();
+            std::io::copy(&mut file, &mut outfile).unwrap();
         }
 
         Ok(())
@@ -121,46 +120,80 @@ impl Populate {
         let client = Client::open(self.opts.redis_conn.clone())?;
 
         let mut conn = client.get_async_connection().await?;
+        info!("populating redis...");
 
-        // agency.txt
-        let mut rdr = csv::Reader::from_path("agency.txt")?;
+        Self::update_hash_set_from_csv::<Agency>(&mut conn, "agency.txt", "agency").await?;
+
+        Self::update_hash_set_from_csv::<Calendar>(&mut conn, "calendar.txt", "calendar").await?;
+
+        Self::update_hash_set_from_csv::<Stop>(&mut conn, "stops.txt", "stop").await?;
+
+        Self::update_hash_set_from_csv::<Route>(&mut conn, "routes.txt", "route").await?;
+
+        // Self::update_hash_set_from_csv::<Attribution>(&mut conn, "attributions.txt", "attribution").await?;
+
+        Ok(())
+    }
+
+    async fn update_hash_set_from_csv<T>(
+        conn: &mut Connection,
+        path: &str,
+        key_name: &str,
+    ) -> Result<(), Box<dyn Error>>
+    where
+        T: DeserializeOwned + Serialize + Id<Output = String>,
+    {
+        info!("reading {path} and updating contents of {key_name} in Redis...");
+        let mut items = Vec::new();
+        for item in Self::csv_get_generic::<T>(path)? {
+            let id = item.id();
+            items.push((id, item));
+        }
+        Self::redis_remove_old_insert_new(conn, key_name, items).await?;
+        Ok(())
+    }
+
+    fn csv_get_generic<T>(path: &str) -> Result<Vec<T>, Box<dyn Error>>
+    where
+        T: DeserializeOwned,
+    {
+        info!("{path}");
+        let mut rdr = csv::Reader::from_path(path)?;
+        let mut v = Vec::new();
         for result in rdr.deserialize() {
-            let agency: Agency = result?;
-
-            conn.hset("agency", &agency.agency_id, serde_json::to_string(&agency)?)
-                .await?;
+            let item: T = result?;
+            v.push(item);
         }
 
-        // calendar.txt
-        let mut rdr = csv::Reader::from_path("calendar.txt")?;
-        for result in rdr.deserialize() {
-            let calendar: Calendar = result?;
+        Ok(v)
+    }
 
-            conn.hset(
-                "calendar",
-                &calendar.service_id,
-                serde_json::to_string(&calendar)?,
-            )
-            .await?;
+    async fn redis_remove_old_insert_new<T>(
+        conn: &mut Connection,
+        redis_key: &str,
+        items: Vec<(String, T)>,
+    ) -> Result<(), Box<dyn Error>>
+    where
+        T: Serialize,
+    {
+        let mut current_ids: HashSet<String> = conn.hkeys(redis_key).await?;
+
+        for (id, _item) in &items {
+            current_ids.remove(id);
         }
 
-        // stops.txt
-        let mut rdr = csv::Reader::from_path("stops.txt")?;
-        for result in rdr.deserialize() {
-            let stop: Stop = result?;
+        // current_ids now contains all the ids that should be removed after inserting the new ones
+        let to_be_removed = current_ids;
 
-            conn.hset("stop", &stop.stop_id, serde_json::to_string(&stop)?)
-                .await?;
+        let mut serialized = Vec::with_capacity(items.len());
+        for (id, item) in items {
+            let ser = serde_json::to_string(&item)?;
+            serialized.push((id, ser));
         }
 
-        // routes.txt
-        let mut rdr = csv::Reader::from_path("routes.txt")?;
-        for result in rdr.deserialize() {
-            let route: Route = result?;
+        conn.hset_multiple(redis_key, &serialized).await?;
 
-            conn.hset("route", &route.route_id, serde_json::to_string(&route)?)
-                .await?;
-        }
+        conn.hdel(redis_key, to_be_removed).await?;
 
         Ok(())
     }
