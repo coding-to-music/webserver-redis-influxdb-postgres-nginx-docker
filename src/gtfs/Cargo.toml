@@ -6,7 +6,7 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 [dependencies]
 tokio = { version = "1.15.0", features = ["full"] }
-mobc-redis = "0.7.0"
+redis = { path = "../redis" }
 csv = "1.1.6"
 isahc = "1.6.0"
 log = "0.4.14"
@@ -15,4 +15,6 @@ clap = { version = "3.0.10", features = ["derive", "env"] }
 zip = "0.5.13"
 serde = { version = "1.0.135", features = ["derive"] }
 serde_json = "1.0.78"
+rouille = "3.5.0"
+futures = { version = "0.3.19", features = ["executor"] }
 # arrayvec = { version = "0.7.2", features = ["serde"] }

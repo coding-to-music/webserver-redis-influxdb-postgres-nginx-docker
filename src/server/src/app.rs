@@ -1,15 +1,14 @@
 use crate::{
     controller::{ListItemController, ServerController, ShapeController},
     influx::InfluxClient,
-    redis::RedisPool,
     Opts,
 };
 use chrono::Utc;
 use database::{self as db, Database};
 use db::{DatabaseError, Request as DbRequest, RequestLog as DbRequestLog, Response as DbResponse};
 use hmac::crypto_mac::InvalidKeyLength;
-use mobc_redis::redis::RedisError;
 use model::*;
+use redis::{mobc, redis::RedisError, RedisPool};
 use std::{
     convert::TryFrom,
     error::Error,
@@ -334,8 +333,8 @@ impl From<RedisError> for AppError {
     }
 }
 
-impl From<mobc_redis::mobc::Error<RedisError>> for AppError {
-    fn from(e: mobc_redis::mobc::Error<RedisError>) -> Self {
+impl From<mobc::Error<RedisError>> for AppError {
+    fn from(e: mobc::Error<RedisError>) -> Self {
         AppError::internal_error().with_context(&e)
     }
 }

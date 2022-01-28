@@ -11,3 +11,4 @@ serde_json = "1.0.47"
 chrono = "0.4.11"
 uuid = { version = "0.8.2", features = ["serde", "v4"] }
 geojson = "0.22.0"
+gtfs = { path = "../gtfs" }

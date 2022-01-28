@@ -1,8 +1,9 @@
-use crate::app::AppResult;
+#[macro_use]
+extern crate log;
+pub use mobc_redis::*;
 use mobc_redis::{
-    mobc::{Connection, Pool},
-    redis::Client,
-    RedisConnectionManager,
+    mobc::{Connection, Error, Pool},
+    redis::{Client, RedisError},
 };
 use std::time;
 
@@ -28,7 +29,7 @@ impl RedisPool {
         Self { addr, pool }
     }
 
-    pub async fn get_connection(&self) -> AppResult<RedisConnection> {
+    pub async fn get_connection(&self) -> Result<RedisConnection, Error<RedisError>> {
         trace!("retrieving connection to Redis at '{}'", self.addr);
         let timer = time::Instant::now();
         let conn = self.pool.get().await?;

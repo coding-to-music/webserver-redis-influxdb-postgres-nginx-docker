@@ -6,7 +6,7 @@ pub(crate) trait Id {
     fn id(&self) -> Self::Output;
 }
 
-#[derive(Deserialize, Serialize, Debug)]
+#[derive(Deserialize, Serialize, Debug, Clone)]
 pub struct Agency {
     pub agency_id: String,
     pub agency_name: String,

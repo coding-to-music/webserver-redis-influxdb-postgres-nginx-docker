@@ -16,12 +16,13 @@ chrono = "0.4.11"
 structopt = "0.3.14"
 database = { path = "../database" }
 model = { path = "../model" }
+redis = { path = "../redis" }
 uuid = "0.8.2"
 jsonwebtoken = "7.2.0"
 hyper = { version = "0.14", features = ["full"] }
-mobc-redis = "0.7.0"
 urlencoding = "1.1.1"
 hmac = "0.11.0"
 sha2 = "0.9.4"
 base64 = "0.13.0"
 influxrs = "1.0.0"
+gtfs = { path = "../gtfs" }
