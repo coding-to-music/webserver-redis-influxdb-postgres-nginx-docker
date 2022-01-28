@@ -2,7 +2,13 @@ use crate::app::{AppError, AppResult, ParamsError};
 use chrono::Utc;
 use database::{Database, InsertionResult, Shape as DbShape, ShapeTag as DbShapeTag};
 use model::{shape::geojson::*, shape::*, *};
-use redis::{RedisPool, redis::{geo::{RadiusSearchResult, Unit, RadiusOptions}, AsyncCommands}, mobc::Connection, RedisConnectionManager};
+use redis::{
+    pool::AsyncRedisPool as RedisPool,
+    redis::{
+        geo::{RadiusOptions, RadiusSearchResult, Unit},
+        AsyncCommands,
+    },
+};
 use std::{collections::HashSet, convert::TryFrom, sync::Arc};
 use uuid::Uuid;
 

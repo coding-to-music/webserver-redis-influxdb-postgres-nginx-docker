@@ -2,7 +2,7 @@ use crate::consts::*;
 use crate::model::Agency;
 use crate::model::*;
 use isahc::{AsyncReadResponseExt, HttpClient};
-use redis::{redis::AsyncCommands, RedisPool};
+use redis::{pool::AsyncRedisPool as RedisPool, redis::AsyncCommands};
 use serde::{de::DeserializeOwned, Serialize};
 use std::{collections::HashSet, error::Error, fs::File};
 
@@ -10,16 +10,21 @@ const GTFS_DOWNLOAD_DIR: &'static str = "gtfs_download";
 
 pub struct Populate {
     http_client: HttpClient,
-    redis_pool: redis::RedisPool,
+    redis_pool: RedisPool,
     gtfs_area: String,
     gtfs_url: String,
     gtfs_key: String,
 }
 
 impl Populate {
-    pub fn new(redis_conn: String, gtfs_area: String, gtfs_url: String, gtfs_key: String) -> Self {
+    pub async fn new(
+        redis_conn: String,
+        gtfs_area: String,
+        gtfs_url: String,
+        gtfs_key: String,
+    ) -> Self {
         let client = HttpClient::builder().build().unwrap();
-        let redis_pool = RedisPool::new(redis_conn);
+        let redis_pool = RedisPool::new(redis_conn).await;
         Self {
             http_client: client,
             redis_pool,
@@ -149,7 +154,7 @@ impl Populate {
     where
         T: Serialize,
     {
-        let mut conn = self.redis_pool.get_connection().await?;
+        let mut conn = self.redis_pool.get_connection().await;
         let mut current_ids: HashSet<String> = conn.hkeys(redis_key).await?;
 
         for (id, _item) in &items {

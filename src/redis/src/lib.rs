@@ -1,43 +1,6 @@
 #[macro_use]
 extern crate log;
-pub use mobc_redis::*;
-use mobc_redis::{
-    mobc::{Connection, Error, Pool},
-    redis::{Client, RedisError},
-};
-use std::time;
 
-pub type RedisConnection = Connection<RedisConnectionManager>;
+pub use redis;
 
-pub struct RedisPool {
-    addr: String,
-    pool: Pool<RedisConnectionManager>,
-}
-
-impl RedisPool {
-    pub fn new(addr: String) -> Self {
-        let client = match Client::open(addr.clone()) {
-            Ok(c) => c,
-            Err(e) => panic!(
-                "failed to create redis client with address: '{}', error: '{}'",
-                addr, e
-            ),
-        };
-        let pool = Pool::builder()
-            .max_open(20)
-            .build(RedisConnectionManager::new(client));
-        Self { addr, pool }
-    }
-
-    pub async fn get_connection(&self) -> Result<RedisConnection, Error<RedisError>> {
-        trace!("retrieving connection to Redis at '{}'", self.addr);
-        let timer = time::Instant::now();
-        let conn = self.pool.get().await?;
-        info!(
-            "retrieved connection to Redis at '{}' in {:?}",
-            self.addr,
-            timer.elapsed()
-        );
-        Ok(conn)
-    }
-}
+pub mod pool;

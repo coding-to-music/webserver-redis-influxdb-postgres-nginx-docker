@@ -47,6 +47,7 @@ async fn main() {
                 opts.gtfs_url,
                 opts.gtfs_key,
             )
+            .await
             .run()
             .await
             .unwrap();

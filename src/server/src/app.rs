@@ -8,7 +8,7 @@ use database::{self as db, Database};
 use db::{DatabaseError, Request as DbRequest, RequestLog as DbRequestLog, Response as DbResponse};
 use hmac::crypto_mac::InvalidKeyLength;
 use model::*;
-use redis::{mobc, redis::RedisError, RedisPool};
+use redis::{pool::AsyncRedisPool as RedisPool, redis::RedisError};
 use std::{
     convert::TryFrom,
     error::Error,
@@ -333,11 +333,11 @@ impl From<RedisError> for AppError {
     }
 }
 
-impl From<mobc::Error<RedisError>> for AppError {
-    fn from(e: mobc::Error<RedisError>) -> Self {
-        AppError::internal_error().with_context(&e)
-    }
-}
+// impl From<mobc::Error<RedisError>> for AppError {
+//     fn from(e: mobc::Error<RedisError>) -> Self {
+//         AppError::internal_error().with_context(&e)
+//     }
+// }
 
 impl From<InvalidKeyLength> for AppError {
     fn from(e: InvalidKeyLength) -> Self {

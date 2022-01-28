@@ -3,7 +3,7 @@ use jsonwebtoken::{
     errors::Error as JwtError, Algorithm, DecodingKey, EncodingKey, Header, Validation,
 };
 use model::JsonRpcError;
-use redis::{redis::AsyncCommands, RedisPool};
+use redis::{redis::AsyncCommands, pool::AsyncRedisPool as RedisPool};
 use std::sync::Arc;
 
 #[derive(Clone)]

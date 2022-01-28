@@ -1,10 +1,9 @@
 use crate::{consts::*, model::Agency};
-use redis::{redis::AsyncCommands, RedisPool};
+use redis::{pool::SyncRedisPool as RedisPool, redis::Commands};
 use serde::Serialize;
-use std::error::Error;
 
 pub struct Serve {
-    redis_pool: redis::RedisPool,
+    redis_pool: RedisPool,
 }
 
 impl Serve {
@@ -41,26 +40,14 @@ impl Serve {
     }
 
     fn get_agency(&self, agency_id: &str) -> rouille::Response {
-        // Builds a `Response` object that contains the "hello world" text.
-        let agency = futures::executor::block_on(self.get_agency_async(&agency_id));
-        match agency {
-            Ok(agency) => match agency {
-                Some(agency) => json_response(agency),
-                None => not_found_response(),
-            },
-            Err(_err) => internal_server_error_response(None),
-        }
-    }
-
-    async fn get_agency_async(&self, agency_id: &str) -> Result<Option<Agency>, Box<dyn Error>> {
-        let mut conn = self.redis_pool.get_connection().await?;
-        let agency: Option<String> = conn.hget(AGENCY_REDIS_KEY, agency_id).await?;
+        let mut conn = self.redis_pool.get_connection();
+        let agency: Option<String> = conn.hget(AGENCY_REDIS_KEY, agency_id).unwrap();
 
         if let Some(agency) = agency {
-            let agency = serde_json::from_str(&agency)?;
-            Ok(Some(agency))
+            let agency: Agency = serde_json::from_str(&agency).unwrap();
+            json_response(agency)
         } else {
-            Ok(None)
+            not_found_response()
         }
     }
 }
