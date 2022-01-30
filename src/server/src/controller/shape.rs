@@ -1,17 +1,16 @@
 use crate::{
     app::{AppError, AppResult, ParamsError},
-    redis::RedisPool,
 };
 use chrono::Utc;
 use database::{Database, InsertionResult, Shape as DbShape, ShapeTag as DbShapeTag};
-use mobc_redis::{
+use redis::{mobc_redis::{
     mobc::Connection,
     redis::{
         geo::{RadiusOptions, RadiusSearchResult, Unit},
         AsyncCommands,
     },
     RedisConnectionManager,
-};
+}, RedisPool};
 use model::{shape::geojson::*, shape::*, *};
 use std::{collections::HashSet, convert::TryFrom, sync::Arc};
 use uuid::Uuid;

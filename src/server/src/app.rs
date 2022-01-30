@@ -1,7 +1,6 @@
 use crate::{
     controller::{ListItemController, ServerController, ShapeController},
     influx::InfluxClient,
-    redis::RedisPool,
     Opts,
 };
 use chrono::Utc;
@@ -10,6 +9,7 @@ use db::{DatabaseError, Request as DbRequest, RequestLog as DbRequestLog, Respon
 use hmac::crypto_mac::InvalidKeyLength;
 use mobc_redis::redis::RedisError;
 use model::*;
+use redis::{mobc_redis, RedisPool};
 use std::{
     convert::TryFrom,
     error::Error,

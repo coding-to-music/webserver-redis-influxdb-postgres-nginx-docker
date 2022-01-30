@@ -18,7 +18,6 @@ use token::TokenHandler;
 pub mod app;
 pub mod controller;
 pub mod influx;
-pub mod redis;
 pub mod token;
 
 const API_URI: &'static str = "/api";
