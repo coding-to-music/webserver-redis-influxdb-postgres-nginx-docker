@@ -8,7 +8,7 @@ pub struct Serve {
 
 impl Serve {
     pub fn new(redis_conn: String) -> Self {
-        let redis_pool = RedisPool::new(redis_conn);
+        let redis_pool = RedisPool::new(redis_conn, 10);
         Self { redis_pool }
     }
 
