@@ -2,7 +2,7 @@ use crate::consts::*;
 use crate::model::Agency;
 use crate::model::*;
 use isahc::{AsyncReadResponseExt, HttpClient};
-use redis::{pool::AsyncRedisPool as RedisPool, redis::AsyncCommands};
+use redis::{mobc_redis::redis::AsyncCommands, RedisPool};
 use serde::{de::DeserializeOwned, Serialize};
 use std::{collections::HashSet, error::Error, fs::File};
 
@@ -24,7 +24,7 @@ impl Populate {
         gtfs_key: String,
     ) -> Self {
         let client = HttpClient::builder().build().unwrap();
-        let redis_pool = RedisPool::new(redis_conn).await;
+        let redis_pool = RedisPool::new(redis_conn);
         Self {
             http_client: client,
             redis_pool,
@@ -154,7 +154,7 @@ impl Populate {
     where
         T: Serialize,
     {
-        let mut conn = self.redis_pool.get_connection().await;
+        let mut conn = self.redis_pool.get_connection().await?;
         let mut current_ids: HashSet<String> = conn.hkeys(redis_key).await?;
 
         for (id, _item) in &items {
