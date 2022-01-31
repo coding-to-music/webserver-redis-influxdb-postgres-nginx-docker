@@ -2,7 +2,7 @@ use crate::consts::*;
 use crate::model::Agency;
 use crate::model::*;
 use isahc::{AsyncReadResponseExt, HttpClient};
-use redis::{mobc_redis::redis::AsyncCommands, RedisPool};
+use redis::{async_pool::mobc_redis::redis::AsyncCommands, async_pool::AsyncRedisPool};
 use serde::{de::DeserializeOwned, Serialize};
 use std::{collections::HashSet, error::Error, fs::File};
 
@@ -10,7 +10,7 @@ const GTFS_DOWNLOAD_DIR: &'static str = "gtfs_download";
 
 pub struct Populate {
     http_client: HttpClient,
-    redis_pool: RedisPool,
+    redis_pool: AsyncRedisPool,
     gtfs_area: String,
     gtfs_url: String,
     gtfs_key: String,
@@ -24,7 +24,7 @@ impl Populate {
         gtfs_key: String,
     ) -> Self {
         let client = HttpClient::builder().build().unwrap();
-        let redis_pool = RedisPool::new(redis_conn);
+        let redis_pool = AsyncRedisPool::new(redis_conn);
         Self {
             http_client: client,
             redis_pool,

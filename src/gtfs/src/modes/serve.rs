@@ -1,5 +1,5 @@
 use crate::{consts::*, model::Agency};
-use redis::{pool::SyncRedisPool as RedisPool, redis::Commands};
+use redis::{sync_pool::r2d2_redis::redis::Commands, sync_pool::SyncRedisPool as RedisPool};
 use serde::Serialize;
 
 pub struct Serve {
@@ -40,7 +40,7 @@ impl Serve {
     }
 
     fn get_agency(&self, agency_id: &str) -> rouille::Response {
-        let mut conn = self.redis_pool.get_connection();
+        let mut conn = self.redis_pool.get_connection().unwrap();
         let agency: Option<String> = conn.hget(AGENCY_REDIS_KEY, agency_id).unwrap();
 
         if let Some(agency) = agency {

@@ -6,4 +6,9 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 [dependencies]
 log = "0.4.14"
-mobc-redis = "0.7.0"
+mobc-redis = { version = "0.7.0", optional = true }
+r2d2_redis = { version = "0.14.0", optional = true }
+
+[features]
+async = ["mobc-redis"]
+sync = ["r2d2_redis"]

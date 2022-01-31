@@ -6,7 +6,7 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 [dependencies]
 tokio = { version = "1.15.0", features = ["full"] }
-redis = { path = "../redis" }
+redis = { path = "../redis", features = ["async", "sync"] }
 csv = "1.1.6"
 isahc = "1.6.0"
 log = "0.4.14"
