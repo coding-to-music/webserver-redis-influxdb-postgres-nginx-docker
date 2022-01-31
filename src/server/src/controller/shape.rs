@@ -3,11 +3,15 @@ use chrono::Utc;
 use database::{Database, InsertionResult, Shape as DbShape, ShapeTag as DbShapeTag};
 use model::{shape::geojson::*, shape::*, *};
 use redis::{
-    pool::AsyncRedisPool as RedisPool,
-    redis::{
-        geo::{RadiusOptions, RadiusSearchResult, Unit},
-        AsyncCommands,
+    mobc_redis::{
+        mobc::Connection,
+        redis::{
+            geo::{RadiusOptions, RadiusSearchResult, Unit},
+            AsyncCommands,
+        },
+        RedisConnectionManager,
     },
+    RedisPool,
 };
 use std::{collections::HashSet, convert::TryFrom, sync::Arc};
 use uuid::Uuid;

@@ -8,7 +8,7 @@ use database::{self as db, Database};
 use db::{DatabaseError, Request as DbRequest, RequestLog as DbRequestLog, Response as DbResponse};
 use hmac::crypto_mac::InvalidKeyLength;
 use model::*;
-use redis::{pool::AsyncRedisPool as RedisPool, redis::RedisError};
+use redis::{mobc_redis, RedisPool};
 use std::{
     convert::TryFrom,
     error::Error,
