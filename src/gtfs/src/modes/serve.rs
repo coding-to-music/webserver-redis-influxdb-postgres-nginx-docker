@@ -1,4 +1,4 @@
-use crate::{consts::*, model::Agency};
+use crate::{consts::*, model::{Agency, Route}};
 use redis::{sync_pool::r2d2_redis::redis::Commands, sync_pool::SyncRedisPool as RedisPool};
 use serde::Serialize;
 
@@ -25,7 +25,7 @@ impl Serve {
                 },
 
                 (GET) (/route/{route_id:String}) => {
-                    self.get_route(route_id)
+                    self.get_route(&route_id)
                 },
                 _ => not_found_response()
             )
@@ -69,6 +69,6 @@ where
     rouille::Response::json(&object).with_status_code(200)
 }
 
-fn internal_server_error_response(message: Option<String>) -> rouille::Response {
+fn _internal_server_error_response(message: Option<String>) -> rouille::Response {
     rouille::Response::text(message.unwrap_or(String::new())).with_status_code(500)
 }

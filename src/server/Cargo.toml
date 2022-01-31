@@ -16,7 +16,7 @@ chrono = "0.4.11"
 structopt = "0.3.14"
 database = { path = "../database" }
 model = { path = "../model" }
-redis = { path = "../redis" }
+redis = { path = "../redis", features = ["async"] }
 uuid = "0.8.2"
 jsonwebtoken = "7.2.0"
 hyper = { version = "0.14", features = ["full"] }

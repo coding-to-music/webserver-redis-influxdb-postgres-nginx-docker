@@ -8,7 +8,10 @@ use database::{self as db, Database};
 use db::{DatabaseError, Request as DbRequest, RequestLog as DbRequestLog, Response as DbResponse};
 use hmac::crypto_mac::InvalidKeyLength;
 use model::*;
-use redis::{mobc_redis, RedisPool};
+use redis::async_pool::{
+    mobc_redis::{mobc, redis::RedisError},
+    AsyncRedisPool,
+};
 use std::{
     convert::TryFrom,
     error::Error,
@@ -46,7 +49,7 @@ impl App {
 
         let request_log_db = Arc::new(Database::new(opts.database_addr.clone()).await.unwrap());
 
-        let shape_redis_pool = Arc::new(RedisPool::new(opts.shape_redis_addr.clone()));
+        let shape_redis_pool = Arc::new(AsyncRedisPool::new(opts.shape_redis_addr.clone()));
 
         let list_controller = ListItemController::new(list_item_db);
         let shape_controller = ShapeController::new(shape_redis_pool, shape_db);
@@ -330,6 +333,12 @@ impl From<DatabaseError> for AppError {
 impl From<RedisError> for AppError {
     fn from(redis_error: RedisError) -> Self {
         AppError::internal_error().with_context(&redis_error)
+    }
+}
+
+impl From<mobc::Error<redis::async_pool::mobc_redis::redis::RedisError>> for AppError {
+    fn from(e: mobc::Error<redis::async_pool::mobc_redis::redis::RedisError>) -> Self {
+        AppError::internal_error().with_context(&e)
     }
 }
 

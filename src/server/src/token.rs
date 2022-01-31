@@ -1,22 +1,20 @@
-use crate::{
-    app::{AppError, AppResult},
-};
+use crate::app::{AppError, AppResult};
 use jsonwebtoken::{
     errors::Error as JwtError, Algorithm, DecodingKey, EncodingKey, Header, Validation,
 };
 use model::JsonRpcError;
-use redis::{RedisPool, mobc_redis::redis::AsyncCommands};
+use redis::{async_pool::mobc_redis::redis::AsyncCommands, async_pool::AsyncRedisPool};
 use std::sync::Arc;
 
 #[derive(Clone)]
 pub struct TokenHandler {
-    pool: Arc<RedisPool>,
+    pool: Arc<AsyncRedisPool>,
     jwt_secret: String,
     encoding_key: EncodingKey,
 }
 
 impl TokenHandler {
-    pub fn new(pool: Arc<RedisPool>, jwt_secret: String) -> Self {
+    pub fn new(pool: Arc<AsyncRedisPool>, jwt_secret: String) -> Self {
         let encoding_key = EncodingKey::from_secret(jwt_secret.as_bytes());
         Self {
             pool,

@@ -8,7 +8,7 @@ use hyper::{
     Body, Request, Response, Server,
 };
 use model::{GetTokenRequest, GetTokenResponse, JsonRpcError, JsonRpcRequest, JsonRpcResponse};
-use redis::pool::AsyncRedisPool as RedisPool;
+use redis::async_pool::AsyncRedisPool as RedisPool;
 use serde::Serialize;
 use serde_json::Value as JsonValue;
 use std::{fmt::Debug, sync::Arc};

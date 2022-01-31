@@ -2,7 +2,7 @@ use crate::app::{AppError, AppResult, ParamsError};
 use chrono::Utc;
 use database::{Database, InsertionResult, Shape as DbShape, ShapeTag as DbShapeTag};
 use model::{shape::geojson::*, shape::*, *};
-use redis::{
+use redis::async_pool::{
     mobc_redis::{
         mobc::Connection,
         redis::{
@@ -11,7 +11,7 @@ use redis::{
         },
         RedisConnectionManager,
     },
-    RedisPool,
+    AsyncRedisPool,
 };
 use std::{collections::HashSet, convert::TryFrom, sync::Arc};
 use uuid::Uuid;
@@ -19,12 +19,12 @@ use uuid::Uuid;
 const GEO_KEY: &str = "Shape:Geo";
 
 pub struct ShapeController {
-    redis: Arc<RedisPool>,
+    redis: Arc<AsyncRedisPool>,
     shape_db: Arc<Database<DbShape>>,
 }
 
 impl ShapeController {
-    pub fn new(redis: Arc<RedisPool>, shape_db: Arc<Database<DbShape>>) -> Self {
+    pub fn new(redis: Arc<AsyncRedisPool>, shape_db: Arc<Database<DbShape>>) -> Self {
         Self { redis, shape_db }
     }
 

@@ -38,7 +38,7 @@ async fn main() {
 
     match cmd {
         Subcommand::Serve(opts) => {
-            gtfs::Serve::new(opts.redis_conn).serve().await;
+            gtfs::Serve::new(opts.redis_conn, opts.port).serve().await;
         }
         Subcommand::Populate(opts) => {
             gtfs::Populate::new(
