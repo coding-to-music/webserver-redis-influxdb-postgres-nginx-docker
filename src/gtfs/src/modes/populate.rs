@@ -172,7 +172,9 @@ impl Populate {
 
         conn.hset_multiple(redis_key, &serialized).await?;
 
-        conn.hdel(redis_key, to_be_removed).await?;
+        if !to_be_removed.is_empty() {
+            conn.hdel(redis_key, to_be_removed).await?;
+        }
 
         Ok(())
     }
