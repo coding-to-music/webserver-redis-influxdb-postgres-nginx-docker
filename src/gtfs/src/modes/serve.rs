@@ -4,37 +4,30 @@ use serde::Serialize;
 
 pub struct Serve {
     redis_pool: RedisPool,
+    listen_port: u32,
 }
 
 impl Serve {
-    pub fn new(redis_conn: String) -> Self {
+    pub fn new(redis_conn: String, listen_port: u32) -> Self {
         let redis_pool = RedisPool::new(redis_conn, 10);
-        Self { redis_pool }
+        Self {
+            redis_pool,
+            listen_port,
+        }
     }
 
     #[allow(unreachable_code)]
     pub async fn serve(self) {
-        rouille::start_server("localhost:8000", move |request| {
+        rouille::start_server(format!("localhost:{}", self.listen_port), move |request| {
             router!(request,
-                (GET) (/agency/{id:String}) => {
-                    self.get_agency(&id)
+                (GET) (/agency/{agency_id:String}) => {
+                    self.get_agency(&agency_id)
                 },
 
-                (GET) (/route/{_id:String}) => {
-                    panic!("Oops!")
+                (GET) (/route/{route_id:String}) => {
+                    self.get_route(route_id)
                 },
-
-                (GET) (/{id: u32}) => {
-                    println!("u32 {:?}", id);
-                    rouille::Response::empty_400()
-                },
-
-                (GET) (/{id: String}) => {
-                    println!("String {:?}", id);
-                    rouille::Response::text(format!("hello, {}", id))
-                },
-
-                _ => rouille::Response::empty_404()
+                _ => not_found_response()
             )
         });
     }
@@ -43,11 +36,24 @@ impl Serve {
         let mut conn = self.redis_pool.get_connection().unwrap();
         let agency: Option<String> = conn.hget(AGENCY_REDIS_KEY, agency_id).unwrap();
 
-        if let Some(agency) = agency {
-            let agency: Agency = serde_json::from_str(&agency).unwrap();
-            json_response(agency)
-        } else {
-            not_found_response()
+        match agency {
+            Some(agency) => {
+                let agency: Agency = serde_json::from_str(&agency).unwrap();
+                json_response(agency)
+            }
+            None => not_found_response(),
+        }
+    }
+
+    fn get_route(&self, route_id: &str) -> rouille::Response {
+        let mut conn = self.redis_pool.get_connection().unwrap();
+        let route: Option<String> = conn.hget(ROUTE_REDIS_KEY, route_id).unwrap();
+        match route {
+            Some(route) => {
+                let route: Route = serde_json::from_str(&route).unwrap();
+                json_response(route)
+            }
+            None => not_found_response(),
         }
     }
 }
