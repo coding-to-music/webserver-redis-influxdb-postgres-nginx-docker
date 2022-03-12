@@ -31,6 +31,8 @@ mod method_names {
     pub const DELETE_SHAPE_TAG: &str = "delete_shape_tag";
     pub const REFRESH_GEO_POINTS_IN_CACHE: &str = "refresh_geo_points_in_cache";
 
+    pub const GET_DEPARTURES: &str = "get_departures";
+
     pub const SLEEP: &str = "sleep";
 
     pub const GENERATE_SAS_KEY: &str = "generate_sas_key";
@@ -86,6 +88,9 @@ pub enum Method {
     /// Refresh geo points in cache
     RefreshGeoPointsInCache,
 
+    /// Get upcoming departures for a given stop
+    GetDepartures,
+
     /// Tell the server to sleep
     Sleep,
 
@@ -114,6 +119,7 @@ impl FromStr for Method {
             SEARCH_SHAPES_BY_TAGS => Ok(SearchShapesByTags),
             DELETE_SHAPE_TAG => Ok(DeleteShapeTag),
             REFRESH_GEO_POINTS_IN_CACHE => Ok(RefreshGeoPointsInCache),
+            GET_DEPARTURES => Ok(GetDepartures),
             SLEEP => Ok(Sleep),
             GENERATE_SAS_KEY => Ok(GenerateSasKey),
             _ => Err(()),
@@ -141,6 +147,7 @@ impl Display for Method {
             GetShapeTags => GET_SHAPE_TAGS,
             DeleteShapeTag => DELETE_SHAPE_TAG,
             SearchShapesByTags => SEARCH_SHAPES_BY_TAGS,
+            GetDepartures => GET_DEPARTURES,
             GenerateSasKey => GENERATE_SAS_KEY,
             RefreshGeoPointsInCache => REFRESH_GEO_POINTS_IN_CACHE,
         };

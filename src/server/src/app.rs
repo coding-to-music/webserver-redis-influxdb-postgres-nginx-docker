@@ -1,5 +1,5 @@
 use crate::{
-    controller::{ListItemController, ServerController, ShapeController},
+    controller::{ListItemController, ServerController, ShapeController, TrafficController},
     influx::InfluxClient,
     Opts,
 };
@@ -7,6 +7,7 @@ use chrono::Utc;
 use database::{self as db, Database};
 use db::{DatabaseError, Request as DbRequest, RequestLog as DbRequestLog, Response as DbResponse};
 use hmac::crypto_mac::InvalidKeyLength;
+use isahc::HttpClient;
 use model::*;
 use redis::async_pool::{
     mobc_redis::{mobc, redis::RedisError},
@@ -29,6 +30,7 @@ pub struct App {
     influx_db: Arc<InfluxClient>,
     list_controller: ListItemController,
     shape_controller: ShapeController,
+    traffic_controller: TrafficController,
     server_controller: ServerController,
 }
 
@@ -53,6 +55,8 @@ impl App {
 
         let list_controller = ListItemController::new(list_item_db);
         let shape_controller = ShapeController::new(shape_redis_pool, shape_db);
+        let traffic_controller =
+            TrafficController::new(HttpClient::new().unwrap(), opts.resrobot_api_key.clone());
         let server_controller = ServerController::new();
 
         Self {
@@ -60,6 +64,7 @@ impl App {
             request_log_db,
             list_controller,
             shape_controller,
+            traffic_controller,
             server_controller,
             influx_db,
         }
@@ -154,13 +159,14 @@ impl App {
                         .generate_sas_key(request)
                         .await
                         .map(|result| JsonRpcResponse::success(result, id)),
-                    unimplemented => Ok(JsonRpcResponse::error(
-                        JsonRpcError::not_implemented().with_message(format!(
-                            "method '{}' is not implemented yet",
-                            unimplemented.to_string()
-                        )),
-                        id,
-                    )),
+                    Method::GetDepartures => self
+                        .traffic_controller
+                        .get_departures(request)
+                        .await
+                        .map(|result| JsonRpcResponse::success(result, id)),
+                    Method::AddShapes => Ok(unimplemented_method_response(method, id)),
+                    Method::GetShapeTags => Ok(unimplemented_method_response(method, id)),
+                    Method::SearchShapesByTags => Ok(unimplemented_method_response(method, id)),
                 }
             }
         };
@@ -342,16 +348,45 @@ impl From<mobc::Error<redis::async_pool::mobc_redis::redis::RedisError>> for App
     }
 }
 
-// impl From<mobc::Error<RedisError>> for AppError {
-//     fn from(e: mobc::Error<RedisError>) -> Self {
-//         AppError::internal_error().with_context(&e)
-//     }
-// }
-
 impl From<InvalidKeyLength> for AppError {
     fn from(e: InvalidKeyLength) -> Self {
         AppError::invalid_request().with_context(&e)
     }
+}
+
+impl From<hyper::http::Error> for AppError {
+    fn from(e: hyper::http::Error) -> Self {
+        AppError::internal_error().with_context(&e)
+    }
+}
+
+impl From<isahc::Error> for AppError {
+    fn from(e: isahc::Error) -> Self {
+        AppError::internal_error().with_context(&e)
+    }
+}
+
+impl From<std::io::Error> for AppError {
+    fn from(e: std::io::Error) -> Self {
+        AppError::internal_error().with_context(&e)
+    }
+}
+
+impl From<serde_json::Error> for AppError {
+    fn from(e: serde_json::Error) -> Self {
+        AppError::internal_error().with_context(&e)
+    }
+}
+
+/// Shorthand for returning a "method not implemented" response.
+fn unimplemented_method_response(method: Method, id: Option<String>) -> JsonRpcResponse {
+    JsonRpcResponse::error(
+        JsonRpcError::not_implemented().with_message(format!(
+            "method '{}' is not implemented yet",
+            method.to_string()
+        )),
+        id,
+    )
 }
 
 pub trait ParamsError: Error {}

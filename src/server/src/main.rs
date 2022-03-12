@@ -48,6 +48,8 @@ pub struct Opts {
     influx_token: Option<String>,
     #[structopt(long, env = "WEBSERVER_INFLUX_ORG")]
     influx_org: Option<String>,
+    #[structopt(long, env = "WEBSERVER_RESROBOT_API_KEY")]
+    resrobot_api_key: String,
 }
 
 #[tokio::main]

@@ -26,3 +26,4 @@ sha2 = "0.9.4"
 base64 = "0.13.0"
 influxrs = "1.0.0"
 gtfs = { path = "../gtfs" }
+isahc = { version = "1.6.0", features = ["json"] }
