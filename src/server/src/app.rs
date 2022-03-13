@@ -1,7 +1,7 @@
 use crate::{
+    auth::Claims,
     controller::{ListItemController, ServerController, ShapeController, TrafficController},
     influx::InfluxClient,
-    token::Claims,
     Opts,
 };
 use chrono::Utc;
@@ -92,7 +92,7 @@ impl App {
             Err(_) => Err(AppError::from(JsonRpcError::method_not_found())),
             Ok(method) => {
                 trace!("request: {:?}", request);
-                if crate::token::authenticate(method, claims).is_ok() {
+                if crate::auth::authenticate(method, claims).is_ok() {
                     let id = id.clone();
                     match method {
                         Method::AddListItem => self

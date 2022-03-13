@@ -13,12 +13,12 @@ use serde::Serialize;
 use serde_json::Value as JsonValue;
 use std::{fmt::Debug, sync::Arc};
 use structopt::StructOpt;
-use token::{Claims, TokenHandler};
+use auth::{Claims, TokenHandler};
 
 pub mod app;
 pub mod controller;
 pub mod influx;
-pub mod token;
+pub mod auth;
 
 const API_URI: &'static str = "/api";
 const TOKEN_URI: &'static str = "/api/token";
