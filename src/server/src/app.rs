@@ -1,6 +1,7 @@
 use crate::{
     controller::{ListItemController, ServerController, ShapeController, TrafficController},
     influx::InfluxClient,
+    token::Claims,
     Opts,
 };
 use chrono::Utc;
@@ -71,7 +72,11 @@ impl App {
     }
 
     /// Handle a single JSON RPC request
-    pub async fn handle_single(&self, request: JsonRpcRequest) -> JsonRpcResponse {
+    pub async fn handle_single(
+        &self,
+        request: JsonRpcRequest,
+        claims: &Option<Claims>,
+    ) -> JsonRpcResponse {
         let timer = std::time::Instant::now();
         let id = request.id.clone();
         let request_log_clone = request.clone();
@@ -87,86 +92,90 @@ impl App {
             Err(_) => Err(AppError::from(JsonRpcError::method_not_found())),
             Ok(method) => {
                 trace!("request: {:?}", request);
-                let id = id.clone();
-                match method {
-                    Method::AddListItem => self
-                        .list_controller
-                        .add_list_item(request)
-                        .await
-                        .map(|result| JsonRpcResponse::success(result, id)),
-                    Method::GetListItems => self
-                        .list_controller
-                        .get_list_items(request)
-                        .await
-                        .map(|result| JsonRpcResponse::success(result, id)),
-                    Method::DeleteListItem => self
-                        .list_controller
-                        .delete_list_item(request)
-                        .await
-                        .map(|result| JsonRpcResponse::success(result, id)),
-                    Method::GetListTypes => self
-                        .list_controller
-                        .get_list_types(request)
-                        .await
-                        .map(|result| JsonRpcResponse::success(result, id)),
-                    Method::RenameListType => self
-                        .list_controller
-                        .rename_list_type(request)
-                        .await
-                        .map(|result| JsonRpcResponse::success(result, id)),
-                    Method::Sleep => self
-                        .server_controller
-                        .sleep(request)
-                        .await
-                        .map(|result| JsonRpcResponse::success(result, id)),
-                    Method::AddShape => self
-                        .shape_controller
-                        .add_shape(request)
-                        .await
-                        .map(|result| JsonRpcResponse::success(result, id)),
-                    Method::GetShape => self
-                        .shape_controller
-                        .get_shape(request)
-                        .await
-                        .map(|result| JsonRpcResponse::success(result, id)),
-                    Method::GetNearbyShapes => self
-                        .shape_controller
-                        .get_nearby_shapes(request)
-                        .await
-                        .map(|result| JsonRpcResponse::success(result, id)),
-                    Method::DeleteShape => self
-                        .shape_controller
-                        .delete_shape(request)
-                        .await
-                        .map(|result| JsonRpcResponse::success(result, id)),
-                    Method::AddShapeTag => self
-                        .shape_controller
-                        .add_shape_tag(request)
-                        .await
-                        .map(|result| JsonRpcResponse::success(result, id)),
-                    Method::DeleteShapeTag => self
-                        .shape_controller
-                        .delete_shape_tag(request)
-                        .await
-                        .map(|result| JsonRpcResponse::success(result, id)),
-                    Method::RefreshGeoPointsInCache => self
-                        .shape_controller
-                        .refresh_geo_points_in_cache(request)
-                        .await
-                        .map(|result| JsonRpcResponse::success(result, id)),
-                    Method::GenerateSasKey => self
-                        .server_controller
-                        .generate_sas_key(request)
-                        .await
-                        .map(|result| JsonRpcResponse::success(result, id)),
-                    Method::GetDepartures => self
-                        .traffic_controller
-                        .get_departures(request)
-                        .await
-                        .map(|result| JsonRpcResponse::success(result, id)),
-                    Method::AddShapes => Ok(unimplemented_method_response(method, id)),
-                    Method::GetShapeTags => Ok(unimplemented_method_response(method, id)),
-                    Method::SearchShapesByTags => Ok(unimplemented_method_response(method, id)),
+                if crate::token::authenticate(method, claims).is_ok() {
+                    let id = id.clone();
+                    match method {
+                        Method::AddListItem => self
+                            .list_controller
+                            .add_list_item(request)
+                            .await
+                            .map(|result| JsonRpcResponse::success(result, id)),
+                        Method::GetListItems => self
+                            .list_controller
+                            .get_list_items(request)
+                            .await
+                            .map(|result| JsonRpcResponse::success(result, id)),
+                        Method::DeleteListItem => self
+                            .list_controller
+                            .delete_list_item(request)
+                            .await
+                            .map(|result| JsonRpcResponse::success(result, id)),
+                        Method::GetListTypes => self
+                            .list_controller
+                            .get_list_types(request)
+                            .await
+                            .map(|result| JsonRpcResponse::success(result, id)),
+                        Method::RenameListType => self
+                            .list_controller
+                            .rename_list_type(request)
+                            .await
+                            .map(|result| JsonRpcResponse::success(result, id)),
+                        Method::Sleep => self
+                            .server_controller
+                            .sleep(request)
+                            .await
+                            .map(|result| JsonRpcResponse::success(result, id)),
+                        Method::AddShape => self
+                            .shape_controller
+                            .add_shape(request)
+                            .await
+                            .map(|result| JsonRpcResponse::success(result, id)),
+                        Method::GetShape => self
+                            .shape_controller
+                            .get_shape(request)
+                            .await
+                            .map(|result| JsonRpcResponse::success(result, id)),
+                        Method::GetNearbyShapes => self
+                            .shape_controller
+                            .get_nearby_shapes(request)
+                            .await
+                            .map(|result| JsonRpcResponse::success(result, id)),
+                        Method::DeleteShape => self
+                            .shape_controller
+                            .delete_shape(request)
+                            .await
+                            .map(|result| JsonRpcResponse::success(result, id)),
+                        Method::AddShapeTag => self
+                            .shape_controller
+                            .add_shape_tag(request)
+                            .await
+                            .map(|result| JsonRpcResponse::success(result, id)),
+                        Method::DeleteShapeTag => self
+                            .shape_controller
+                            .delete_shape_tag(request)
+                            .await
+                            .map(|result| JsonRpcResponse::success(result, id)),
+                        Method::RefreshGeoPointsInCache => self
+                            .shape_controller
+                            .refresh_geo_points_in_cache(request)
+                            .await
+                            .map(|result| JsonRpcResponse::success(result, id)),
+                        Method::GenerateSasKey => self
+                            .server_controller
+                            .generate_sas_key(request)
+                            .await
+                            .map(|result| JsonRpcResponse::success(result, id)),
+                        Method::GetDepartures => self
+                            .traffic_controller
+                            .get_departures(request)
+                            .await
+                            .map(|result| JsonRpcResponse::success(result, id)),
+                        Method::AddShapes => Ok(unimplemented_method_response(method, id)),
+                        Method::GetShapeTags => Ok(unimplemented_method_response(method, id)),
+                        Method::SearchShapesByTags => Ok(unimplemented_method_response(method, id)),
+                    }
+                } else {
+                    Err(AppError::not_permitted())
                 }
             }
         };
@@ -310,6 +319,10 @@ impl AppError {
 
     pub fn not_implemented() -> Self {
         Self::from(JsonRpcError::not_implemented())
+    }
+
+    pub fn not_permitted() -> Self {
+        Self::from(JsonRpcError::not_permitted())
     }
 }
 

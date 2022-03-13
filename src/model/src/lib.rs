@@ -54,7 +54,7 @@ pub mod error_codes {
 }
 
 /// A JSONRPC method
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub enum Method {
     /// Add a list item
     AddListItem,

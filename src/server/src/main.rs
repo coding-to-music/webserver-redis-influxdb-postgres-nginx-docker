@@ -13,7 +13,7 @@ use serde::Serialize;
 use serde_json::Value as JsonValue;
 use std::{fmt::Debug, sync::Arc};
 use structopt::StructOpt;
-use token::TokenHandler;
+use token::{Claims, TokenHandler};
 
 pub mod app;
 pub mod controller;
@@ -143,19 +143,13 @@ impl Webserver {
     }
 
     async fn api_route(&self, request: Request<Body>) -> Vec<JsonRpcResponse> {
-        if let Err(auth_error) = self.authenticate(&request) {
-            error!(
-                "error during authentication: '{}'",
-                auth_error.rpc_error.message
-            );
-            return vec![JsonRpcResponse::error(auth_error.rpc_error, None)];
-        }
+        let claims = self.get_auth_claims(&request);
 
         match Self::get_body_as_json(request).await {
             Ok(JsonValue::Array(values)) => {
                 let results: Vec<_> = values
                     .into_iter()
-                    .map(|v| self.parse_and_handle_single(v))
+                    .map(|v| self.parse_and_handle_single(v, &claims))
                     .collect();
 
                 let results: Vec<_> = future::join_all(results)
@@ -209,45 +203,26 @@ impl Webserver {
         }
     }
 
-    fn authenticate(&self, request: &Request<Body>) -> Result<(), AppError> {
-        match request.headers().get("Authorization") {
-            Some(value) => {
-                let token = value
-                    .to_str()
-                    .ok()
-                    .map(|tok| tok.strip_prefix("Bearer "))
-                    .flatten()
-                    .ok_or_else(|| {
-                        AppError::from(
-                            JsonRpcError::invalid_request()
-                                .with_message("invalid 'Authorization' header"),
-                        )
-                    })?;
-
-                self.tokens.validate_token(token).map_err(|_| {
-                    AppError::from(JsonRpcError::not_permitted().with_message("invalid token"))
-                })?;
-
-                Ok(())
-            }
-            None => Err(AppError::from(
-                JsonRpcError::invalid_request().with_message("missing 'Authorization' header"),
-            )),
-        }
+    fn get_auth_claims(&self, request: &Request<Body>) -> Option<Claims> {
+        let header = request.headers().get("Authorization")?;
+        let token = header.to_str().ok()?.trim_start_matches("Bearer ");
+        self.tokens.parse_token(token).ok()
     }
 
     async fn parse_and_handle_single(
         &self,
         request: JsonValue,
+        claims: &Option<Claims>,
     ) -> Result<Option<JsonRpcResponse>, AppError> {
         match serde_json::from_value::<JsonRpcRequest>(request) {
             Ok(request) => {
                 if request.is_notification() {
+                    let claims_clone = claims.clone();
                     let app = self.app.clone();
-                    tokio::spawn(async move { app.handle_single(request).await });
+                    tokio::spawn(async move { app.handle_single(request, &claims_clone).await });
                     Ok(None)
                 } else {
-                    Ok(Some(self.app.handle_single(request).await))
+                    Ok(Some(self.app.handle_single(request, claims).await))
                 }
             }
             Err(serde_error) => {
