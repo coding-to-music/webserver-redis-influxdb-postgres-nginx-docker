@@ -1,6 +1,8 @@
 use crate::{
     auth::Claims,
-    controller::{ListItemController, ServerController, ShapeController, TrafficController},
+    controller::{
+        ListItemController, ServerController, ShapeController, TrafficController, UserController,
+    },
     influx::InfluxClient,
     Opts,
 };
@@ -32,6 +34,7 @@ pub struct App {
     list_controller: ListItemController,
     shape_controller: ShapeController,
     traffic_controller: TrafficController,
+    user_controller: UserController,
     server_controller: ServerController,
 }
 
@@ -51,11 +54,13 @@ impl App {
         );
 
         let request_log_db = Arc::new(Database::new(opts.database_addr.clone()).await.unwrap());
+        let user_db = Arc::new(Database::new(opts.database_addr.clone()).await.unwrap());
 
         let shape_redis_pool = Arc::new(AsyncRedisPool::new(opts.shape_redis_addr.clone()));
 
         let list_controller = ListItemController::new(list_item_db);
         let shape_controller = ShapeController::new(shape_redis_pool, shape_db);
+        let user_controller = UserController::new(user_db);
         let traffic_controller =
             TrafficController::new(HttpClient::new().unwrap(), opts.resrobot_api_key.clone());
         let server_controller = ServerController::new();
@@ -66,6 +71,7 @@ impl App {
             list_controller,
             shape_controller,
             traffic_controller,
+            user_controller,
             server_controller,
             influx_db,
         }
@@ -173,6 +179,12 @@ impl App {
                         Method::AddShapes => Ok(unimplemented_method_response(method, id)),
                         Method::GetShapeTags => Ok(unimplemented_method_response(method, id)),
                         Method::SearchShapesByTags => Ok(unimplemented_method_response(method, id)),
+                        Method::AddUser => self
+                            .user_controller
+                            .add_user(request)
+                            .await
+                            .map(|result| JsonRpcResponse::success(result, id)),
+                        Method::GetUser => Ok(unimplemented_method_response(method, id)),
                     }
                 } else {
                     Err(AppError::not_permitted())

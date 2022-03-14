@@ -35,6 +35,9 @@ mod method_names {
 
     pub const SLEEP: &str = "sleep";
 
+    pub const ADD_USER: &str = "add_user";
+    pub const GET_USER: &str = "get_user";
+
     pub const GENERATE_SAS_KEY: &str = "generate_sas_key";
 }
 
@@ -94,6 +97,11 @@ pub enum Method {
     /// Tell the server to sleep
     Sleep,
 
+    /// Add a user
+    AddUser,
+    /// Get a user
+    GetUser,
+
     /// Generate an SAS key
     GenerateSasKey,
 }
@@ -122,6 +130,8 @@ impl FromStr for Method {
             GET_DEPARTURES => Ok(GetDepartures),
             SLEEP => Ok(Sleep),
             GENERATE_SAS_KEY => Ok(GenerateSasKey),
+            ADD_USER => Ok(AddUser),
+            GET_USER => Ok(GetUser),
             _ => Err(()),
         }
     }
@@ -150,6 +160,8 @@ impl Display for Method {
             GetDepartures => GET_DEPARTURES,
             GenerateSasKey => GENERATE_SAS_KEY,
             RefreshGeoPointsInCache => REFRESH_GEO_POINTS_IN_CACHE,
+            AddUser => ADD_USER,
+            GetUser => GET_USER,
         };
         write!(f, "{}", ouput)
     }
@@ -587,6 +599,14 @@ fn invalid_params_serde_message(err: &serde_json::Error) -> String {
     format!("invalid format of params object: '{}'", err)
 }
 
-fn generic_invalid_value_message(name: &str) -> String {
-    format!("invalid value of '{}'", name)
+fn generic_invalid_value_message(param_name: &str) -> String {
+    format!("invalid value of '{}'", param_name)
+}
+
+fn invalid_value_because_message(param_name: &str, clarification: String) -> String {
+    format!(
+        "{}, {}",
+        generic_invalid_value_message(param_name),
+        clarification
+    )
 }

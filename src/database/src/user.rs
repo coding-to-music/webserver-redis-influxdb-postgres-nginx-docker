@@ -1,5 +1,7 @@
 use crate::{Database, DatabaseResult, InsertionResult};
 
+pub type UserDatabase = Database<User>;
+
 #[derive(Debug, Clone, PartialEq, Eq, sqlx::FromRow)]
 #[non_exhaustive]
 pub struct User {
@@ -8,7 +10,7 @@ pub struct User {
     created_s: i64,
 }
 
-impl Database<User> {
+impl UserDatabase {
     pub async fn insert_user(
         &self,
         id: &str,
