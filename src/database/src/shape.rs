@@ -1,6 +1,5 @@
 use crate::{Database, DatabaseResult, InsertionResult};
-use chrono::{DateTime, TimeZone, Utc};
-use sqlx::{Connection, Executor, FromRow, Postgres, Transaction};
+use sqlx::{Connection, Executor, FromRow, Postgres, Transaction, types::time::OffsetDateTime};
 use std::{collections::HashMap, convert::TryFrom};
 
 /// This is a row in the `shape` table.
@@ -31,8 +30,8 @@ impl Shape {
         }
     }
 
-    pub fn created_utc(&self) -> DateTime<Utc> {
-        chrono::Utc.timestamp(self.created_s, 0)
+    pub fn created_utc(&self) -> OffsetDateTime {
+        OffsetDateTime::from_unix_timestamp(self.created_s * 1000)
     }
 }
 
@@ -64,8 +63,8 @@ impl ShapeTag {
         }
     }
 
-    pub fn created_utc(&self) -> DateTime<Utc> {
-        chrono::Utc.timestamp(self.created_s, 0)
+    pub fn created_utc(&self) -> OffsetDateTime {
+        OffsetDateTime::from_unix_timestamp(self.created_s * 1000)
     }
 }
 
@@ -152,7 +151,7 @@ impl Database<Shape> {
     pub async fn delete_shape(&self, id: &str) -> DatabaseResult<bool> {
         let mut db = self.get_connection().await?;
         let mut transaction = db.begin().await?;
-        let deleted_at_s = chrono::Utc::now().timestamp();
+        let deleted_at_s = OffsetDateTime::now_utc().unix_timestamp() / 1000;
         let query_result = sqlx::query(
             "
             UPDATE shape

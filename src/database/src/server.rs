@@ -1,6 +1,5 @@
 use crate::{Database, DatabaseResult, InsertionResult};
-use chrono::{DateTime, TimeZone, Utc};
-use sqlx::Executor;
+use sqlx::{Executor, types::time::OffsetDateTime};
 
 #[derive(Debug, Clone, PartialEq, Eq, sqlx::FromRow)]
 #[non_exhaustive]
@@ -32,8 +31,8 @@ impl RequestLog {
         }
     }
 
-    pub fn created_utc(&self) -> DateTime<Utc> {
-        chrono::Utc.timestamp(self.created_s, 0)
+    pub fn created_utc(&self) -> OffsetDateTime {
+        OffsetDateTime::from_unix_timestamp(self.created_s * 1000)
     }
 }
 

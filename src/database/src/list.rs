@@ -1,6 +1,5 @@
 use crate::{Database, DatabaseResult, InsertionResult};
-use chrono::{DateTime, TimeZone, Utc};
-use sqlx::{postgres::PgRow, Row};
+use sqlx::{postgres::PgRow, types::time::OffsetDateTime, Row};
 
 #[derive(Debug, Clone, PartialEq, Eq, sqlx::FromRow)]
 #[non_exhaustive]
@@ -21,8 +20,8 @@ impl ListItem {
         }
     }
 
-    pub fn created_utc(&self) -> DateTime<Utc> {
-        chrono::Utc.timestamp(self.created_s, 0)
+    pub fn created_utc(&self) -> OffsetDateTime {
+        OffsetDateTime::from_unix_timestamp(self.created_s * 1000)
     }
 }
 
@@ -131,25 +130,5 @@ impl Database<ListItem> {
             .await?;
 
         Ok(query_result.rows_affected())
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn created_utc_test() {
-        let list_item = ListItem::new(
-            "asd".to_string(),
-            "list_type".to_string(),
-            "item_name".to_string(),
-            1613988164,
-        );
-
-        assert_eq!(
-            list_item.created_utc(),
-            DateTime::parse_from_rfc3339("2021-02-22T10:02:44-00:00").unwrap()
-        );
     }
 }
