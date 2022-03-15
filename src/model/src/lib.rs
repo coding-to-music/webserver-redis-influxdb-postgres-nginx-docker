@@ -166,7 +166,7 @@ impl Display for Method {
             RefreshGeoPointsInCache => REFRESH_GEO_POINTS_IN_CACHE,
             AddUser => ADD_USER,
             GetUser => GET_USER,
-            GetToken => GET_TOKEN
+            GetToken => GET_TOKEN,
         };
         write!(f, "{}", ouput)
     }

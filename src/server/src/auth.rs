@@ -2,7 +2,7 @@ use jsonwebtoken::{
     errors::Error as JwtError, Algorithm, DecodingKey, EncodingKey, Header, Validation,
 };
 use model::Method;
-use std::{collections::HashSet, fmt::Display, str::FromStr};
+use std::{collections::HashSet, fmt::Display};
 
 #[derive(Clone)]
 pub struct TokenHandler {
@@ -98,6 +98,21 @@ pub(crate) enum Role {
     Anon,
 }
 
+impl Role {
+    pub(crate) fn from_sql_value(sql_value: &str) -> Result<Role, ()> {
+        match sql_value {
+            "SuperAdmin" => Ok(Role::SuperAdmin),
+            "Admin" => Ok(Role::Admin),
+            "User" => Ok(Role::User),
+            "Anon" => Ok(Role::Anon),
+            invalid => {
+                error!("failed to parse '{}' as a Role", invalid);
+                Err(())
+            }
+        }
+    }
+}
+
 impl Display for Role {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
@@ -110,19 +125,5 @@ impl Display for Role {
                 Role::Anon => "anon",
             }
         )
-    }
-}
-
-impl FromStr for Role {
-    type Err = ();
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        Ok(match s {
-            "super_admin" => Self::SuperAdmin,
-            "admin" => Self::Admin,
-            "user" => Self::User,
-            "anon" => Self::Anon,
-            _ => return Err(()),
-        })
     }
 }

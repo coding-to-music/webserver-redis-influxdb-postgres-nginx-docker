@@ -2,12 +2,12 @@ use crate::{
     app::{AppError, AppResult, ParamsError},
     auth::{Role, TokenHandler},
 };
-use database::{Database, InsertionResult, User, UserDatabase};
+use database::{InsertionResult, User as DbUser, UserDatabase};
 use model::{
-    user::{add_user, get_token},
+    user::{add_user, get_token, get_user, User},
     JsonRpcError, JsonRpcRequest,
 };
-use std::{convert::TryFrom, str::FromStr, sync::Arc};
+use std::{convert::TryFrom, sync::Arc};
 use uuid::Uuid;
 
 pub struct UserController {
@@ -16,7 +16,7 @@ pub struct UserController {
 }
 
 impl UserController {
-    pub fn new(user_db: Arc<Database<User>>, token_handler: Arc<TokenHandler>) -> Self {
+    pub fn new(user_db: Arc<UserDatabase>, token_handler: Arc<TokenHandler>) -> Self {
         Self {
             user_db,
             token_handler,
@@ -52,7 +52,7 @@ impl UserController {
             let roles = self.user_db.get_roles_for_user(&user.id).await?;
             let roles = roles
                 .into_iter()
-                .filter_map(|r| Role::from_str(&r).ok())
+                .filter_map(|r| Role::from_sql_value(&r).ok())
                 .collect();
             let exp = chrono::Utc::now()
                 .checked_add_signed(chrono::Duration::seconds(3600))
@@ -66,7 +66,29 @@ impl UserController {
             ))
         }
     }
+
+    pub async fn get_user(&self, request: JsonRpcRequest) -> AppResult<get_user::MethodResult> {
+        use get_user::{MethodResult, Params};
+        let params = Params::try_from(request)?;
+
+        let db_user = self.user_db.get_user_by_id(&params.id).await?;
+
+        Ok(match db_user.map(|db_user| UserWrapper::from(db_user)) {
+            Some(user) => MethodResult::exists(user.0),
+            None => MethodResult::missing(),
+        })
+    }
 }
 
 impl ParamsError for add_user::InvalidParams {}
 impl ParamsError for get_token::InvalidParams {}
+impl ParamsError for get_user::InvalidParams {}
+
+/// Used in order to convert from `database::User` to `model::User` (orphan rule).
+struct UserWrapper(User);
+
+impl From<DbUser> for UserWrapper {
+    fn from(value: DbUser) -> Self {
+        UserWrapper(User::new(value.id, value.username))
+    }
+}
