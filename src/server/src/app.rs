@@ -184,7 +184,11 @@ impl App {
                             .add_user(request)
                             .await
                             .map(|result| JsonRpcResponse::success(result, id)),
-                        Method::GetUser => Ok(unimplemented_method_response(method, id)),
+                        Method::GetUser => self
+                            .user_controller
+                            .get_user(request)
+                            .await
+                            .map(|result| JsonRpcResponse::success(result, id)),
                         Method::GetToken => self
                             .user_controller
                             .get_token(request)
