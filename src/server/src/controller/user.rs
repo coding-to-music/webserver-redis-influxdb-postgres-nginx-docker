@@ -8,6 +8,7 @@ use model::{
     JsonRpcError, JsonRpcRequest,
 };
 use std::{convert::TryFrom, sync::Arc};
+use time::{ext::NumericalDuration, OffsetDateTime};
 use uuid::Uuid;
 
 pub struct UserController {
@@ -54,10 +55,10 @@ impl UserController {
                 .into_iter()
                 .filter_map(|r| Role::from_sql_value(&r).ok())
                 .collect();
-            let exp = chrono::Utc::now()
-                .checked_add_signed(chrono::Duration::seconds(3600))
-                .unwrap()
-                .timestamp();
+            let exp = OffsetDateTime::now_utc()
+                .checked_add(1.hours())
+                .ok_or(AppError::internal_error()
+                    .with_context(&"failed to add 1 hour to current timestamp".to_string()))?;
             let token = self.token_handler.generate_token(exp, roles);
             Ok(MethodResult::new(token))
         } else {

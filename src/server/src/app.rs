@@ -6,7 +6,6 @@ use crate::{
     influx::InfluxClient,
     Opts,
 };
-use chrono::Utc;
 use database::{self as db, Database};
 use db::{DatabaseError, Request as DbRequest, RequestLog as DbRequestLog, Response as DbResponse};
 use hmac::crypto_mac::InvalidKeyLength;
@@ -86,7 +85,7 @@ impl App {
         let timer = std::time::Instant::now();
         let id = request.id.clone();
         let request_log_clone = request.clone();
-        let request_ts_s = Utc::now().timestamp();
+        let request_ts_s = crate::current_timestamp_s();
 
         let method = request.method.to_owned();
         info!(
@@ -260,7 +259,7 @@ impl App {
                 return;
             }
         };
-        let created_s = Utc::now().timestamp();
+        let created_s = crate::current_timestamp_s();
 
         let db = self.request_log_db.clone();
         tokio::spawn(async move {

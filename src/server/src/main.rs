@@ -13,6 +13,7 @@ use serde::Serialize;
 use serde_json::Value as JsonValue;
 use std::{fmt::Debug, sync::Arc};
 use structopt::StructOpt;
+use time::OffsetDateTime;
 
 pub mod app;
 pub mod auth;
@@ -236,4 +237,8 @@ fn not_found() -> Vec<JsonRpcResponse> {
 pub fn get_required_env_var(var_name: &str) -> String {
     std::env::var(var_name)
         .unwrap_or_else(|_| panic!("missing environment variable: '{}'", var_name))
+}
+
+pub fn current_timestamp_s() -> i64 {
+    OffsetDateTime::now_utc().unix_timestamp() / 1000
 }

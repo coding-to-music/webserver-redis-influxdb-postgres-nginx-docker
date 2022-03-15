@@ -3,6 +3,7 @@ use jsonwebtoken::{
 };
 use model::Method;
 use std::{collections::HashSet, fmt::Display};
+use time::OffsetDateTime;
 
 #[derive(Clone)]
 pub struct TokenHandler {
@@ -30,12 +31,16 @@ impl TokenHandler {
         }
     }
 
-    pub(crate) fn generate_token(&self, expiry: i64, mut roles: Vec<Role>) -> Option<String> {
+    pub(crate) fn generate_token(
+        &self,
+        expiry: OffsetDateTime,
+        mut roles: Vec<Role>,
+    ) -> Option<String> {
         roles.push(Role::User);
         roles.push(Role::Anon);
         jsonwebtoken::encode(
             &Header::default(),
-            &Claims::new(expiry, roles),
+            &Claims::new(expiry.unix_timestamp() / 1000, roles),
             &self.encoding_key,
         )
         .ok()
@@ -125,5 +130,17 @@ impl Display for Role {
                 Role::Anon => "anon",
             }
         )
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn unix_timestamp_test() {
+        let date = OffsetDateTime::from_unix_timestamp(1_546_300_800).unwrap();
+
+        assert_eq!(date.unix_timestamp(), 1_546_300_800);
     }
 }

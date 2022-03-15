@@ -1,5 +1,4 @@
 use crate::app::{AppError, AppResult, ParamsError};
-use chrono::Utc;
 use database::{Database, InsertionResult, Shape as DbShape, ShapeTag as DbShapeTag};
 use model::{shape::geojson::*, shape::*, *};
 use redis::async_pool::{
@@ -160,7 +159,7 @@ impl ShapeController {
         request: JsonRpcRequest,
     ) -> AppResult<add_shape_tag::MethodResult> {
         let params = add_shape_tag::Params::try_from(request)?;
-        let created_s = Utc::now().timestamp();
+        let created_s = crate::current_timestamp_s();
 
         let id = uuid::Uuid::new_v4().to_string();
 
@@ -342,7 +341,7 @@ impl TryFrom<(DbShape, Vec<DbShapeTag>)> for ShapeWrapper {
 }
 
 fn make_db_entities_for_insertion(shape: Shape) -> (DbShape, Vec<DbShapeTag>) {
-    let created_s = Utc::now().timestamp();
+    let created_s = crate::current_timestamp_s();
     let shape_id = shape.id.to_string();
     let db_shape = DbShape::new(
         shape.id.to_string(),
