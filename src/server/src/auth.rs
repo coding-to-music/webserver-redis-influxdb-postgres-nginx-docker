@@ -1,48 +1,21 @@
-use crate::app::{AppError, AppResult};
 use jsonwebtoken::{
     errors::Error as JwtError, Algorithm, DecodingKey, EncodingKey, Header, Validation,
 };
-use model::{JsonRpcError, Method};
-use redis::{async_pool::mobc_redis::redis::AsyncCommands, async_pool::AsyncRedisPool};
-use std::{collections::HashSet, fmt::Display, sync::Arc};
+use model::Method;
+use std::{collections::HashSet, fmt::Display, str::FromStr};
 
 #[derive(Clone)]
 pub struct TokenHandler {
-    pool: Arc<AsyncRedisPool>,
     jwt_secret: String,
     encoding_key: EncodingKey,
 }
 
 impl TokenHandler {
-    pub fn new(pool: Arc<AsyncRedisPool>, jwt_secret: String) -> Self {
+    pub fn new(jwt_secret: String) -> Self {
         let encoding_key = EncodingKey::from_secret(jwt_secret.as_bytes());
         Self {
-            pool,
             jwt_secret,
             encoding_key,
-        }
-    }
-
-    pub async fn get_token(&self, key_name: &str, key_value: &str) -> AppResult<String> {
-        let mut conn = self.pool.get_connection().await?;
-
-        let redis_key = format!("{}-{}", key_name, key_value);
-
-        trace!("retrieving key: '{}'", redis_key);
-
-        let exists: bool = conn.exists(redis_key).await?;
-
-        if exists {
-            let exp = chrono::Utc::now()
-                .checked_add_signed(chrono::Duration::seconds(3600))
-                .unwrap()
-                .timestamp();
-            let token = self.generate_token(exp);
-            Ok(token)
-        } else {
-            Err(AppError::from(
-                JsonRpcError::internal_error().with_message("invalid key name or key value"),
-            ))
         }
     }
 
@@ -57,17 +30,15 @@ impl TokenHandler {
         }
     }
 
-    fn generate_token(&self, expiry: i64) -> String {
-        // let exp = chrono::Utc::now()
-        //     .checked_add_signed(chrono::Duration::seconds(3600))
-        //     .unwrap()
-        //     .timestamp();
+    pub(crate) fn generate_token(&self, expiry: i64, mut roles: Vec<Role>) -> Option<String> {
+        roles.push(Role::User);
+        roles.push(Role::Anon);
         jsonwebtoken::encode(
             &Header::default(),
-            &Claims::new(expiry, vec![Role::User, Role::Anon]),
+            &Claims::new(expiry, roles),
             &self.encoding_key,
         )
-        .unwrap()
+        .ok()
     }
 }
 
@@ -109,6 +80,7 @@ pub fn authenticate(method: Method, claims: &Option<Claims>) -> Result<(), ()> {
 pub fn method_roles(method: Method) -> HashSet<String> {
     use Role::*;
     match method {
+        Method::GetToken => vec![Anon],
         Method::GetDepartures => vec![Anon],
         _default => vec![SuperAdmin],
     }
@@ -138,5 +110,19 @@ impl Display for Role {
                 Role::Anon => "anon",
             }
         )
+    }
+}
+
+impl FromStr for Role {
+    type Err = ();
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        Ok(match s {
+            "super_admin" => Self::SuperAdmin,
+            "admin" => Self::Admin,
+            "user" => Self::User,
+            "anon" => Self::Anon,
+            _ => return Err(()),
+        })
     }
 }

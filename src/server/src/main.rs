@@ -1,29 +1,27 @@
 #![allow(clippy::new_without_default)]
 
 use app::{App, AppError};
+use auth::{Claims, TokenHandler};
 use futures::future;
 use hyper::{
     body::Buf,
     service::{make_service_fn, service_fn},
     Body, Request, Response, Server,
 };
-use model::{GetTokenRequest, GetTokenResponse, JsonRpcError, JsonRpcRequest, JsonRpcResponse};
-use redis::async_pool::AsyncRedisPool as RedisPool;
+use model::{JsonRpcError, JsonRpcRequest, JsonRpcResponse};
 use serde::Serialize;
 use serde_json::Value as JsonValue;
 use std::{fmt::Debug, sync::Arc};
 use structopt::StructOpt;
-use auth::{Claims, TokenHandler};
 
 pub mod app;
+pub mod auth;
 pub mod controller;
 pub mod influx;
-pub mod auth;
 
 const API_URI: &'static str = "/api";
-const TOKEN_URI: &'static str = "/api/token";
 const PING_URI: &'static str = "/api/ping";
-const URIS: [&'static str; 3] = [API_URI, TOKEN_URI, PING_URI];
+const URIS: [&'static str; 2] = [API_URI, PING_URI];
 
 #[macro_use]
 extern crate log;
@@ -34,8 +32,6 @@ pub struct Opts {
     port: u16,
     #[structopt(long, env = "WEBSERVER_DATABASE_ADDR")]
     database_addr: String,
-    #[structopt(long, env = "WEBSERVER_TOKEN_REDIS_ADDR")]
-    token_redis_addr: String,
     #[structopt(long, env = "WEBSERVER_SHAPE_REDIS_ADDR")]
     shape_redis_addr: String,
     #[structopt(long, env = "WEBSERVER_JWT_SECRET")]
@@ -70,10 +66,11 @@ async fn main() {
         .init();
 
     let opts = Opts::from_args();
+    let tokens = Arc::new(TokenHandler::new(opts.jwt_secret.clone()));
 
-    let app = Arc::new(App::new(opts.clone()).await);
+    let app = Arc::new(App::new(opts.clone(), tokens.clone()).await);
 
-    let webserver = Arc::new(Webserver::new(app, opts.clone()));
+    let webserver = Arc::new(Webserver::new(app, tokens));
 
     let addr = ([0, 0, 0, 0], opts.port).into();
 
@@ -102,13 +99,11 @@ pub async fn entry_point(
 
 pub struct Webserver {
     app: Arc<App>,
-    tokens: TokenHandler,
+    tokens: Arc<TokenHandler>,
 }
 
 impl Webserver {
-    pub fn new(app: Arc<App>, opts: Opts) -> Self {
-        let token_redis_pool = Arc::new(RedisPool::new(opts.token_redis_addr.clone()));
-        let tokens = TokenHandler::new(token_redis_pool, opts.jwt_secret);
+    pub fn new(app: Arc<App>, tokens: Arc<TokenHandler>) -> Self {
         Self { app, tokens }
     }
 
@@ -126,14 +121,6 @@ impl Webserver {
             (&hyper::Method::POST, API_URI) => {
                 let response_body = self.api_route(request).await;
                 return crate::generic_json_response(response_body, 200);
-            }
-            (&hyper::Method::POST, TOKEN_URI) => {
-                let response_body = self.token_route(request).await;
-                match response_body {
-                    Ok(resp) | Err(resp) => {
-                        return crate::generic_json_response(resp, 200);
-                    }
-                }
             }
             _invalid => {
                 error!("invalid http method or route request: '{:?}'", request);
@@ -175,30 +162,6 @@ impl Webserver {
             Err(error) => {
                 error!("error parsing request as json: '{:?}'", error.context);
                 vec![JsonRpcResponse::error(error.rpc_error, None)]
-            }
-        }
-    }
-
-    async fn token_route(
-        &self,
-        request: Request<Body>,
-    ) -> Result<GetTokenResponse, GetTokenResponse> {
-        let json = Self::get_body_as_json(request)
-            .await
-            .map_err(|e| GetTokenResponse::error(e.rpc_error.message))?;
-
-        let request: GetTokenRequest = serde_json::from_value(json)
-            .map_err(|serde_error| GetTokenResponse::error(serde_error.to_string()))?;
-
-        match self
-            .tokens
-            .get_token(&request.key_name, &request.key_value)
-            .await
-        {
-            Ok(token) => Ok(GetTokenResponse::success(token)),
-            Err(error) => {
-                error!("error retrieving token: '{:?}'", error);
-                Err(GetTokenResponse::error(error.rpc_error.message))
             }
         }
     }

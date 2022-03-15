@@ -37,6 +37,7 @@ mod method_names {
 
     pub const ADD_USER: &str = "add_user";
     pub const GET_USER: &str = "get_user";
+    pub const GET_TOKEN: &str = "get_token";
 
     pub const GENERATE_SAS_KEY: &str = "generate_sas_key";
 }
@@ -101,6 +102,8 @@ pub enum Method {
     AddUser,
     /// Get a user
     GetUser,
+    /// Get a JWT
+    GetToken,
 
     /// Generate an SAS key
     GenerateSasKey,
@@ -132,6 +135,7 @@ impl FromStr for Method {
             GENERATE_SAS_KEY => Ok(GenerateSasKey),
             ADD_USER => Ok(AddUser),
             GET_USER => Ok(GetUser),
+            GET_TOKEN => Ok(GetToken),
             _ => Err(()),
         }
     }
@@ -162,6 +166,7 @@ impl Display for Method {
             RefreshGeoPointsInCache => REFRESH_GEO_POINTS_IN_CACHE,
             AddUser => ADD_USER,
             GetUser => GET_USER,
+            GetToken => GET_TOKEN
         };
         write!(f, "{}", ouput)
     }

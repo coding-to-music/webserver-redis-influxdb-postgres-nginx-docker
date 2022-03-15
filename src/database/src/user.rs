@@ -1,13 +1,15 @@
+use sqlx::FromRow;
+
 use crate::{Database, DatabaseResult, InsertionResult};
 
 pub type UserDatabase = Database<User>;
 
-#[derive(Debug, Clone, PartialEq, Eq, sqlx::FromRow)]
+#[derive(Debug, Clone, PartialEq, Eq, FromRow)]
 #[non_exhaustive]
 pub struct User {
-    id: String,
-    username: String,
-    created_s: i64,
+    pub id: String,
+    pub username: String,
+    pub created_s: i64,
 }
 
 impl UserDatabase {
@@ -16,17 +18,15 @@ impl UserDatabase {
         id: &str,
         username: &str,
         password: &str,
-        created_s: i64,
     ) -> DatabaseResult<InsertionResult> {
         let mut db = self.get_connection().await?;
 
         let query_result = sqlx::query(
-            "INSERT INTO user (id, username, password, created_s) VALUES ($1, $2, crypt($3, gen_salt('bf')), $4)",
+            "INSERT INTO user (id, username, password) VALUES ($1, $2, crypt($3, gen_salt('bf')))",
         )
         .bind(id)
         .bind(username)
         .bind(password)
-        .bind(created_s)
         .execute(&mut db)
         .await?;
 
@@ -76,5 +76,28 @@ impl UserDatabase {
         } else {
             Ok(Some(query_result.remove(0)))
         }
+    }
+
+    pub async fn get_roles_for_user(&self, id: &str) -> DatabaseResult<Vec<String>> {
+        let mut db = self.get_connection().await?;
+
+        #[derive(FromRow)]
+        struct RoleName {
+            role_name: String,
+        };
+
+        let mut query_result = sqlx::query_as::<_, RoleName>(
+            r#"
+            SELECT R.NAME AS ROLE_NAME
+            FROM "user" U
+            JOIN USER_ROLE UR ON UR.USER_ID = U.ID
+            JOIN "role" R ON UR.ROLE_ID = R.ID
+            WHERE U.id = $1"#,
+        )
+        .bind(id)
+        .fetch_all(&mut db)
+        .await?;
+
+        Ok(query_result.into_iter().map(|rn| rn.role_name).collect())
     }
 }

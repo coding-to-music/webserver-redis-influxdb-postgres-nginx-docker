@@ -1,5 +1,5 @@
 use crate::{
-    auth::Claims,
+    auth::{Claims, TokenHandler},
     controller::{
         ListItemController, ServerController, ShapeController, TrafficController, UserController,
     },
@@ -39,7 +39,7 @@ pub struct App {
 }
 
 impl App {
-    pub async fn new(opts: Opts) -> Self {
+    pub async fn new(opts: Opts, token_handler: Arc<TokenHandler>) -> Self {
         let list_item_db = Arc::new(Database::new(opts.database_addr.clone()).await.unwrap());
 
         let shape_db = Arc::new(Database::new(opts.database_addr.clone()).await.unwrap());
@@ -60,7 +60,7 @@ impl App {
 
         let list_controller = ListItemController::new(list_item_db);
         let shape_controller = ShapeController::new(shape_redis_pool, shape_db);
-        let user_controller = UserController::new(user_db);
+        let user_controller = UserController::new(user_db, token_handler);
         let traffic_controller =
             TrafficController::new(HttpClient::new().unwrap(), opts.resrobot_api_key.clone());
         let server_controller = ServerController::new();
@@ -185,6 +185,11 @@ impl App {
                             .await
                             .map(|result| JsonRpcResponse::success(result, id)),
                         Method::GetUser => Ok(unimplemented_method_response(method, id)),
+                        Method::GetToken => self
+                            .user_controller
+                            .get_token(request)
+                            .await
+                            .map(|result| JsonRpcResponse::success(result, id)),
                     }
                 } else {
                     Err(AppError::not_permitted())
