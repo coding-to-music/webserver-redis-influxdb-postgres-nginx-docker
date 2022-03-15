@@ -10,4 +10,4 @@ chrono = "0.4.11"
 
 [dependencies.sqlx]
 version = "0.5"
-features = ["runtime-tokio-rustls", "postgres"]
+features = ["runtime-tokio-rustls", "postgres", "time"]

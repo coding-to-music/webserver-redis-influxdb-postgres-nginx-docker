@@ -1,4 +1,4 @@
-use sqlx::FromRow;
+use sqlx::{FromRow, types::time::OffsetDateTime};
 
 use crate::{Database, DatabaseResult, InsertionResult};
 
@@ -9,7 +9,7 @@ pub type UserDatabase = Database<User>;
 pub struct User {
     pub id: String,
     pub username: String,
-    pub created: String,
+    pub created: OffsetDateTime,
 }
 
 impl UserDatabase {
