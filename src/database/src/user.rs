@@ -62,7 +62,7 @@ impl UserDatabase {
         let mut db = self.get_connection().await?;
 
         let mut query_result =
-            sqlx::query_as::<_, User>(r#"SELECT id, username FROM "user" WHERE username = $1 AND password = crypt($2, password)"#)
+            sqlx::query_as::<_, User>(r#"SELECT id, username, created FROM "user" WHERE username = $1 AND password = crypt($2, password)"#)
                 .bind(username)
                 .bind(password)
                 .fetch_all(&mut db)
