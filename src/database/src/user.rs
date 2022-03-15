@@ -1,4 +1,4 @@
-use sqlx::{FromRow, types::time::OffsetDateTime};
+use sqlx::{types::time::OffsetDateTime, FromRow};
 
 use crate::{Database, DatabaseResult, InsertionResult};
 
@@ -22,7 +22,7 @@ impl UserDatabase {
         let mut db = self.get_connection().await?;
 
         let query_result = sqlx::query(
-            "INSERT INTO user (id, username, password) VALUES ($1, $2, crypt($3, gen_salt('bf')))",
+            r#"INSERT INTO "user" (id, username, password) VALUES ($1, $2, crypt($3, gen_salt('bf')))"#,
         )
         .bind(id)
         .bind(username)
@@ -38,11 +38,12 @@ impl UserDatabase {
     pub async fn get_user_by_id(&self, id: &str) -> DatabaseResult<Option<User>> {
         let mut db = self.get_connection().await?;
 
-        let mut query_result =
-            sqlx::query_as::<_, User>("SELECT id, username, created_s FROM user WHERE id = $1")
-                .bind(id)
-                .fetch_all(&mut db)
-                .await?;
+        let mut query_result = sqlx::query_as::<_, User>(
+            r#"SELECT id, username, created FROM "user" WHERE id = $1"#,
+        )
+        .bind(id)
+        .fetch_all(&mut db)
+        .await?;
 
         if query_result.is_empty() {
             Ok(None)
