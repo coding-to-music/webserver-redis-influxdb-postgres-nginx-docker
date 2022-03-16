@@ -1,8 +1,6 @@
 use crate::{
     auth::{Claims, TokenHandler},
-    controller::{
-        ListItemController, ServerController, ShapeController, TrafficController, UserController,
-    },
+    controller::{ListItemController, ServerController, TrafficController, UserController},
     influx::InfluxClient,
     Opts,
 };
@@ -11,10 +9,7 @@ use db::{DatabaseError, Request as DbRequest, RequestLog as DbRequestLog, Respon
 use hmac::crypto_mac::InvalidKeyLength;
 use isahc::HttpClient;
 use model::*;
-use redis::async_pool::{
-    mobc_redis::{mobc, redis::RedisError},
-    AsyncRedisPool,
-};
+use redis::async_pool::mobc_redis::{mobc, redis::RedisError};
 use std::{
     convert::TryFrom,
     error::Error,
@@ -31,7 +26,6 @@ pub struct App {
     request_log_db: Arc<Database<DbRequestLog>>,
     influx_db: Arc<InfluxClient>,
     list_controller: ListItemController,
-    shape_controller: ShapeController,
     traffic_controller: TrafficController,
     user_controller: UserController,
     server_controller: ServerController,
@@ -40,8 +34,6 @@ pub struct App {
 impl App {
     pub async fn new(opts: Opts, token_handler: Arc<TokenHandler>) -> Self {
         let list_item_db = Arc::new(Database::new(opts.database_addr.clone()).await.unwrap());
-
-        let shape_db = Arc::new(Database::new(opts.database_addr.clone()).await.unwrap());
 
         let influx_db = Arc::new(
             InfluxClient::new(
@@ -55,10 +47,7 @@ impl App {
         let request_log_db = Arc::new(Database::new(opts.database_addr.clone()).await.unwrap());
         let user_db = Arc::new(Database::new(opts.database_addr.clone()).await.unwrap());
 
-        let shape_redis_pool = Arc::new(AsyncRedisPool::new(opts.shape_redis_addr.clone()));
-
         let list_controller = ListItemController::new(list_item_db);
-        let shape_controller = ShapeController::new(shape_redis_pool, shape_db);
         let user_controller = UserController::new(user_db, token_handler);
         let traffic_controller =
             TrafficController::new(HttpClient::new().unwrap(), opts.resrobot_api_key.clone());
@@ -68,7 +57,6 @@ impl App {
             opts,
             request_log_db,
             list_controller,
-            shape_controller,
             traffic_controller,
             user_controller,
             server_controller,
@@ -130,41 +118,6 @@ impl App {
                             .sleep(request)
                             .await
                             .map(|result| JsonRpcResponse::success(result, id)),
-                        Method::AddShape => self
-                            .shape_controller
-                            .add_shape(request)
-                            .await
-                            .map(|result| JsonRpcResponse::success(result, id)),
-                        Method::GetShape => self
-                            .shape_controller
-                            .get_shape(request)
-                            .await
-                            .map(|result| JsonRpcResponse::success(result, id)),
-                        Method::GetNearbyShapes => self
-                            .shape_controller
-                            .get_nearby_shapes(request)
-                            .await
-                            .map(|result| JsonRpcResponse::success(result, id)),
-                        Method::DeleteShape => self
-                            .shape_controller
-                            .delete_shape(request)
-                            .await
-                            .map(|result| JsonRpcResponse::success(result, id)),
-                        Method::AddShapeTag => self
-                            .shape_controller
-                            .add_shape_tag(request)
-                            .await
-                            .map(|result| JsonRpcResponse::success(result, id)),
-                        Method::DeleteShapeTag => self
-                            .shape_controller
-                            .delete_shape_tag(request)
-                            .await
-                            .map(|result| JsonRpcResponse::success(result, id)),
-                        Method::RefreshGeoPointsInCache => self
-                            .shape_controller
-                            .refresh_geo_points_in_cache(request)
-                            .await
-                            .map(|result| JsonRpcResponse::success(result, id)),
                         Method::GenerateSasKey => self
                             .server_controller
                             .generate_sas_key(request)
@@ -175,9 +128,6 @@ impl App {
                             .get_departures(request)
                             .await
                             .map(|result| JsonRpcResponse::success(result, id)),
-                        Method::AddShapes => Ok(unimplemented_method_response(method, id)),
-                        Method::GetShapeTags => Ok(unimplemented_method_response(method, id)),
-                        Method::SearchShapesByTags => Ok(unimplemented_method_response(method, id)),
                         Method::AddUser => self
                             .user_controller
                             .add_user(request)
@@ -259,19 +209,11 @@ impl App {
                 return;
             }
         };
-        let created_s = crate::current_timestamp_s();
 
         let db = self.request_log_db.clone();
         tokio::spawn(async move {
             match db
-                .insert_log(&DbRequestLog::new(
-                    id,
-                    db_request,
-                    db_response,
-                    error_context,
-                    duration_ms,
-                    created_s,
-                ))
+                .insert_log(&id, &db_request, &db_response, &error_context, duration_ms)
                 .await
             {
                 Ok(ok) => {
@@ -411,6 +353,7 @@ impl From<serde_json::Error> for AppError {
     }
 }
 
+#[allow(unused)]
 /// Shorthand for returning a "method not implemented" response.
 fn unimplemented_method_response(method: Method, id: Option<String>) -> JsonRpcResponse {
     JsonRpcResponse::error(

@@ -33,8 +33,6 @@ pub struct Opts {
     port: u16,
     #[structopt(long, env = "WEBSERVER_DATABASE_ADDR")]
     database_addr: String,
-    #[structopt(long, env = "WEBSERVER_SHAPE_REDIS_ADDR")]
-    shape_redis_addr: String,
     #[structopt(long, env = "WEBSERVER_JWT_SECRET")]
     jwt_secret: String,
     #[structopt(long, env = "WEBSERVER_PUBLISH_REQUEST_LOG")]

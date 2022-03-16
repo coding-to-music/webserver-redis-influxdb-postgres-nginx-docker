@@ -11,12 +11,10 @@ extern crate log;
 
 mod list;
 mod server;
-mod shape;
 mod user;
 
 pub use list::*;
 pub use server::*;
-pub use shape::*;
 pub use user::*;
 
 pub type DatabaseResult<T> = Result<T, DatabaseError>;

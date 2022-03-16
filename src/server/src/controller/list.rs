@@ -23,15 +23,13 @@ impl ListItemController {
         use add_list_item::{MethodResult, Params};
         let params = Params::try_from(request)?;
 
-        let created_s = crate::current_timestamp_s();
-
         let new_item_id = params.id.unwrap_or_else(Uuid::new_v4);
         let list_type = params.list_type;
         let item_name = params.item_name;
 
         let result = self
             .db
-            .insert_list_item(&new_item_id.to_string(), &list_type, &item_name, created_s)
+            .insert_list_item(&new_item_id.to_string(), &list_type, &item_name)
             .await?;
 
         match result {

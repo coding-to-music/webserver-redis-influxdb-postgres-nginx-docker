@@ -1,5 +1,5 @@
 use crate::{Database, DatabaseResult, InsertionResult};
-use sqlx::{Executor, types::time::OffsetDateTime};
+use sqlx::{types::time::OffsetDateTime, Executor};
 
 #[derive(Debug, Clone, PartialEq, Eq, sqlx::FromRow)]
 #[non_exhaustive]
@@ -9,7 +9,7 @@ pub struct RequestLog {
     response: Response,
     error_context: Option<String>,
     duration_ms: i64,
-    created_s: i64,
+    created: OffsetDateTime,
 }
 
 impl RequestLog {
@@ -19,7 +19,7 @@ impl RequestLog {
         response: Response,
         error_context: Option<String>,
         duration_ms: i64,
-        created_s: i64,
+        created: OffsetDateTime,
     ) -> Self {
         Self {
             id,
@@ -27,12 +27,8 @@ impl RequestLog {
             response,
             error_context,
             duration_ms,
-            created_s,
+            created,
         }
-    }
-
-    pub fn created_utc(&self) -> OffsetDateTime {
-        OffsetDateTime::from_unix_timestamp(self.created_s * 1000)
     }
 }
 
@@ -89,14 +85,11 @@ enum ResponseKind<'a> {
 impl Database<RequestLog> {
     pub async fn insert_log(
         &self,
-        RequestLog {
-            id,
-            request,
-            response,
-            error_context,
-            duration_ms,
-            created_s,
-        }: &RequestLog,
+        id: &str,
+        request: &Request,
+        response: &Response,
+        error_context: &Option<String>,
+        duration_ms: i64,
     ) -> DatabaseResult<InsertionResult> {
         let mut db = self.get_connection().await?;
 
@@ -116,9 +109,8 @@ impl Database<RequestLog> {
             response_result, 
             response_error, 
             response_error_context,
-            duration_ms, 
-            created_s) 
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)",
+            duration_ms) 
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)",
         )
         .bind(id)
         .bind(&request.id)
@@ -129,7 +121,6 @@ impl Database<RequestLog> {
         .bind(error)
         .bind(error_context)
         .bind(duration_ms)
-        .bind(created_s)
         .execute(&mut db)
         .await?;
 

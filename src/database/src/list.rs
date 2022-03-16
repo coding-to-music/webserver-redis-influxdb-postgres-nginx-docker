@@ -7,21 +7,17 @@ pub struct ListItem {
     pub id: String,
     pub list_type: String,
     pub item_name: String,
-    pub created_s: i64,
+    pub created: OffsetDateTime,
 }
 
 impl ListItem {
-    fn new(id: String, list_type: String, item_name: String, created_s: i64) -> Self {
+    fn new(id: String, list_type: String, item_name: String, created: OffsetDateTime) -> Self {
         Self {
             id,
             list_type,
             item_name,
-            created_s,
+            created,
         }
-    }
-
-    pub fn created_utc(&self) -> OffsetDateTime {
-        OffsetDateTime::from_unix_timestamp(self.created_s * 1000)
     }
 }
 
@@ -31,19 +27,16 @@ impl Database<ListItem> {
         id: &str,
         list_type: &str,
         item_name: &str,
-        created_s: i64,
     ) -> DatabaseResult<InsertionResult> {
         let mut db = self.get_connection().await?;
 
-        let query_result = sqlx::query(
-            "INSERT INTO list_item (id, list_type, item_name, created_s) VALUES ($1, $2, $3, $4)",
-        )
-        .bind(id)
-        .bind(list_type)
-        .bind(item_name)
-        .bind(created_s)
-        .execute(&mut db)
-        .await?;
+        let query_result =
+            sqlx::query("INSERT INTO list_item (id, list_type, item_name) VALUES ($1, $2, $3)")
+                .bind(id)
+                .bind(list_type)
+                .bind(item_name)
+                .execute(&mut db)
+                .await?;
 
         Ok(InsertionResult::from_changed_rows(
             query_result.rows_affected(),
@@ -54,7 +47,7 @@ impl Database<ListItem> {
         let mut db = self.get_connection().await?;
 
         let mut query_result = sqlx::query_as::<_, ListItem>(
-            "SELECT id, list_type, item_name, created_s FROM list_item WHERE id = $1",
+            "SELECT id, list_type, item_name, created FROM list_item WHERE id = $1",
         )
         .bind(id)
         .fetch_all(&mut db)
@@ -100,7 +93,7 @@ impl Database<ListItem> {
         let mut db = self.get_connection().await?;
 
         let query_result = sqlx::query_as::<_, ListItem>(
-            "SELECT id, list_type, item_name, created_s FROM list_item WHERE list_type = $1",
+            "SELECT id, list_type, item_name, created FROM list_item WHERE list_type = $1",
         )
         .bind(list_type)
         .fetch_all(&mut db)
