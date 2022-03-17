@@ -19,7 +19,7 @@ pub mod influx;
 extern crate log;
 
 #[derive(Clone, Debug)]
-pub struct Opts {
+pub struct AppSettings {
     pub port: u16,
     pub database_addr: String,
     pub jwt_secret: String,

@@ -1,10 +1,9 @@
-use std::sync::Arc;
-
 use hyper::{
     service::{make_service_fn, service_fn},
     Server,
 };
-use lib::{app::App, auth::TokenHandler, Webserver};
+use server::{app::App, auth::TokenHandler, get_required_env_var, AppSettings, Webserver};
+use std::sync::Arc;
 use structopt::StructOpt;
 
 #[macro_use]
@@ -24,12 +23,12 @@ async fn main() {
     }
 
     pretty_env_logger::formatted_timed_builder()
-        .parse_filters(&lib::get_required_env_var("RUST_LOG"))
+        .parse_filters(&get_required_env_var("RUST_LOG"))
         .init();
 
     let opts = Opts::from_args();
     let jwt_secret = opts.jwt_secret.clone();
-    let opts = lib::Opts::from(opts);
+    let opts = AppSettings::from(opts);
 
     let tokens = TokenHandler::new(jwt_secret);
 
@@ -44,7 +43,7 @@ async fn main() {
         async {
             Ok::<_, hyper::Error>(service_fn(move |request| {
                 let webserver = webserver.clone();
-                lib::entry_point(webserver, request)
+                server::entry_point(webserver, request)
             }))
         }
     });
@@ -75,7 +74,7 @@ pub struct Opts {
     resrobot_api_key: String,
 }
 
-impl From<Opts> for lib::Opts {
+impl From<Opts> for AppSettings {
     fn from(
         Opts {
             port,
@@ -88,7 +87,7 @@ impl From<Opts> for lib::Opts {
             resrobot_api_key,
         }: Opts,
     ) -> Self {
-        lib::Opts {
+        AppSettings {
             port,
             database_addr,
             jwt_secret,

@@ -1,4 +1,4 @@
-use lib::auth::TokenHandler;
+use server::auth::TokenHandler;
 
 fn main() {
     let args: Vec<String> = std::env::args().collect();

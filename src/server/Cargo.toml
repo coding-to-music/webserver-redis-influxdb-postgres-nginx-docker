@@ -4,13 +4,13 @@ version = "0.1.0"
 authors = ["Isak Jägberg <ijagberg@gmail.com>"]
 edition = "2018"
 
-[lib]
-name = "lib"
-path = "src/lib.rs"
+# [lib]
+# name = "lib"
+# path = "src/lib.rs"
 
-[[bin]]
-name = "bin"
-path = "src/bin.rs"
+# [[bin]]
+# name = "bin"
+# path = "src/bin.rs"
 
 [dependencies]
 dotenv = "0.15.0"

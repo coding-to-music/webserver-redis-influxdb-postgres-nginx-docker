@@ -2,7 +2,7 @@ use crate::{
     auth::{Claims, TokenHandler},
     controller::*,
     influx::InfluxClient,
-    Opts,
+    AppSettings,
 };
 use database::{self as db, Database};
 use db::{DatabaseError, Request as DbRequest, RequestLogDb};
@@ -22,7 +22,7 @@ use uuid::Uuid;
 pub type AppResult<T> = Result<T, AppError>;
 
 pub struct App {
-    opts: Opts,
+    app_settings: AppSettings,
     request_log_db: Arc<RequestLogDb>,
     influx_db: Arc<InfluxClient>,
     list_controller: ListItemController,
@@ -32,7 +32,8 @@ pub struct App {
 }
 
 impl App {
-    pub async fn new(opts: Opts, token_handler: TokenHandler) -> Self {
+    pub async fn new(app_settings: AppSettings, token_handler: TokenHandler) -> Self {
+        let opts = app_settings; // shorter name, easier to read this function
         let list_item_db = Arc::new(Database::new(opts.database_addr.clone()).await.unwrap());
 
         let influx_db = Arc::new(
@@ -54,7 +55,7 @@ impl App {
         let server_controller = ServerController::new();
 
         Self {
-            opts,
+            app_settings: opts,
             request_log_db,
             list_controller,
             traffic_controller,
@@ -189,7 +190,7 @@ impl App {
         error_context: Option<String>,
         duration_ms: i64,
     ) {
-        if !self.opts.publish_request_log {
+        if !self.app_settings.publish_request_log {
             return;
         }
 
