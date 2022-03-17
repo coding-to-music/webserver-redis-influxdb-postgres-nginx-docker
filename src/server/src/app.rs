@@ -1,6 +1,6 @@
 use crate::{
     auth::{Claims, TokenHandler},
-    controller::{ListItemController, ServerController, TrafficController, UserController},
+    controller::*,
     influx::InfluxClient,
     Opts,
 };
@@ -32,7 +32,7 @@ pub struct App {
 }
 
 impl App {
-    pub async fn new(opts: Opts, token_handler: Arc<TokenHandler>) -> Self {
+    pub async fn new(opts: Opts, token_handler: TokenHandler) -> Self {
         let list_item_db = Arc::new(Database::new(opts.database_addr.clone()).await.unwrap());
 
         let influx_db = Arc::new(

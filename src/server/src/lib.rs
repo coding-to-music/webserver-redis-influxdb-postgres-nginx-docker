@@ -3,16 +3,11 @@
 use app::{App, AppError};
 use auth::{Claims, TokenHandler};
 use futures::future;
-use hyper::{
-    body::Buf,
-    service::{make_service_fn, service_fn},
-    Body, Request, Response, Server,
-};
+use hyper::{body::Buf, Body, Request, Response};
 use model::{JsonRpcError, JsonRpcRequest, JsonRpcResponse};
 use serde::Serialize;
 use serde_json::Value as JsonValue;
 use std::{convert::TryInto, fmt::Debug, sync::Arc};
-use structopt::StructOpt;
 use time::OffsetDateTime;
 
 pub mod app;
@@ -20,74 +15,24 @@ pub mod auth;
 pub mod controller;
 pub mod influx;
 
-const API_URI: &'static str = "/api";
-const PING_URI: &'static str = "/api/ping";
-const URIS: [&'static str; 2] = [API_URI, PING_URI];
-
 #[macro_use]
 extern crate log;
 
-#[derive(StructOpt, Debug, Clone)]
+#[derive(Clone, Debug)]
 pub struct Opts {
-    #[structopt(long, default_value = "3000", env = "WEBSERVER_LISTEN_PORT")]
-    port: u16,
-    #[structopt(long, env = "WEBSERVER_DATABASE_ADDR")]
-    database_addr: String,
-    #[structopt(long, env = "WEBSERVER_JWT_SECRET")]
-    jwt_secret: String,
-    #[structopt(long, env = "WEBSERVER_PUBLISH_REQUEST_LOG")]
-    publish_request_log: bool,
-    #[structopt(long, env = "WEBSERVER_INFLUX_ADDR")]
-    influx_addr: Option<String>,
-    #[structopt(long, env = "WEBSERVER_INFLUX_TOKEN")]
-    influx_token: Option<String>,
-    #[structopt(long, env = "WEBSERVER_INFLUX_ORG")]
-    influx_org: Option<String>,
-    #[structopt(long, env = "WEBSERVER_RESROBOT_API_KEY")]
-    resrobot_api_key: String,
+    pub port: u16,
+    pub database_addr: String,
+    pub jwt_secret: String,
+    pub publish_request_log: bool,
+    pub influx_addr: Option<String>,
+    pub influx_token: Option<String>,
+    pub influx_org: Option<String>,
+    pub resrobot_api_key: String,
 }
 
-#[tokio::main]
-async fn main() {
-    let env = std::env::var("WEBSERVER_ENV").unwrap_or_else(|_| "test".to_string());
-
-    let env_file_name = format!("{}.env", env);
-
-    if let Err(e) = dotenv::from_filename(&env_file_name) {
-        warn!(
-            "environment file not found: {}, error: {}",
-            env_file_name, e
-        );
-    }
-
-    pretty_env_logger::formatted_timed_builder()
-        .parse_filters(&get_required_env_var("RUST_LOG"))
-        .init();
-
-    let opts = Opts::from_args();
-    let tokens = Arc::new(TokenHandler::new(opts.jwt_secret.clone()));
-
-    let app = Arc::new(App::new(opts.clone(), tokens.clone()).await);
-
-    let webserver = Arc::new(Webserver::new(app, tokens));
-
-    let addr = ([0, 0, 0, 0], opts.port).into();
-
-    let service = make_service_fn(|_| {
-        let webserver = webserver.clone();
-        async {
-            Ok::<_, hyper::Error>(service_fn(move |request| {
-                let webserver = webserver.clone();
-                entry_point(webserver, request)
-            }))
-        }
-    });
-
-    let server = Server::bind(&addr).serve(service);
-
-    info!("starting server on {:?}", addr);
-    let _ = server.await;
-}
+const API_URI: &'static str = "/api";
+const PING_URI: &'static str = "/api/ping";
+const URIS: [&'static str; 2] = [API_URI, PING_URI];
 
 pub async fn entry_point(
     webserver: Arc<Webserver>,
@@ -98,11 +43,11 @@ pub async fn entry_point(
 
 pub struct Webserver {
     app: Arc<App>,
-    tokens: Arc<TokenHandler>,
+    tokens: TokenHandler,
 }
 
 impl Webserver {
-    pub fn new(app: Arc<App>, tokens: Arc<TokenHandler>) -> Self {
+    pub fn new(app: Arc<App>, tokens: TokenHandler) -> Self {
         Self { app, tokens }
     }
 

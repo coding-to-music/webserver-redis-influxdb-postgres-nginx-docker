@@ -13,11 +13,11 @@ use uuid::Uuid;
 
 pub struct UserController {
     user_db: Arc<UserDatabase>,
-    token_handler: Arc<TokenHandler>,
+    token_handler: TokenHandler,
 }
 
 impl UserController {
-    pub fn new(user_db: Arc<UserDatabase>, token_handler: Arc<TokenHandler>) -> Self {
+    pub fn new(user_db: Arc<UserDatabase>, token_handler: TokenHandler) -> Self {
         Self {
             user_db,
             token_handler,
@@ -55,10 +55,10 @@ impl UserController {
                 .into_iter()
                 .filter_map(|r| Role::from_sql_value(&r).ok())
                 .collect();
-            let exp = OffsetDateTime::now_utc()
-                .checked_add(1.hours())
-                .ok_or(AppError::internal_error()
-                    .with_context(&"failed to add 1 hour to current timestamp".to_string()))?;
+            let exp = OffsetDateTime::now_utc().checked_add(1.hours()).ok_or(
+                AppError::internal_error()
+                    .with_context(&"failed to add 1 hour to current timestamp".to_string()),
+            )?;
             let token = self.token_handler.generate_token(exp, roles);
             Ok(MethodResult::new(token))
         } else {

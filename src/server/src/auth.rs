@@ -31,16 +31,12 @@ impl TokenHandler {
         }
     }
 
-    pub(crate) fn generate_token(
-        &self,
-        expiry: OffsetDateTime,
-        mut roles: Vec<Role>,
-    ) -> Option<String> {
+    pub fn generate_token(&self, expiry: OffsetDateTime, mut roles: Vec<Role>) -> Option<String> {
         roles.push(Role::User);
         roles.push(Role::Anon);
         jsonwebtoken::encode(
             &Header::default(),
-            &Claims::new(expiry.unix_timestamp() / 1000, roles),
+            &Claims::new(expiry.unix_timestamp(), roles),
             &self.encoding_key,
         )
         .ok()
@@ -54,7 +50,7 @@ pub struct Claims {
 }
 
 impl Claims {
-    pub(crate) fn new(exp: i64, roles: Vec<Role>) -> Self {
+    pub fn new(exp: i64, roles: Vec<Role>) -> Self {
         Self {
             exp,
             roles: roles.into_iter().map(|r| r.to_string()).collect(),
@@ -96,7 +92,7 @@ pub fn method_roles(method: Method) -> HashSet<String> {
 
 #[allow(unused)]
 #[derive(Clone, Copy, Debug)]
-pub(crate) enum Role {
+pub enum Role {
     SuperAdmin,
     Admin,
     User,
@@ -104,7 +100,7 @@ pub(crate) enum Role {
 }
 
 impl Role {
-    pub(crate) fn from_sql_value(sql_value: &str) -> Result<Role, ()> {
+    pub fn from_sql_value(sql_value: &str) -> Result<Role, ()> {
         match sql_value {
             "SuperAdmin" => Ok(Role::SuperAdmin),
             "Admin" => Ok(Role::Admin),
