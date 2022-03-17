@@ -6,8 +6,8 @@ edition = "2018"
 
 [dependencies]
 log = "0.4"
-chrono = "0.4.11"
+time = "0.3.7"
 
 [dependencies.sqlx]
 version = "0.5"
-features = ["runtime-tokio-rustls", "postgres"]
+features = ["runtime-tokio-rustls", "postgres", "time"]

@@ -2,7 +2,6 @@ use crate::{
     app::{AppResult, ParamsError},
     AppError,
 };
-use chrono::Utc;
 use database::{Database, InsertionResult, ListItem as DbListItem};
 use model::{list::*, JsonRpcError, JsonRpcRequest};
 use std::{collections::HashSet, convert::TryFrom, str::FromStr, sync::Arc};
@@ -24,15 +23,13 @@ impl ListItemController {
         use add_list_item::{MethodResult, Params};
         let params = Params::try_from(request)?;
 
-        let created_s = Utc::now().timestamp();
-
         let new_item_id = params.id.unwrap_or_else(Uuid::new_v4);
         let list_type = params.list_type;
         let item_name = params.item_name;
 
         let result = self
             .db
-            .insert_list_item(&new_item_id.to_string(), &list_type, &item_name, created_s)
+            .insert_list_item(&new_item_id.to_string(), &list_type, &item_name)
             .await?;
 
         match result {

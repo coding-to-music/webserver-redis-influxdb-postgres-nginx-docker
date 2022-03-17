@@ -28,7 +28,7 @@ impl ServerController {
         let params = Params::try_from(request)?;
 
         let token = Self::generate(
-            unix_now(),
+            crate::current_timestamp_s(),
             params.weeks_expiry,
             &params.resource_uri,
             &params.key_value,
@@ -66,7 +66,3 @@ impl ServerController {
 
 impl ParamsError for sleep::InvalidParams {}
 impl ParamsError for sas::InvalidParams {}
-
-fn unix_now() -> i64 {
-    chrono::Utc::now().timestamp()
-}

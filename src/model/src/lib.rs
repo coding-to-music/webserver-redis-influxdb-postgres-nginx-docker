@@ -20,18 +20,13 @@ mod method_names {
     pub const GET_LIST_TYPES: &str = "get_list_types";
     pub const RENAME_LIST_TYPE: &str = "rename_list_type";
 
-    pub const ADD_SHAPE: &str = "add_shape";
-    pub const ADD_SHAPES: &str = "add_shapes";
-    pub const GET_SHAPE: &str = "get_shape";
-    pub const GET_NEARBY_SHAPES: &str = "get_nearby_shapes";
-    pub const DELETE_SHAPE: &str = "delete_shape";
-    pub const ADD_SHAPE_TAG: &str = "add_shape_tag";
-    pub const GET_SHAPE_TAGS: &str = "get_shape_tags";
-    pub const SEARCH_SHAPES_BY_TAGS: &str = "search_shapes_by_tags";
-    pub const DELETE_SHAPE_TAG: &str = "delete_shape_tag";
-    pub const REFRESH_GEO_POINTS_IN_CACHE: &str = "refresh_geo_points_in_cache";
+    pub const GET_DEPARTURES: &str = "get_departures";
 
     pub const SLEEP: &str = "sleep";
+
+    pub const ADD_USER: &str = "add_user";
+    pub const GET_USER: &str = "get_user";
+    pub const GET_TOKEN: &str = "get_token";
 
     pub const GENERATE_SAS_KEY: &str = "generate_sas_key";
 }
@@ -52,7 +47,7 @@ pub mod error_codes {
 }
 
 /// A JSONRPC method
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub enum Method {
     /// Add a list item
     AddListItem,
@@ -65,29 +60,18 @@ pub enum Method {
     /// Rename a list type
     RenameListType,
 
-    /// Add a shape
-    AddShape,
-    /// Add a list of shapes
-    AddShapes,
-    /// Get a shape
-    GetShape,
-    /// Get shapes nearby a given coordinate
-    GetNearbyShapes,
-    /// Delete a shape
-    DeleteShape,
-    /// Add a shape tag
-    AddShapeTag,
-    /// Get tags for a shape
-    GetShapeTags,
-    /// Get shapes by tag
-    SearchShapesByTags,
-    /// Delete shape tag
-    DeleteShapeTag,
-    /// Refresh geo points in cache
-    RefreshGeoPointsInCache,
+    /// Get upcoming departures for a given stop
+    GetDepartures,
 
     /// Tell the server to sleep
     Sleep,
+
+    /// Add a user
+    AddUser,
+    /// Get a user
+    GetUser,
+    /// Get a JWT
+    GetToken,
 
     /// Generate an SAS key
     GenerateSasKey,
@@ -104,18 +88,12 @@ impl FromStr for Method {
             DELETE_LIST_ITEM => Ok(DeleteListItem),
             GET_LIST_TYPES => Ok(GetListTypes),
             RENAME_LIST_TYPE => Ok(RenameListType),
-            ADD_SHAPE => Ok(AddShape),
-            ADD_SHAPES => Ok(AddShapes),
-            GET_SHAPE => Ok(GetShape),
-            GET_NEARBY_SHAPES => Ok(GetNearbyShapes),
-            DELETE_SHAPE => Ok(DeleteShape),
-            ADD_SHAPE_TAG => Ok(AddShapeTag),
-            GET_SHAPE_TAGS => Ok(GetShapeTags),
-            SEARCH_SHAPES_BY_TAGS => Ok(SearchShapesByTags),
-            DELETE_SHAPE_TAG => Ok(DeleteShapeTag),
-            REFRESH_GEO_POINTS_IN_CACHE => Ok(RefreshGeoPointsInCache),
+            GET_DEPARTURES => Ok(GetDepartures),
             SLEEP => Ok(Sleep),
             GENERATE_SAS_KEY => Ok(GenerateSasKey),
+            ADD_USER => Ok(AddUser),
+            GET_USER => Ok(GetUser),
+            GET_TOKEN => Ok(GetToken),
             _ => Err(()),
         }
     }
@@ -132,17 +110,11 @@ impl Display for Method {
             GetListTypes => GET_LIST_TYPES,
             RenameListType => RENAME_LIST_TYPE,
             Sleep => SLEEP,
-            AddShape => ADD_SHAPE,
-            AddShapes => ADD_SHAPES,
-            GetShape => GET_SHAPE,
-            GetNearbyShapes => GET_NEARBY_SHAPES,
-            DeleteShape => DELETE_SHAPE,
-            AddShapeTag => ADD_SHAPE_TAG,
-            GetShapeTags => GET_SHAPE_TAGS,
-            DeleteShapeTag => DELETE_SHAPE_TAG,
-            SearchShapesByTags => SEARCH_SHAPES_BY_TAGS,
+            GetDepartures => GET_DEPARTURES,
             GenerateSasKey => GENERATE_SAS_KEY,
-            RefreshGeoPointsInCache => REFRESH_GEO_POINTS_IN_CACHE,
+            AddUser => ADD_USER,
+            GetUser => GET_USER,
+            GetToken => GET_TOKEN,
         };
         write!(f, "{}", ouput)
     }
@@ -289,6 +261,14 @@ pub struct JsonRpcResponse {
 }
 
 impl JsonRpcResponse {
+    pub fn is_success(&self) -> bool {
+        match (&self.result, &self.error) {
+            (None, Some(_)) => false,
+            (Some(_), None) => true,
+            _ => unreachable!()
+        }
+    }
+
     pub fn result(&self) -> Option<&Value> {
         match &self.result {
             Some(r) => Some(r),
@@ -580,6 +560,14 @@ fn invalid_params_serde_message(err: &serde_json::Error) -> String {
     format!("invalid format of params object: '{}'", err)
 }
 
-fn generic_invalid_value_message(name: &str) -> String {
-    format!("invalid value of '{}'", name)
+fn generic_invalid_value_message(param_name: &str) -> String {
+    format!("invalid value of '{}'", param_name)
+}
+
+fn invalid_value_because_message(param_name: &str, clarification: String) -> String {
+    format!(
+        "{}, {}",
+        generic_invalid_value_message(param_name),
+        clarification
+    )
 }

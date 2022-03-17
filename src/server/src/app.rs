@@ -1,17 +1,15 @@
 use crate::{
-    controller::{ListItemController, ServerController, ShapeController},
+    auth::{Claims, TokenHandler},
+    controller::*,
     influx::InfluxClient,
-    Opts,
+    AppSettings,
 };
-use chrono::Utc;
 use database::{self as db, Database};
-use db::{DatabaseError, Request as DbRequest, RequestLog as DbRequestLog, Response as DbResponse};
+use db::{DatabaseError, Request as DbRequest, RequestLogDb};
 use hmac::crypto_mac::InvalidKeyLength;
+use isahc::HttpClient;
 use model::*;
-use redis::async_pool::{
-    mobc_redis::{mobc, redis::RedisError},
-    AsyncRedisPool,
-};
+use redis::async_pool::mobc_redis::{mobc, redis::RedisError};
 use std::{
     convert::TryFrom,
     error::Error,
@@ -24,19 +22,19 @@ use uuid::Uuid;
 pub type AppResult<T> = Result<T, AppError>;
 
 pub struct App {
-    opts: Opts,
-    request_log_db: Arc<Database<DbRequestLog>>,
+    app_settings: AppSettings,
+    request_log_db: Arc<RequestLogDb>,
     influx_db: Arc<InfluxClient>,
     list_controller: ListItemController,
-    shape_controller: ShapeController,
+    traffic_controller: TrafficController,
+    user_controller: UserController,
     server_controller: ServerController,
 }
 
 impl App {
-    pub async fn new(opts: Opts) -> Self {
+    pub async fn new(app_settings: AppSettings, token_handler: TokenHandler) -> Self {
+        let opts = app_settings; // shorter name, easier to read this function
         let list_item_db = Arc::new(Database::new(opts.database_addr.clone()).await.unwrap());
-
-        let shape_db = Arc::new(Database::new(opts.database_addr.clone()).await.unwrap());
 
         let influx_db = Arc::new(
             InfluxClient::new(
@@ -48,29 +46,35 @@ impl App {
         );
 
         let request_log_db = Arc::new(Database::new(opts.database_addr.clone()).await.unwrap());
-
-        let shape_redis_pool = Arc::new(AsyncRedisPool::new(opts.shape_redis_addr.clone()));
+        let user_db = Arc::new(Database::new(opts.database_addr.clone()).await.unwrap());
 
         let list_controller = ListItemController::new(list_item_db);
-        let shape_controller = ShapeController::new(shape_redis_pool, shape_db);
+        let user_controller = UserController::new(user_db, token_handler);
+        let traffic_controller =
+            TrafficController::new(HttpClient::new().unwrap(), opts.resrobot_api_key.clone());
         let server_controller = ServerController::new();
 
         Self {
-            opts,
+            app_settings: opts,
             request_log_db,
             list_controller,
-            shape_controller,
+            traffic_controller,
+            user_controller,
             server_controller,
             influx_db,
         }
     }
 
     /// Handle a single JSON RPC request
-    pub async fn handle_single(&self, request: JsonRpcRequest) -> JsonRpcResponse {
+    pub async fn handle_single(
+        &self,
+        request: JsonRpcRequest,
+        claims: &Option<Claims>,
+    ) -> JsonRpcResponse {
         let timer = std::time::Instant::now();
         let id = request.id.clone();
         let request_log_clone = request.clone();
-        let request_ts_s = Utc::now().timestamp();
+        let request_timestamp_ms = crate::current_timestamp_ms();
 
         let method = request.method.to_owned();
         info!(
@@ -82,85 +86,67 @@ impl App {
             Err(_) => Err(AppError::from(JsonRpcError::method_not_found())),
             Ok(method) => {
                 trace!("request: {:?}", request);
-                let id = id.clone();
-                match method {
-                    Method::AddListItem => self
-                        .list_controller
-                        .add_list_item(request)
-                        .await
-                        .map(|result| JsonRpcResponse::success(result, id)),
-                    Method::GetListItems => self
-                        .list_controller
-                        .get_list_items(request)
-                        .await
-                        .map(|result| JsonRpcResponse::success(result, id)),
-                    Method::DeleteListItem => self
-                        .list_controller
-                        .delete_list_item(request)
-                        .await
-                        .map(|result| JsonRpcResponse::success(result, id)),
-                    Method::GetListTypes => self
-                        .list_controller
-                        .get_list_types(request)
-                        .await
-                        .map(|result| JsonRpcResponse::success(result, id)),
-                    Method::RenameListType => self
-                        .list_controller
-                        .rename_list_type(request)
-                        .await
-                        .map(|result| JsonRpcResponse::success(result, id)),
-                    Method::Sleep => self
-                        .server_controller
-                        .sleep(request)
-                        .await
-                        .map(|result| JsonRpcResponse::success(result, id)),
-                    Method::AddShape => self
-                        .shape_controller
-                        .add_shape(request)
-                        .await
-                        .map(|result| JsonRpcResponse::success(result, id)),
-                    Method::GetShape => self
-                        .shape_controller
-                        .get_shape(request)
-                        .await
-                        .map(|result| JsonRpcResponse::success(result, id)),
-                    Method::GetNearbyShapes => self
-                        .shape_controller
-                        .get_nearby_shapes(request)
-                        .await
-                        .map(|result| JsonRpcResponse::success(result, id)),
-                    Method::DeleteShape => self
-                        .shape_controller
-                        .delete_shape(request)
-                        .await
-                        .map(|result| JsonRpcResponse::success(result, id)),
-                    Method::AddShapeTag => self
-                        .shape_controller
-                        .add_shape_tag(request)
-                        .await
-                        .map(|result| JsonRpcResponse::success(result, id)),
-                    Method::DeleteShapeTag => self
-                        .shape_controller
-                        .delete_shape_tag(request)
-                        .await
-                        .map(|result| JsonRpcResponse::success(result, id)),
-                    Method::RefreshGeoPointsInCache => self
-                        .shape_controller
-                        .refresh_geo_points_in_cache(request)
-                        .await
-                        .map(|result| JsonRpcResponse::success(result, id)),
-                    Method::GenerateSasKey => self
-                        .server_controller
-                        .generate_sas_key(request)
-                        .await
-                        .map(|result| JsonRpcResponse::success(result, id)),
-                    unimplemented => Ok(JsonRpcResponse::error(
-                        JsonRpcError::not_implemented().with_message(format!(
-                            "method '{}' is not implemented yet",
-                            unimplemented.to_string()
-                        )),
-                        id,
-                    )),
+                if crate::auth::authenticate(method, claims).is_ok() {
+                    let id = id.clone();
+                    match method {
+                        Method::AddListItem => self
+                            .list_controller
+                            .add_list_item(request)
+                            .await
+                            .map(|result| JsonRpcResponse::success(result, id)),
+                        Method::GetListItems => self
+                            .list_controller
+                            .get_list_items(request)
+                            .await
+                            .map(|result| JsonRpcResponse::success(result, id)),
+                        Method::DeleteListItem => self
+                            .list_controller
+                            .delete_list_item(request)
+                            .await
+                            .map(|result| JsonRpcResponse::success(result, id)),
+                        Method::GetListTypes => self
+                            .list_controller
+                            .get_list_types(request)
+                            .await
+                            .map(|result| JsonRpcResponse::success(result, id)),
+                        Method::RenameListType => self
+                            .list_controller
+                            .rename_list_type(request)
+                            .await
+                            .map(|result| JsonRpcResponse::success(result, id)),
+                        Method::Sleep => self
+                            .server_controller
+                            .sleep(request)
+                            .await
+                            .map(|result| JsonRpcResponse::success(result, id)),
+                        Method::GenerateSasKey => self
+                            .server_controller
+                            .generate_sas_key(request)
+                            .await
+                            .map(|result| JsonRpcResponse::success(result, id)),
+                        Method::GetDepartures => self
+                            .traffic_controller
+                            .get_departures(request)
+                            .await
+                            .map(|result| JsonRpcResponse::success(result, id)),
+                        Method::AddUser => self
+                            .user_controller
+                            .add_user(request)
+                            .await
+                            .map(|result| JsonRpcResponse::success(result, id)),
+                        Method::GetUser => self
+                            .user_controller
+                            .get_user(request)
+                            .await
+                            .map(|result| JsonRpcResponse::success(result, id)),
+                        Method::GetToken => self
+                            .user_controller
+                            .get_token(request)
+                            .await
+                            .map(|result| JsonRpcResponse::success(result, id)),
+                    }
+                } else {
+                    Err(AppError::not_permitted())
                 }
             }
         };
@@ -187,7 +173,7 @@ impl App {
 
         self.save_request_log(
             request_log_clone,
-            request_ts_s,
+            request_timestamp_ms,
             &response,
             error_context,
             elapsed.as_millis() as i64,
@@ -199,44 +185,30 @@ impl App {
     fn save_request_log(
         &self,
         request: JsonRpcRequest,
-        request_ts_s: i64,
+        request_timestamp_ms: i64,
         response: &JsonRpcResponse,
         error_context: Option<String>,
         duration_ms: i64,
     ) {
-        if !self.opts.publish_request_log {
+        if !self.app_settings.publish_request_log {
             return;
         }
 
         let id = Uuid::new_v4().to_string();
         let method = request.method.clone();
-        let db_request = match DbRequestWrapper::try_from((request, request_ts_s)) {
+        let db_request = match DbRequestWrapper::try_from((request, request_timestamp_ms)) {
             Ok(ok) => ok.0,
             Err(e) => {
                 error!("{}", e);
                 return;
             }
         };
-        let db_response = match DbResponseWrapper::try_from(response) {
-            Ok(ok) => ok.0,
-            Err(err) => {
-                error!("{}", err);
-                return;
-            }
-        };
-        let created_s = Utc::now().timestamp();
 
         let db = self.request_log_db.clone();
+        let success = response.is_success();
         tokio::spawn(async move {
             match db
-                .insert_log(&DbRequestLog::new(
-                    id,
-                    db_request,
-                    db_response,
-                    error_context,
-                    duration_ms,
-                    created_s,
-                ))
+                .insert_log(&id, &db_request, success, &error_context, duration_ms)
                 .await
             {
                 Ok(ok) => {
@@ -251,7 +223,7 @@ impl App {
         let influx = self.influx_db.clone();
         tokio::spawn(async move {
             match influx
-                .send_request_log(&method, duration_ms, request_ts_s)
+                .send_request_log(&method, duration_ms, request_timestamp_ms)
                 .await
             {
                 Ok(_) => (),
@@ -305,6 +277,10 @@ impl AppError {
     pub fn not_implemented() -> Self {
         Self::from(JsonRpcError::not_implemented())
     }
+
+    pub fn not_permitted() -> Self {
+        Self::from(JsonRpcError::not_permitted())
+    }
 }
 
 impl Display for AppError {
@@ -342,16 +318,46 @@ impl From<mobc::Error<redis::async_pool::mobc_redis::redis::RedisError>> for App
     }
 }
 
-// impl From<mobc::Error<RedisError>> for AppError {
-//     fn from(e: mobc::Error<RedisError>) -> Self {
-//         AppError::internal_error().with_context(&e)
-//     }
-// }
-
 impl From<InvalidKeyLength> for AppError {
     fn from(e: InvalidKeyLength) -> Self {
         AppError::invalid_request().with_context(&e)
     }
+}
+
+impl From<hyper::http::Error> for AppError {
+    fn from(e: hyper::http::Error) -> Self {
+        AppError::internal_error().with_context(&e)
+    }
+}
+
+impl From<isahc::Error> for AppError {
+    fn from(e: isahc::Error) -> Self {
+        AppError::internal_error().with_context(&e)
+    }
+}
+
+impl From<std::io::Error> for AppError {
+    fn from(e: std::io::Error) -> Self {
+        AppError::internal_error().with_context(&e)
+    }
+}
+
+impl From<serde_json::Error> for AppError {
+    fn from(e: serde_json::Error) -> Self {
+        AppError::internal_error().with_context(&e)
+    }
+}
+
+#[allow(unused)]
+/// Shorthand for returning a "method not implemented" response.
+fn unimplemented_method_response(method: Method, id: Option<String>) -> JsonRpcResponse {
+    JsonRpcResponse::error(
+        JsonRpcError::not_implemented().with_message(format!(
+            "method '{}' is not implemented yet",
+            method.to_string()
+        )),
+        id,
+    )
 }
 
 pub trait ParamsError: Error {}
@@ -372,34 +378,9 @@ struct DbRequestWrapper(DbRequest);
 impl TryFrom<(JsonRpcRequest, i64)> for DbRequestWrapper {
     type Error = String;
 
-    fn try_from((request, ts_s): (JsonRpcRequest, i64)) -> Result<Self, Self::Error> {
+    fn try_from((request, timestamp_ms): (JsonRpcRequest, i64)) -> Result<Self, Self::Error> {
         let id = request.id;
         let method = request.method;
-        let params = serde_json::to_string(&request.params)
-            .map_err(|_| "failed to serialize params".to_string())?;
-        Ok(DbRequestWrapper(DbRequest::new(id, method, params, ts_s)))
-    }
-}
-
-struct DbResponseWrapper(DbResponse);
-
-impl TryFrom<&JsonRpcResponse> for DbResponseWrapper {
-    type Error = String;
-
-    fn try_from(value: &JsonRpcResponse) -> Result<Self, Self::Error> {
-        let (result, error) = match value.kind() {
-            ResponseKind::Success(s) => (
-                Some(serde_json::to_string(s).map_err(|e| e.to_string())),
-                None,
-            ),
-            ResponseKind::Error(e) => (
-                None,
-                Some(serde_json::to_string(e).map_err(|e| e.to_string())),
-            ),
-        };
-        let result = result.transpose()?;
-        let error = error.transpose()?;
-
-        Ok(DbResponseWrapper(DbResponse::new(result, error)))
+        Ok(DbRequestWrapper(DbRequest::new(id, method, timestamp_ms)))
     }
 }
