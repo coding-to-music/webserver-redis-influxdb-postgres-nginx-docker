@@ -240,3 +240,7 @@ pub fn get_required_env_var(var_name: &str) -> String {
 pub fn current_timestamp_s() -> i64 {
     OffsetDateTime::now_utc().unix_timestamp() / 1000
 }
+
+pub fn current_timestamp_ms() -> i64 {
+    OffsetDateTime::now_utc().unix_timestamp()
+}

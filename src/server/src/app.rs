@@ -5,7 +5,7 @@ use crate::{
     Opts,
 };
 use database::{self as db, Database};
-use db::{DatabaseError, Request as DbRequest, RequestLog as DbRequestLog, Response as DbResponse};
+use db::{DatabaseError, Request as DbRequest, RequestLogDb};
 use hmac::crypto_mac::InvalidKeyLength;
 use isahc::HttpClient;
 use model::*;
@@ -23,7 +23,7 @@ pub type AppResult<T> = Result<T, AppError>;
 
 pub struct App {
     opts: Opts,
-    request_log_db: Arc<Database<DbRequestLog>>,
+    request_log_db: Arc<RequestLogDb>,
     influx_db: Arc<InfluxClient>,
     list_controller: ListItemController,
     traffic_controller: TrafficController,
@@ -73,7 +73,7 @@ impl App {
         let timer = std::time::Instant::now();
         let id = request.id.clone();
         let request_log_clone = request.clone();
-        let request_ts_s = crate::current_timestamp_s();
+        let request_ts_ms = crate::current_timestamp_ms();
 
         let method = request.method.to_owned();
         info!(
@@ -172,7 +172,7 @@ impl App {
 
         self.save_request_log(
             request_log_clone,
-            request_ts_s,
+            request_ts_ms,
             &response,
             error_context,
             elapsed.as_millis() as i64,
@@ -202,18 +202,12 @@ impl App {
                 return;
             }
         };
-        let db_response = match DbResponseWrapper::try_from(response) {
-            Ok(ok) => ok.0,
-            Err(err) => {
-                error!("{}", err);
-                return;
-            }
-        };
 
         let db = self.request_log_db.clone();
+        let success = response.is_success();
         tokio::spawn(async move {
             match db
-                .insert_log(&id, &db_request, &db_response, &error_context, duration_ms)
+                .insert_log(&id, &db_request, success, &error_context, duration_ms)
                 .await
             {
                 Ok(ok) => {
@@ -386,36 +380,6 @@ impl TryFrom<(JsonRpcRequest, i64)> for DbRequestWrapper {
     fn try_from((request, timestamp_ms): (JsonRpcRequest, i64)) -> Result<Self, Self::Error> {
         let id = request.id;
         let method = request.method;
-        let params = serde_json::to_string(&request.params)
-            .map_err(|_| "failed to serialize params".to_string())?;
-        Ok(DbRequestWrapper(DbRequest::new(
-            id,
-            method,
-            params,
-            timestamp_ms,
-        )))
-    }
-}
-
-struct DbResponseWrapper(DbResponse);
-
-impl TryFrom<&JsonRpcResponse> for DbResponseWrapper {
-    type Error = String;
-
-    fn try_from(value: &JsonRpcResponse) -> Result<Self, Self::Error> {
-        let (result, error) = match value.kind() {
-            ResponseKind::Success(s) => (
-                Some(serde_json::to_string(s).map_err(|e| e.to_string())),
-                None,
-            ),
-            ResponseKind::Error(e) => (
-                None,
-                Some(serde_json::to_string(e).map_err(|e| e.to_string())),
-            ),
-        };
-        let result = result.transpose()?;
-        let error = error.transpose()?;
-
-        Ok(DbResponseWrapper(DbResponse::new(result, error)))
+        Ok(DbRequestWrapper(DbRequest::new(id, method, timestamp_ms)))
     }
 }

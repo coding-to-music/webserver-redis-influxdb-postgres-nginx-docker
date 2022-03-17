@@ -261,6 +261,14 @@ pub struct JsonRpcResponse {
 }
 
 impl JsonRpcResponse {
+    pub fn is_success(&self) -> bool {
+        match (&self.result, &self.error) {
+            (None, Some(_)) => false,
+            (Some(_), None) => true,
+            _ => unreachable!()
+        }
+    }
+
     pub fn result(&self) -> Option<&Value> {
         match &self.result {
             Some(r) => Some(r),

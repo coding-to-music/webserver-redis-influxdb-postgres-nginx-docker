@@ -1,12 +1,14 @@
 use crate::{Database, DatabaseResult, InsertionResult};
 use sqlx::{types::time::OffsetDateTime, Executor};
 
+pub type RequestLogDb = Database<RequestLog>;
+
 #[derive(Debug, Clone, PartialEq, Eq, sqlx::FromRow)]
 #[non_exhaustive]
 pub struct RequestLog {
     id: String,
     request: Request,
-    response: Response,
+    success: bool,
     error_context: Option<String>,
     duration_ms: i64,
     created: OffsetDateTime,
@@ -16,7 +18,7 @@ impl RequestLog {
     pub fn new(
         id: String,
         request: Request,
-        response: Response,
+        success: bool,
         error_context: Option<String>,
         duration_ms: i64,
         created: OffsetDateTime,
@@ -24,7 +26,7 @@ impl RequestLog {
         Self {
             id,
             request,
-            response,
+            success,
             error_context,
             duration_ms,
             created,
@@ -37,94 +39,47 @@ impl RequestLog {
 pub struct Request {
     id: Option<String>,
     method: String,
-    params: String,
     timestamp: OffsetDateTime,
 }
 
 impl Request {
-    pub fn new(
-        id: Option<String>,
-        method: String,
-        params: String,
-        timestamp_ms: i64,
-    ) -> Self {
+    pub fn new(id: Option<String>, method: String, timestamp_ms: i64) -> Self {
         let timestamp = OffsetDateTime::from_unix_timestamp(timestamp_ms);
         Self {
             id,
             method,
-            params,
             timestamp,
         }
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-#[non_exhaustive]
-pub struct Response {
-    result: Option<String>,
-    error: Option<String>,
-}
-
-impl Response {
-    pub fn new(result: Option<String>, error: Option<String>) -> Self {
-        Self { result, error }
-    }
-
-    fn kind(&self) -> ResponseKind {
-        match (&self.result, &self.error) {
-            (Some(result), None) => ResponseKind::Success(result),
-            (None, Some(error)) => ResponseKind::Error(error),
-            (None, None) => ResponseKind::None,
-            _ => {
-                panic!("invalid response: {:#?}", self);
-            }
-        }
-    }
-}
-
-enum ResponseKind<'a> {
-    Success(&'a String),
-    Error(&'a String),
-    None,
-}
-
-impl Database<RequestLog> {
+impl RequestLogDb {
     pub async fn insert_log(
         &self,
         id: &str,
         request: &Request,
-        response: &Response,
+        success: bool,
         error_context: &Option<String>,
         duration_ms: i64,
     ) -> DatabaseResult<InsertionResult> {
         let mut db = self.get_connection().await?;
-
-        let (result, error): (Option<&String>, Option<&String>) = match response.kind() {
-            ResponseKind::Success(result) => (Some(result), None),
-            ResponseKind::Error(error) => (None, Some(error)),
-            ResponseKind::None => (None, None),
-        };
 
         let query_result = sqlx::query(
             "
         INSERT INTO request_log (id, 
             request_id, 
             request_method, 
-            request_params, 
             request_ts, 
-            response_result, 
-            response_error, 
+            success, 
             response_error_context,
             duration_ms) 
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)",
+        VALUES ($1, $2, $3, $4, $5, $6, $7)",
         )
         .bind(id)
         .bind(&request.id)
         .bind(&request.method)
-        .bind(&request.params)
         .bind(request.timestamp)
-        .bind(result)
-        .bind(error)
+        .bind(success)
         .bind(error_context)
         .bind(duration_ms)
         .execute(&mut db)

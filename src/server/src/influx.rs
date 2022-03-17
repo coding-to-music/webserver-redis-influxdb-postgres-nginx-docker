@@ -28,7 +28,7 @@ impl InfluxClient {
         &self,
         method: &str,
         duration_ms: i64,
-        timestamp_timestamp_ms: i64,
+        timestamp_ms: i64,
     ) -> Result<(), InfluxError> {
         if let Some(client) = &self.client {
             trace!("writing request log to Influx for method '{}'", method);
@@ -39,7 +39,7 @@ impl InfluxClient {
                     &[Measurement::builder("request")
                         .tag("method", method)
                         .field("duration_ms", duration_ms)
-                        .timestamp_ms(timestamp_timestamp_ms as u128) // ms precision in InfluxClient
+                        .timestamp_ms(timestamp_ms as u128) 
                         .build()
                         .unwrap()],
                 )
