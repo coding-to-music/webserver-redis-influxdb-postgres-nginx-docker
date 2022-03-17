@@ -73,7 +73,7 @@ impl App {
         let timer = std::time::Instant::now();
         let id = request.id.clone();
         let request_log_clone = request.clone();
-        let request_ts_ms = crate::current_timestamp_ms();
+        let request_timestamp_ms = crate::current_timestamp_ms();
 
         let method = request.method.to_owned();
         info!(
@@ -172,7 +172,7 @@ impl App {
 
         self.save_request_log(
             request_log_clone,
-            request_ts_ms,
+            request_timestamp_ms,
             &response,
             error_context,
             elapsed.as_millis() as i64,

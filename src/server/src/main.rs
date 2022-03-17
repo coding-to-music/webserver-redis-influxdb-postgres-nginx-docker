@@ -11,7 +11,7 @@ use hyper::{
 use model::{JsonRpcError, JsonRpcRequest, JsonRpcResponse};
 use serde::Serialize;
 use serde_json::Value as JsonValue;
-use std::{fmt::Debug, sync::Arc};
+use std::{convert::TryInto, fmt::Debug, sync::Arc};
 use structopt::StructOpt;
 use time::OffsetDateTime;
 
@@ -242,5 +242,7 @@ pub fn current_timestamp_s() -> i64 {
 }
 
 pub fn current_timestamp_ms() -> i64 {
-    OffsetDateTime::now_utc().unix_timestamp()
+    (OffsetDateTime::now_utc().unix_timestamp_nanos() / (1000 * 1000))
+        .try_into()
+        .unwrap()
 }
