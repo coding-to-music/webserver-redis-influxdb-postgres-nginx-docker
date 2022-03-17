@@ -38,16 +38,22 @@ pub struct Request {
     id: Option<String>,
     method: String,
     params: String,
-    ts_s: i64,
+    timestamp: OffsetDateTime,
 }
 
 impl Request {
-    pub fn new(id: Option<String>, method: String, params: String, ts_s: i64) -> Self {
+    pub fn new(
+        id: Option<String>,
+        method: String,
+        params: String,
+        timestamp_ms: i64,
+    ) -> Self {
+        let timestamp = OffsetDateTime::from_unix_timestamp(timestamp_ms);
         Self {
             id,
             method,
             params,
-            ts_s,
+            timestamp,
         }
     }
 }
@@ -105,7 +111,7 @@ impl Database<RequestLog> {
             request_id, 
             request_method, 
             request_params, 
-            request_ts_s, 
+            request_ts, 
             response_result, 
             response_error, 
             response_error_context,
@@ -116,7 +122,7 @@ impl Database<RequestLog> {
         .bind(&request.id)
         .bind(&request.method)
         .bind(&request.params)
-        .bind(request.ts_s)
+        .bind(request.timestamp)
         .bind(result)
         .bind(error)
         .bind(error_context)

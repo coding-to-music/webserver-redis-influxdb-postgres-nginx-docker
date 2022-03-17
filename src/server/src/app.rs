@@ -184,7 +184,7 @@ impl App {
     fn save_request_log(
         &self,
         request: JsonRpcRequest,
-        request_ts_s: i64,
+        request_timestamp_ms: i64,
         response: &JsonRpcResponse,
         error_context: Option<String>,
         duration_ms: i64,
@@ -195,7 +195,7 @@ impl App {
 
         let id = Uuid::new_v4().to_string();
         let method = request.method.clone();
-        let db_request = match DbRequestWrapper::try_from((request, request_ts_s)) {
+        let db_request = match DbRequestWrapper::try_from((request, request_timestamp_ms)) {
             Ok(ok) => ok.0,
             Err(e) => {
                 error!("{}", e);
@@ -228,7 +228,7 @@ impl App {
         let influx = self.influx_db.clone();
         tokio::spawn(async move {
             match influx
-                .send_request_log(&method, duration_ms, request_ts_s)
+                .send_request_log(&method, duration_ms, request_timestamp_ms)
                 .await
             {
                 Ok(_) => (),
@@ -383,12 +383,17 @@ struct DbRequestWrapper(DbRequest);
 impl TryFrom<(JsonRpcRequest, i64)> for DbRequestWrapper {
     type Error = String;
 
-    fn try_from((request, ts_s): (JsonRpcRequest, i64)) -> Result<Self, Self::Error> {
+    fn try_from((request, timestamp_ms): (JsonRpcRequest, i64)) -> Result<Self, Self::Error> {
         let id = request.id;
         let method = request.method;
         let params = serde_json::to_string(&request.params)
             .map_err(|_| "failed to serialize params".to_string())?;
-        Ok(DbRequestWrapper(DbRequest::new(id, method, params, ts_s)))
+        Ok(DbRequestWrapper(DbRequest::new(
+            id,
+            method,
+            params,
+            timestamp_ms,
+        )))
     }
 }
 
