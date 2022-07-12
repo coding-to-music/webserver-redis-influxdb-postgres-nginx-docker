@@ -1,0 +1,21 @@
+{
+  "name": "webserver-redis-influxdb-postgres-nginx-docker",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "deploy": "git add . && git commit -m Build && git push",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ijagberg/webserver.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/ijagberg/webserver/issues"
+  },
+  "homepage": "https://github.com/ijagberg/webserver#readme"
+}
