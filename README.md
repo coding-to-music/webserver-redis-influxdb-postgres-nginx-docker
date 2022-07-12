@@ -1,6 +1,6 @@
 # webserver-redis-influxdb-postgres-nginx-docker
 
-# 🚀 Webserver with Redis InfluxDB Postgres Nginx Docker Certbot 🚀
+# 🚀 JSON RPC Webserver with Redis InfluxDB Postgres Nginx Docker Certbot 🚀
 
 https://github.com/coding-to-music/webserver-redis-influxdb-postgres-nginx-docker
 
@@ -10,7 +10,7 @@ https://github.com/ijagberg/webserver
 
 Example of a Grafana dashboard:
 
-![Grafana screenshot](https://github.com/coding-to-music/webserver-redis-influxdb-postgres-nginx-docker/blob/main/images/example-dashboard.png?raw=true)
+![Grafana screenshot](https://github.com/coding-to-music/grafana-prometheus-node-js-example/blob/main/images/example-dashboard.png?raw=true)
 
 ## Environment variables:
 
