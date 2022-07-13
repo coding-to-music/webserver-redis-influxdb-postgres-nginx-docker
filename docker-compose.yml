@@ -9,8 +9,8 @@ services:
     image: postgres
     ports:
       - 5432:5432
-    env_file:
-      - "postgres/postgres-prod.env"
+    # env_file:
+    # - "postgres/postgres-prod.env"
     volumes:
       - ./postgres/data/:/var/lib/postgresql/data
       - ./postgres/init-scripts/:/docker-entrypoint-initdb.d/ # For database creation scripts
@@ -31,18 +31,18 @@ services:
       - ./certbot/conf/:/etc/letsencrypt/:rw
   influxdb:
     image: influxdb:latest
-    env_file:
-      - "influxdb/influxdb-prod.env"
+    # env_file:
+    #   - "influxdb/influxdb-prod.env"
     volumes:
       - ./influxdb/data/:/var/lib/influxdb2
       - ./influxdb/config/:/etc/influxdb2
   server:
-    build: 
+    build:
       context: "./src"
       dockerfile: "server/Dockerfile"
-    env_file: "src/server/server-prod.env"
+    # env_file: "src/server/server-prod.env"
   collector:
-    build: 
+    build:
       context: "./src"
       dockerfile: "collector/Dockerfile"
-    env_file: "src/collector/collector-prod.env"
+    # env_file: "src/collector/collector-prod.env"
